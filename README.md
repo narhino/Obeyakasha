@@ -14,9 +14,14 @@ commissions, and an admin cockpit ("the Sanctum").
 
 ## Status
 
-Milestone **M0 (Foundations) — built.** Patreon auth, entitlement engine,
-full data model, Sanctum tier-mapping + audit, design tokens/styleguide,
-Docker + CI. Next: **M1 (Media core)** — see PLAN §23.
+Milestones **M0 (Foundations)** and **M1 (Media core) — built.**
+M0: Patreon auth, entitlement engine, full data model, Sanctum tier-mapping +
+audit, design tokens/styleguide, Docker + CI.
+M1: pluggable media provider (local/Bunny) with signed Range streaming,
+ffmpeg-optional ingest + Sanctum upload/publish, entitlement-filtered library,
+the audio player (queue, end-modes, spirals, grounding, sleep timer, Media
+Session), programs with sequential/daily gating, and listen telemetry + drop
+reports. 64 tests. Next: **M2 (PWA + push)** — see PLAN §23.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

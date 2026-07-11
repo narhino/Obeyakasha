@@ -12,6 +12,7 @@ export default defineConfig({
         process.env.TEST_DATABASE_URL ??
         "postgres://postgres:postgres@localhost:5432/obeyakasha_test",
       AUTH_SECRET: "test-secret-0000000000000000000000000000",
+      MEDIA_LOCAL_DIR: "./media-test",
     },
     // DB integration tests share one Postgres; run serially to avoid clashes.
     fileParallelism: false,

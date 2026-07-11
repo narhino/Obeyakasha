@@ -40,3 +40,5 @@ yarn-error.log*
 # offline / local media
 /media-local
 /tmp
+media-test/
+media-local/

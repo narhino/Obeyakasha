@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["postgres", "pg"],
+  experimental: {
+    // Audio uploads via server actions (PLAN §7.2). Chunked/tus upload for very
+    // large masters is a later hardening; this covers typical file sizes.
+    serverActions: { bodySizeLimit: "512mb" },
+  },
   async headers() {
     return [
       {

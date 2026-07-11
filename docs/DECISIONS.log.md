@@ -38,3 +38,35 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   instead verified by an integration test (`src/lib/patreon/sync.test.ts`)
   against the test DB with a mocked Patreon API — covering the M0 DoD
   (tiers discovered, link + entitlement written, access resolved, audit logged).
+
+## 2026-07-11 — M1 build (media core)
+
+- **Pluggable MediaProvider.** `src/lib/media` selects Local (dev/test, files
+  under `MEDIA_LOCAL_DIR`) or Bunny (prod, `BUNNY_STORAGE_ZONE` set) — same
+  interface. Stream URLs are short-lived HMAC-signed; the local `/api/stream`
+  route serves bytes with HTTP Range (206) support, the Bunny path signs a CDN
+  token URL the client fetches directly. Byte-serving + Range + token rejection
+  verified end-to-end (`src/app/api/stream/route.test.ts`).
+- **ffmpeg-optional ingest.** No transcode in dev: the uploaded bytes ARE the
+  stream source, stored under the real extension (never forcing `.m4a` onto
+  mp3/wav). ffprobe reads duration when present; otherwise the client-measured
+  duration (or admin edit) fills it. The prod worker container installs ffmpeg
+  for the AAC/normalize/waveform steps (PLAN §7.2) — wired when that container
+  runs; not exercised in this env.
+- **Uploads via server actions** with `serverActions.bodySizeLimit = 512mb`.
+  Chunked/tus upload for very large masters remains a later hardening.
+- **Program completion derived from listen sessions.** Rather than a separate
+  write path, a program item counts as completed when the subject has a
+  completed `listen_sessions` row for that track; gating (`computeGates`,
+  pure + tested) consumes those completion timestamps. Daily gating uses the
+  "24h after previous completion" rule.
+- **Player is a single audio engine** (`PlayerRoot`) mounted once in the
+  subject route group, reconciling a Zustand store with one `<audio>` element:
+  signed-URL loading, play/pause, 10s heartbeats, end handling, Media Session,
+  sleep timer, grounding. Store logic (queue/nav/end-modes/grounding) is
+  unit-tested headlessly; the DOM/audio binding is exercised in the browser
+  (M2 gate work will add Playwright coverage per PLAN §22).
+- **Listen loop verified** (`src/lib/listen/record.test.ts`): heartbeats grow
+  session + resume monotonically, end computes 85% completion, completed tracks
+  clear their resume point, drop reports are one-per-session, and the library
+  entitlement filter seals by level and hides drafts.

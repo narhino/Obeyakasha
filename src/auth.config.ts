@@ -35,7 +35,11 @@ export const authConfig = {
         return role === "goddess";
       }
       // Subject area requires a session; public routes handled by matcher.
-      if (pathname.startsWith("/library") || pathname.startsWith("/me")) {
+      if (
+        pathname.startsWith("/library") ||
+        pathname.startsWith("/programs") ||
+        pathname.startsWith("/me")
+      ) {
         return isLoggedIn;
       }
       return true;
