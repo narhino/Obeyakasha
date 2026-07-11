@@ -1,8 +1,15 @@
 # Obey Akasha — Platform Feature Specification (v0 — proposal)
 
-> Status: **proposal for Akasha's review.** Confirmed items become the input for
-> the full technical build plan (architecture, data model, milestones) in the
-> next phase. Read `docs/BRAND.md` first — it governs all naming and copy.
+> Status: **approved by Akasha 2026-07-11** ("I love all those features") with
+> these decisions: Patreon-only payments at launch · commissions become direct
+> requests (no checkout) · transcription mode added (F12) · in-app offline
+> downloads added (F13) · polls added (A24) · **A10 cut** · strictly no
+> subject↔subject communication. The authoritative build spec is
+> `docs/PLAN.md` (decisions table in PLAN §0). Read `docs/BRAND.md` first — it
+> governs all naming and copy. Note on language: Akasha's content is hypnosis
+> audio with erotic energy — no nudity, nothing pornographic; where this doc
+> discusses "classification risk" it refers to third-party platforms' own
+> broad definitions, not a judgment about the content.
 
 ## 1. Product thesis
 
@@ -26,25 +33,33 @@ messages, revenue. The platform's psychological jobs, in order:
 tier; unlock library content per tier. Webhooks keep entitlements current
 (upgrades, downgrades, lapses).
 
-**F2. Direct subscription (non-Patreon path).** Recurring payment option for
-people without Patreon. ⚠️ See Risk R1 — **Whop cannot be used** (adult content
-prohibited); use an adult-friendly processor (CCBill / Segpay / Verotel) behind
-a pluggable `PaymentProvider` interface. Entitlements engine merges both rails
-(Patreon tier ∪ direct plan → one access level).
+**F2. Direct subscription (non-Patreon path). [DEFERRED → v2, decision D1.]**
+Recurring payment option for people without Patreon. See Risk R1 — **Whop
+cannot be used**; when built, use a processor that openly accepts
+erotic-content businesses (CCBill / Segpay / Verotel) behind a pluggable
+`PaymentProvider` interface. The entitlements engine already merges rails
+(Patreon tier ∪ direct plan → one access level), so this slots in later
+without rework.
 
-**F3. Commissions tab with admin toggle.** "Order a custom file" flow: brief
-form (theme, triggers, length, deadline), fixed price list or quote, checkout
-via the direct-payment processor. Admin toggle ON/OFF. (Enhanced by A14 waitlist.)
+**F3. Commissions tab with admin toggle — request flow (decision D2).**
+"Order a custom file" = a direct request to Akasha, no checkout: subject fills
+an **admin-editable form** (fields stored in DB; seeded per PLAN §14.1, which
+Akasha aligns with her Google Form questions in the Sanctum editor) → lands in
+her inbox as a commission with statuses (new → reviewing → accepted →
+in_progress → delivered → closed/declined). Payment is arranged in her
+acceptance reply (off-app at launch). Delivery = the finished track appears in
+that subject's library only ("Made for you"). Admin toggle ON/OFF; OFF shows
+the A14 waitlist.
 
 **F4. The Library.** All tracks the signed-in subject has access to; locked
 items visible but sealed (tier upsell). Filters: series/program, theme, purpose,
 duration, intensity. Continue-listening row.
 
 **F5. Organize agent.** Admin clicks "Organize": an AI pass over the catalog
-(titles, descriptions, transcripts where available) that (a) proposes normalized
+(titles, descriptions, and **full transcripts** — F12) that (a) proposes normalized
 tags per track — purpose (induction / deepening / conditioning / trigger /
 maintenance / sleep), theme (chastity, obedience, devotion, transformation…),
-format (pure hypno / RP), intensity, NSFW level, triggers installed/required —
+format (pure hypno / RP), intensity, heat level, triggers installed/required —
 and (b) proposes playlist/program assignments. **Everything lands in a review
 queue; nothing applies until Akasha approves** (per-item or bulk).
 
@@ -80,6 +95,18 @@ admin with full profile context beside the thread; she replies directly OR
 requests **AI-drafted replies trained on her past answers + BRAND.md** — always
 draft-first, she edits/approves, never auto-send. (Enhanced by A9 voice notes,
 A20 safety triage.)
+
+**F12. Transcription mode (added 2026-07-11, decision D3).** Every track is
+transcribed automatically, self-hosted — audio never leaves the server.
+Transcripts are Akasha's **script archive** (viewable, editable, exportable in
+the Sanctum; never shown to subjects) and the raw material the organize agent
+works from: tags, triggers with in-file timestamps, and search/filters are
+derived from actual script content, not just titles. Spec: PLAN §8.
+
+**F13. Offline downloads, in-app only (added 2026-07-11, decision D4).**
+YouTube-model: entitled tracks can be kept for offline listening **inside the
+app** — encrypted at rest, entitlement-revalidated on each online launch,
+purged on lapse/logout — never exportable files. Spec: PLAN §10.
 
 ---
 
@@ -162,12 +189,8 @@ her" text + how they feel. Feeds: their profile timeline, her per-file analytics
 her most valuable product feedback loop. Framed as *reporting for inspection*,
 not journaling.
 
-**A10. Bedtime mode. [v1.1]**
-Subject sets a nightly ritual time → notification in her voice; player opens in
-dim spiral mode with sleep timer; sleep-safe files flagged (no emergence).
-Morning-after prompt: drop report.
-*Why:* hypno listening is overwhelmingly a bedtime practice; owning the bedtime
-slot = owning the habit loop (cue → routine → reward).
+**A10. Bedtime mode. [CUT — Akasha, 2026-07-11.]**
+Removed at her decision. The sleep timer remains part of the player (F6).
 
 ### C. Her presence at scale — variable reinforcement
 
@@ -193,6 +216,16 @@ published → tier notification · program day unlocked → nudge · chain broke
 reclaim · anniversary → flag to admin. All copy from in-voice template bank.
 *Why:* her presence at scale — the platform whispers for her while she sleeps.
 
+**A24. Polls. [MVP — added 2026-07-11, decision D6.]**
+She composes a poll (question + 2–8 options), sends to everyone or a segment →
+push "She's asking." → full-screen one-tap vote (changeable until close). At
+close she gets counts, percentages, the winner, and who voted what (unless she
+marks it anonymous); one tap optionally shares the results back to subjects as
+a whisper. Votes append to each profile timeline.
+*Why:* participatory authorship — voting on the next script makes subjects
+co-invested in content before it exists (IKEA effect), and it's live demand
+data for her writing. Full spec: PLAN §13.6.
+
 ### D. Desire → revenue loops
 
 **A14. Commission waitlist + scarcity. [MVP — part of F3]**
@@ -213,7 +246,7 @@ and doubles as a zero-effort content roadmap ranked by real demand.
 A quiet page of one-tap tributes (fixed in-brand amounts, 8/88/888…) with an
 optional line of devotion attached; she can acknowledge with one tap.
 *Why:* spontaneous devotion needs an outlet; recurring subs alone under-monetize
-peak devotion moments. Requires the adult-friendly processor (R1).
+peak devotion moments. Requires the v2 direct-payment rail (R1).
 
 **A17. Lapse grace + frozen progress. [v1.1]**
 When Patreon lapses: access pauses but the account shows everything preserved —
@@ -236,7 +269,8 @@ receiving her notifications.
 18+ gate; explicit consent screen for hypnosis content (no listening while
 driving/operating machinery; not therapy; limits acknowledgment); per-theme
 opt-outs recorded in profile (e.g. no findom prompts). Terms + privacy policy.
-*Why:* legally necessary for adult content, and visible consent rails make
+*Why:* standard protection for erotic-energy content made for adults (it
+matches her Patreon's own 18+ setting), and visible consent rails make
 subjects surrender deeper — safety is what makes "safe surrender" sellable.
 
 **A20. Grounding / Emergence button. [MVP]**
@@ -278,16 +312,16 @@ inaudible audio watermark for forensic tracing of leaks.
 
 ## 4. Risks & constraints (must-know before build)
 
-**R1. Whop prohibits adult content.** Whop's prohibited-products policy bans
-pornographic/sexually-explicit material and services for adult sexual
-gratification; enforcement includes account termination and payment holds of
-90–180 days. **Do not route commissions or subscriptions through Whop.**
-Adult-native processors with recurring billing: **CCBill, Segpay, Verotel**
-(also Epoch, NetBilling). Expect 5–10% fees + possible rolling reserve, and a
-KYC onboarding process — **apply early** (Segpay ~24–72h, CCBill longer).
-Patreon remains the primary rail (she's already established there); direct
-payments are rail #2 behind a `PaymentProvider` interface so processors are
-swappable.
+**R1. Whop's policy could freeze the business. [RESOLVED 2026-07-11 → D1/D2:
+Patreon-only at launch; commissions are direct requests.]** Akasha's content
+has no nudity and nothing pornographic — but Whop's prohibited-products policy
+bans "services intended primarily for adult sexual gratification," **Whop
+decides what that covers**, and enforcement includes account termination with
+payment holds of 90–180 days. Not a lever to hand anyone. If/when a direct
+rail is added (v2): processors that openly accept erotic-content businesses
+with recurring billing — **CCBill, Segpay, Verotel** (also Epoch, NetBilling);
+5–10% fees + possible rolling reserve; KYC onboarding takes days — apply
+early. Built behind a `PaymentProvider` interface so processors are swappable.
 
 **R2. iOS web push requires iOS 16.4+ and an installed PWA**, with permission
 requested from a user gesture. The F8 gate flow is exactly right; needs a
@@ -304,12 +338,15 @@ down (cache last-known tier).
 radioactive: encryption at rest, minimal PII, separated identity vs. profile
 stores, strict admin-only access, no analytics SaaS with raw content. (A21.)
 
-**R5. Content policy surface.** Erotic hypnosis is legal adult content between
-consenting adults; hosting must be adult-friendly by ToS as well (most major
-clouds are fine for hosting; payment is the choke point — see R1). Age
-verification requirements for adult sites are tightening in several
-jurisdictions (UK OSA, some US states) — the 18+ gate design should anticipate
-pluggable age-verification providers.
+**R5. Third-party classification risk.** The content is erotic-energy hypnosis
+audio — no nudity, not pornography. But payment processors and some hosts
+classify by their own broad definitions ("sexual gratification" purpose), which
+can sweep in audio regardless of imagery, and the classification decision is
+theirs, not ours. The stack therefore never depends on a discretionary
+platform: VPS + Bunny for hosting/media (PLAN §1), Patreon for payments.
+Online-safety / age-verification laws are tightening in several jurisdictions
+(UK OSA, some US states) — the 18+ gate anticipates pluggable
+age-verification providers.
 
 ---
 
@@ -334,31 +371,35 @@ pluggable age-verification providers.
 
 ## 6. Priority map
 
-**MVP (launchable core):** F1 F4 F5 F6 F7 F8 F9 F10 F11 · A1 A2 A7 A8 A9 A11
-A14 A19 A20 A21 A22-baseline · F3 in "inquire → invoice via Patreon/manual"
-mode if the payment rail isn't approved yet.
+**MVP (launchable core):** F1 F3(request flow) F4 F5 F6 F7 F8 F9 F10 F11 F12
+F13 · A1 A2 A7 A8 A9 A11 A14 A19 A20 A21 A22-baseline A24.
 
-**v1.1 (fast follows):** F2 direct subscriptions once processor approved · A3
-A4 A5 A6 A10 A12 A13 A15 A17 A18.
+**v1.1 (fast follows):** A3 A4 A5 A6 A12 A13 A15 A17 A18.
 
-**v2:** A16 offerings · watermarking · presence counter · age-verification
-provider integration · anything she adds after living with v1.
+**v2:** F2 direct subscriptions · A16 offerings · watermarking · presence
+counter · age-verification provider integration · anything she adds after
+living with v1.
+
+**Cut:** A10.
+
+Authoritative build sequence: PLAN §23 (milestones M0–M7).
 
 ---
 
-## 7. Open questions for Akasha (answer in the next prompt)
+## 7. Open questions — resolution status (2026-07-11)
 
-1. **Design reference links** — the message said "inspired from those kinda
-   websites:" but no links were attached. Send them (+ logo/fonts if any).
-2. **Payments:** confirm dropping Whop (R1). Launch Patreon-only and add
-   CCBill/Segpay later — or start the processor application now?
-3. **Patreon tiers:** exact tier names, prices, and what each should unlock.
-4. **Catalog:** how many files exist today (Patreon + unreleased), where are the
-   masters stored, average length/size? Any transcripts?
-5. **Downloads:** streaming-only, or downloads for top tier?
-6. **Free Threshold zone (A18):** yes/no, and which files are public teasers.
-7. **Domain:** obeyakasha.com or other? Hosting preference/budget?
-8. **AI:** OK to use the Claude API for the organize agent + reply drafting?
-   (Costs scale with usage; drafts never auto-send.)
-9. **Presence counter** ("N subjects are under right now"): in or out?
-10. Any proposed feature to cut, and which 3 matter most to you for launch?
+1. **Design references** — deferred by Akasha; design is a later dedicated
+   pass. Build against the token contract + `/styleguide` (PLAN §4).
+2. **Payments** — resolved: Patreon-only at launch (D1); commissions are
+   direct requests (D2).
+3. **Patreon tiers** — handled in-app: tier→level mapping is admin-config
+   after her first sign-in (PLAN §6.2); doesn't block the build.
+4. **Catalog** — some files on her laptop, most on Patreon → bulk upload +
+   import & match flow (PLAN §7.4).
+5. **Downloads** — resolved: yes, in-app offline only (D4 / F13).
+6. **Threshold** — approved (v1.1); she picks the free tracks via ADMIN-CONFIG.
+7. **Domain** — not yet purchased; everything env-driven (D10). Recommend
+   registering `obeyakasha.com` before M7.
+8. **AI** — approved; per-task provider abstraction (PLAN §17).
+9. **Presence counter** — v2, behind an admin toggle.
+10. **Cuts** — A10 only; everything else approved ("I love all those features").

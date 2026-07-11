@@ -57,7 +57,7 @@ gamified in a cartoonish way, nothing that breaks the spell.
   - *Locked by AKASHA — 30 Days Chastity* (Day 1–6 published: "The First Lock",
     "The Weight of Want", "Permission", edging day, "Empty yet Full", "The First Test").
   - *Servant Training Academy* (Posture and Presentation; Listen and Obey).
-  - *21 Days Abundance* (SFW-adjacent transformation content exists too).
+  - *21 Days Abundance* (non-erotic transformation content exists in the catalog too).
 - Standalone themes: chastity, obedience conditioning, trigger installation
   (clicker/clock), doll/puppy transformation, goddess worship, sleep files,
   seasonal specials (Halloween), anime RP.
