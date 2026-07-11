@@ -1,0 +1,50 @@
+# OBEY AKASHA — local/prod compose (PLAN §1). Deployed via Coolify on a VPS.
+# Media lives on Bunny (not in a volume); Postgres holds app data + pg-boss queues.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: obeyakasha
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/obeyakasha
+      TRANSCRIBER_URL: http://transcriber:8000
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["pnpm", "worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/obeyakasha
+      TRANSCRIBER_URL: http://transcriber:8000
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  transcriber:
+    build: { context: ./src/transcriber, dockerfile: Dockerfile }
+    environment:
+      TRANSCRIBER_STUB: ${TRANSCRIBER_STUB:-1}
+    restart: unless-stopped
+
+volumes:
+  pgdata:

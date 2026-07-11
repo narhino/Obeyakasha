@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/*
+ * OBEY AKASHA — design token contract (PLAN §4, D8).
+ * Components reference ONLY these tokens, never raw colors/fonts.
+ * The later design pass restyles the platform by editing THIS file
+ * (+ component skins) — no logic changes. Dark theme only.
+ */
+
+@theme {
+  /* surfaces */
+  --color-bg: #0b0a0e;
+  --color-surface: #14111a;
+  --color-surface-raised: #1e1926;
+  --color-line: #2c2536;
+
+  /* text */
+  --color-text: #ede6da;
+  --color-text-dim: #9b9298;
+
+  /* accents */
+  --color-accent: #7a1f3d;        /* deep wine */
+  --color-accent-soft: #2a0e1e;
+  --color-gold: #c9a227;          /* candle gold */
+  --color-danger: #b3402f;
+
+  /* spiral / trance visuals */
+  --color-spiral-a: #7a1f3d;
+  --color-spiral-b: #c9a227;
+
+  /* typography */
+  --font-display: "Cormorant Garamond", "Georgia", serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* radii */
+  --radius-sm: 0.25rem;
+  --radius: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-full: 9999px;
+
+  /* motion — slow, hypnotic, deliberate (never bouncy) */
+  --ease-trance: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-slow: 600ms;
+  --dur-med: 400ms;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* breathing gradient used behind trance surfaces */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.breathe {
+  animation: breathe 8s var(--ease-trance) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+  }
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* focus ring — accessible, on-brand */
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}

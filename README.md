@@ -14,9 +14,56 @@ commissions, and an admin cockpit ("the Sanctum").
 
 ## Status
 
-**Build-ready.** All product decisions locked 2026-07-11 (PLAN §0).
+Milestone **M0 (Foundations) — built.** Patreon auth, entitlement engine,
+full data model, Sanctum tier-mapping + audit, design tokens/styleguide,
+Docker + CI. Next: **M1 (Media core)** — see PLAN §23.
 
-**Builder start here:** read `docs/BRAND.md` → `docs/FEATURES.md` →
-`docs/PLAN.md`, then execute milestones **M0 → M7** (PLAN §23). Follow the
-conventions in PLAN §3/§24; log any deviation in `docs/DECISIONS.log.md`
-(append-only).
+**Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
+execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN
+§3/§24; log any deviation in `docs/DECISIONS.log.md` (append-only).
+
+## Stack
+
+Next.js 15 (App Router, PWA) · TypeScript strict · Tailwind v4 (token contract) ·
+Postgres 16 + Drizzle · Auth.js v5 (Patreon) · pg-boss workers · faster-whisper
+sidecar · Bunny media · VPS + Docker/Coolify. Rationale in PLAN §1–2.
+
+## Local development
+
+Prereqs: Node 22, pnpm 10, Postgres 16 (or use `compose.yml`).
+
+```bash
+pnpm install
+cp .env.example .env                # set AUTH_SECRET; Patreon keys optional for M0
+createdb obeyakasha && createdb obeyakasha_test
+pnpm db:migrate                     # apply schema to $DATABASE_URL
+pnpm db:seed                        # settings + starter tag/trigger vocabulary
+pnpm dev                            # http://localhost:3000
+```
+
+Quality gate (matches CI):
+
+```bash
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
+```
+
+`pnpm test` runs unit + integration tests against `obeyakasha_test`
+(override with `TEST_DATABASE_URL`). Hidden component catalog: `/styleguide`.
+
+### Wiring real Patreon sign-in
+
+1. Create a Patreon OAuth client (patreon.com/portal → Clients & API keys),
+   redirect URI `http://localhost:3000/api/auth/callback/patreon`.
+2. Set `PATREON_CLIENT_ID`, `PATREON_CLIENT_SECRET`, and `ADMIN_PATREON_USER_ID`
+   (your own Patreon numeric user id — pins the goddess/admin role) in `.env`.
+3. Sign in at `/signin`. Your campaign tiers auto-populate the Sanctum
+   **Access** page for mapping to access levels.
+
+## Docs
+
+| Doc | Purpose |
+|---|---|
+| [`docs/BRAND.md`](docs/BRAND.md) | Voice rules, audience psychology, vocabulary, design direction. Governs all copy + AI output. |
+| [`docs/FEATURES.md`](docs/FEATURES.md) | Feature spec — confirmed features, additions with rationale, risks, priority. |
+| [`docs/PLAN.md`](docs/PLAN.md) | Master build plan — architecture, data model, module specs, jobs, API map, env, milestones M0–M7. |
+| [`docs/DECISIONS.log.md`](docs/DECISIONS.log.md) | Append-only log of build-time deviations from the plan. |

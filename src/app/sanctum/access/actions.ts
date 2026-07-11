@@ -1,0 +1,47 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { tierMappings } from "@/lib/db/schema";
+import { requireGoddess } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
+import { clearSettingsCache } from "@/lib/settings";
+
+const mappingSchema = z.object({
+  patreonTierId: z.string().min(1),
+  label: z.string().min(1).max(120),
+  accessLevel: z.coerce.number().int().min(0).max(99),
+  sort: z.coerce.number().int().default(0),
+});
+
+/** Upsert one tier→level mapping (ADMIN-CONFIG, PLAN §6.2). */
+export async function saveTierMapping(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = mappingSchema.safeParse({
+    patreonTierId: formData.get("patreonTierId"),
+    label: formData.get("label"),
+    accessLevel: formData.get("accessLevel"),
+    sort: formData.get("sort") ?? 0,
+  });
+  if (!parsed.success) {
+    throw new Error("Invalid tier mapping input");
+  }
+  const { patreonTierId, label, accessLevel, sort } = parsed.data;
+
+  await db
+    .insert(tierMappings)
+    .values({ patreonTierId, label, accessLevel, sort })
+    .onConflictDoUpdate({
+      target: tierMappings.patreonTierId,
+      set: { label, accessLevel, sort, updatedAt: new Date() },
+    });
+
+  clearSettingsCache();
+  await logAudit(session.user.id, "tier_mapping.saved", {
+    patreonTierId,
+    accessLevel,
+    label,
+  });
+  revalidatePath("/sanctum/access");
+}
