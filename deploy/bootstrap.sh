@@ -22,6 +22,18 @@ else
   echo "▸ Docker already installed."
 fi
 
+# 1b. Swap — protect the first build from OOM on small (<3GB) servers -------
+mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "${mem_kb:-0}" -lt 3000000 ] && [ ! -f /swapfile ] && \
+   [ "$(swapon --show 2>/dev/null | wc -l)" = "0" ]; then
+  echo "▸ Adding 2G swap (small server) so the build won't run out of memory…"
+  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 # 2. .env ------------------------------------------------------------------
 if [ ! -f .env ]; then
   echo "✗ No .env found. Copy the template and fill it in first:"
