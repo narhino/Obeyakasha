@@ -19,6 +19,7 @@ const schema = z.object({
   PATREON_CREATOR_ACCESS_TOKEN: z.string().optional(),
   PATREON_WEBHOOK_SECRET: z.string().optional(),
   ADMIN_PATREON_USER_ID: z.string().optional(),
+  ADMIN_PATREON_EMAIL: z.string().optional(),
 
   // Later milestones
   VAPID_PUBLIC_KEY: z.string().optional(),

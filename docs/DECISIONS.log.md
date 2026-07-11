@@ -70,3 +70,28 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   session + resume monotonically, end computes 85% completion, completed tracks
   clear their resume point, drop reports are one-per-session, and the library
   entitlement filter seals by level and hides drafts.
+
+## 2026-07-11 — Deployment path (Akasha chose "get it online to test")
+
+- **Admin pin by email.** Added `ADMIN_PATREON_EMAIL` alongside
+  `ADMIN_PATREON_USER_ID`; `isGoddessIdentity()` matches either (email
+  case-insensitive). This lets Akasha claim admin with a value she already
+  knows, removing the numeric-id hunt from setup. Unit-tested
+  (`src/lib/patreon/admin.test.ts`).
+- **Turnkey production stack** (`compose.prod.yml` at repo root + `deploy/`):
+  Caddy reverse proxy with automatic Let's Encrypt HTTPS (domain from
+  `APP_DOMAIN`), web + worker + transcriber + postgres. Media starts on a local
+  Docker volume (`MEDIA_LOCAL_DIR=/media`); Bunny is a later env-only switch.
+  `deploy/bootstrap.sh` installs Docker, validates `.env`, and brings the stack
+  up in one command. `/api/health` added for readiness/uptime checks.
+- **Compose at repo root** (not under `deploy/`) so `build: context: .`,
+  `env_file: .env`, and `./deploy/Caddyfile` all resolve from the project root
+  when run as `docker compose -f compose.prod.yml …`.
+- **Verified natively, not in Docker here.** This sandbox's proxy blocks Docker
+  registry pulls, so the container couldn't be built/run in-session. Instead
+  verified the equivalent: production `next build` + `next start` boot, `/api/health`
+  returns `{ok:true}` (DB reachable), routes serve, `/sanctum` redirects when
+  unauthed. `compose.prod.yml` passes `docker compose config`. The Docker build
+  itself runs on Akasha's server, where registry access is normal.
+- **Runbook:** `docs/DEPLOY.md` — non-technical, step-by-step (domain → Hetzner
+  server → DNS → Patreon app → one-command launch → first upload/listen test).

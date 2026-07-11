@@ -71,4 +71,5 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 | [`docs/BRAND.md`](docs/BRAND.md) | Voice rules, audience psychology, vocabulary, design direction. Governs all copy + AI output. |
 | [`docs/FEATURES.md`](docs/FEATURES.md) | Feature spec — confirmed features, additions with rationale, risks, priority. |
 | [`docs/PLAN.md`](docs/PLAN.md) | Master build plan — architecture, data model, module specs, jobs, API map, env, milestones M0–M7. |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | **Get it online** — non-technical, step-by-step deployment guide (domain → server → launch). |
 | [`docs/DECISIONS.log.md`](docs/DECISIONS.log.md) | Append-only log of build-time deviations from the plan. |

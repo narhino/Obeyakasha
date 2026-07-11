@@ -54,12 +54,16 @@ export const authConfig = {
       if (account?.provider === "patreon") {
         token.patreonId = account.providerAccountId;
         // Goddess pin also reflected into the token immediately (DB pin in auth.ts).
-        if (
-          process.env.ADMIN_PATREON_USER_ID &&
-          account.providerAccountId === process.env.ADMIN_PATREON_USER_ID
-        ) {
-          token.role = "goddess";
-        }
+        // Match by numeric id OR configured admin email (value Akasha knows).
+        const byId =
+          !!process.env.ADMIN_PATREON_USER_ID &&
+          account.providerAccountId === process.env.ADMIN_PATREON_USER_ID;
+        const byEmail =
+          !!process.env.ADMIN_PATREON_EMAIL &&
+          !!user?.email &&
+          user.email.trim().toLowerCase() ===
+            process.env.ADMIN_PATREON_EMAIL.trim().toLowerCase();
+        if (byId || byEmail) token.role = "goddess";
       }
       return token;
     },

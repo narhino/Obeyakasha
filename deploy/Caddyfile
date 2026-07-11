@@ -1,0 +1,19 @@
+# Caddy auto-HTTPS reverse proxy (deploy/compose.prod.yml).
+# {$APP_DOMAIN} is read from the environment; Caddy provisions a free
+# Let's Encrypt certificate for it automatically on first request.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Long-lived audio streams: allow big range responses, no buffering.
+	reverse_proxy web:3000 {
+		flush_interval -1
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

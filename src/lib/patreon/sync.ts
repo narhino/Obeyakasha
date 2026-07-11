@@ -115,13 +115,41 @@ export async function syncPatreonUser(params: {
   });
 }
 
-/** Ensure the DB user row carries the goddess role when their Patreon id matches. */
+/**
+ * Decide whether a signing-in user is the goddess. Pinned by EITHER the
+ * configured Patreon numeric id OR the configured Patreon email — the email
+ * path exists so Akasha can claim admin with a value she already knows
+ * (ADMIN_PATREON_EMAIL), without hunting for a numeric id. Case-insensitive
+ * on email.
+ */
+export function isGoddessIdentity(
+  patreonUserId: string,
+  email: string | null | undefined,
+  adminPatreonUserId: string | undefined,
+  adminEmail: string | undefined,
+): boolean {
+  if (adminPatreonUserId && patreonUserId === adminPatreonUserId) return true;
+  if (
+    adminEmail &&
+    email &&
+    email.trim().toLowerCase() === adminEmail.trim().toLowerCase()
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Ensure the DB user row carries the goddess role when their identity matches. */
 export async function pinGoddessRole(
   userId: string,
   patreonUserId: string,
+  email: string | null | undefined,
   adminPatreonUserId: string | undefined,
+  adminEmail: string | undefined,
 ): Promise<boolean> {
-  if (!adminPatreonUserId || patreonUserId !== adminPatreonUserId) return false;
+  if (!isGoddessIdentity(patreonUserId, email, adminPatreonUserId, adminEmail)) {
+    return false;
+  }
   await db
     .update(users)
     .set({ role: "goddess", updatedAt: new Date() })

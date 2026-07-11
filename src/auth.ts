@@ -32,7 +32,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const isGoddess = await pinGoddessRole(
         user.id,
         patreonUserId,
+        user.email,
         process.env.ADMIN_PATREON_USER_ID,
+        process.env.ADMIN_PATREON_EMAIL,
       );
 
       if (accessToken) {

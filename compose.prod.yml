@@ -1,0 +1,83 @@
+# OBEY AKASHA — production stack (PLAN §1) with automatic HTTPS via Caddy.
+# One command on a fresh server brings up the whole site on your domain:
+#   docker compose -f deploy/compose.prod.yml up -d --build
+#
+# Requires a .env file (see .env.production.example) and your domain's DNS
+# pointing at this server. Media starts on the local disk (a Docker volume);
+# switch to Bunny later by setting BUNNY_* in .env — no code change.
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  web:
+    build: { context: ., dockerfile: Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/obeyakasha
+      TRANSCRIBER_URL: http://transcriber:8000
+      MEDIA_LOCAL_DIR: /media
+    volumes:
+      - media:/media
+    depends_on:
+      postgres: { condition: service_healthy }
+    expose:
+      - "3000"
+
+  worker:
+    build: { context: ., dockerfile: Dockerfile }
+    command: ["pnpm", "worker"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/obeyakasha
+      TRANSCRIBER_URL: http://transcriber:8000
+      MEDIA_LOCAL_DIR: /media
+    volumes:
+      - media:/media
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  transcriber:
+    build: { context: ./src/transcriber, dockerfile: Dockerfile }
+    restart: unless-stopped
+    environment:
+      TRANSCRIBER_STUB: ${TRANSCRIBER_STUB:-1}
+    expose:
+      - "8000"
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: obeyakasha
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:
