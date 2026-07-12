@@ -1,0 +1,1 @@
+# keeps the public/ directory present for the Docker image COPY step

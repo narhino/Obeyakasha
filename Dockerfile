@@ -16,6 +16,11 @@ FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Placeholder envs so build-time validation passes. The build never connects to
+# these — real values are injected at runtime by compose. (Not inlined into the
+# server bundle; server env is read at runtime.)
+ENV DATABASE_URL=postgres://build:build@127.0.0.1:5432/build
+ENV AUTH_SECRET=build-time-placeholder-not-used-at-runtime
 RUN pnpm build
 
 # ── runtime ───────────────────────────────────────────────────────────────

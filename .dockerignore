@@ -1,0 +1,13 @@
+# Keep the build context clean + never bake secrets or bulk into the image.
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.production.example
+media-local
+media-test
+coverage
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
