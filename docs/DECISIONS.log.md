@@ -176,3 +176,49 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   no-hallucinated-triggers; apply creates tags/triggers/playlist placement,
   marks approved, and is idempotent. 93 tests total. Real Whisper transcription
   of a live file is verified on the server after `up -d --build`.
+
+## 2026-07-11 — M4 relationship core
+
+- Intake gated on `users.chosenName`; narrative answers stored as
+  `question_answers` (kind intake). Collar Card + rename ritual (notifies in
+  voice). Chain of Obedience: tz-aware day-boundary (pure, tested) kept by
+  listen≥threshold or mantra. Whispers (one-way feed + kneel), Polls (pure
+  tally, tested), ritual questions — all via `broadcast()`. Messages strictly
+  subject↔goddess (D7), rate-limited, keyword safety-triage (pure, tested) →
+  flagged threads pinned + no AI draft. AI drafts via Anthropic (voice_corpus +
+  BRAND), draft-first, disabled without a key. CRM profiles with merged
+  timeline + one-tap personal push. 116 tests.
+
+## 2026-07-11 — M5 commissions / offline / lapse
+
+- Library queries now honor per-user `grants` (streaming + listing) so
+  commission deliveries appear privately ("Made for you"). Commission form is
+  admin-editable (settings). Offline: WebCrypto AES-GCM, non-extractable device
+  key, IndexedDB; player prefers the offline blob; sync/purge on launch. Lapse
+  frozen state seals library + purges offline; progress preserved. 118 tests.
+
+## 2026-07-11 — M6 scale (v1.1)
+
+- Worker is an **interval scheduler, not pg-boss** (v1 simplicity at this
+  scale): always closes expired polls; presence automations (inactive-reclaim,
+  chain-broken) gated behind `automations_enabled` (default off, respects quiet
+  hours). Descent ranks (pure, tested). Orders feed the chain. Trigger-vault
+  prereq gating is soft (informational). Threshold is a public funnel page. 124
+  tests. Worker verified to boot + resolve `@/` under tsx.
+
+## 2026-07-11 — M7 hardening / launch
+
+- **GDPR**: `/api/me/export` (full JSON download) + `/api/me/delete` (hard
+  delete via FK cascade; goddess can't self-delete). Subject Settings: quiet
+  hours, timezone, theme opt-outs.
+- **Legal**: `/terms` (adults-only; a practice not treatment; never while
+  driving; consent) + `/privacy` (identity/kink separation, no trackers, export/
+  delete). Linked from the landing footer.
+- **CSP**: app-safe policy in next.config (script/style keep 'unsafe-inline' —
+  App Router has no nonce; media/img/connect allow https:+blob: for Bunny +
+  offline). Plus Permissions-Policy + existing headers.
+- **Analytics**: internal-only Sanctum dashboard (per-track plays/completion/
+  listeners/mean-depth, DAU/WAU) via raw SQL — no third-party trackers.
+- **Backups**: `scripts/backup.sh` (pg_dump | gzip | optional age | optional
+  Bunny upload) + cron/restore-drill instructions.
+- v1 complete: M0–M7. Full launch checklist in docs/DEPLOY.md.

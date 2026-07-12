@@ -25,6 +25,15 @@ export default function Landing() {
           {copy.auth.signInButton}
         </Button>
       </Link>
+      <footer className="absolute bottom-6 flex gap-4 text-xs text-text-dim/60">
+        <Link href="/terms" className="hover:text-text-dim">
+          Terms
+        </Link>
+        <Link href="/privacy" className="hover:text-text-dim">
+          Privacy
+        </Link>
+        <span>18+</span>
+      </footer>
     </main>
   );
 }

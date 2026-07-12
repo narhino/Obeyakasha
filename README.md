@@ -40,10 +40,16 @@ Milestones **M0**, **M1**, and **M2 — built** and **deployed to production**.
   via grants ("Made for you"); wishes board; in-app offline downloads (encrypted
   IndexedDB via WebCrypto, entitlement-revalidated + purged); grace/frozen lapse
   states with preserved progress.
+- **M6 scale (v1.1):** Descent ranks; Orders (feed the chain); Trigger-Vault
+  prereq gating; background worker (poll-close always, opt-in presence
+  automations); public Threshold funnel.
+- **M7 hardening + launch:** GDPR export + account deletion; subject Settings
+  (quiet hours, opt-outs); `/terms` + `/privacy`; strict CSP + security headers;
+  internal-only analytics dashboard; encrypted backup script.
 - **Deploy:** turnkey `compose.prod.yml` (Caddy auto-HTTPS) + `deploy/bootstrap.sh`
   + [`docs/DEPLOY.md`](docs/DEPLOY.md). Live on a VPS.
 
-118 tests. Next: **M6 (scale: v1.1 automations, vault UI, Descent, Threshold)** — PLAN §23.
+**v1 complete (M0–M7).** 124 tests. Launch checklist: `docs/DEPLOY.md`.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

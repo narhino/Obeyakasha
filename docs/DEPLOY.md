@@ -271,3 +271,38 @@ blend in an LLM pass automatically.
 **Prefer ElevenLabs?** Scribe (their speech-to-text) is more accurate but paid
 (~$0.40/hour after a small free tier). The code already has a provider slot for
 it — say the word and I'll wire your `ELEVENLABS_API_KEY` in.
+
+---
+
+## Launch checklist
+
+When you're ready to go from testing to live:
+
+1. **Domain** bought and DNS pointed at the server (HTTPS working).
+2. **Patreon app** redirect URI = `https://YOURDOMAIN/api/auth/callback/patreon`;
+   `ADMIN_PATREON_EMAIL` set to your Patreon email.
+3. **Rotate the Patreon secret** on the Patreon portal, update `.env`, redeploy —
+   so the live secret was never shared anywhere.
+4. **Tiers mapped** (Sanctum → Access) so each Patreon tier unlocks the right level.
+5. **Notifications on** (VAPID keys set — see the section above).
+6. **Your catalog** uploaded and published; a couple transcribed + organized.
+7. **Record two short audios:** the grounding/"come back up" track and a lapsed-
+   member voice note (optional but nice).
+8. **Legal:** `/terms` and `/privacy` are live (linked from the landing page and
+   in-app). Read them once and tell me any wording to change.
+9. **Backups:** add the cron line from `scripts/backup.sh` and run one restore
+   drill so you trust it.
+10. **Commissions:** decide open or sealed (Sanctum → Commissions toggle);
+    align the form fields with your Google Form (Sanctum, or ask me).
+11. **Invite:** post your platform link on Patreon / YouTube / linktree.
+
+Everything above except the domain, Patreon app, and your content is already
+built and running — most of this is flipping switches in the Sanctum.
+
+## Privacy & data (built in)
+
+- Subjects can **export** everything held about them or **delete their account**
+  (Settings → Your data) — immediate and complete. No third-party trackers; a
+  strict Content-Security-Policy is set.
+- **Analytics** (Sanctum → Analytics) are yours only and never leave the server:
+  plays, completion %, unique listeners, mean drop depth, and daily/weekly active.

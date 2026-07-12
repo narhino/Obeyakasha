@@ -19,6 +19,7 @@ const nav = [
   { href: "/orders", label: "Orders" },
   { href: "/messages", label: "Speak" },
   { href: "/commissions", label: "Commission" },
+  { href: "/settings", label: "Settings" },
   { href: "/me", label: "You" },
 ];
 
