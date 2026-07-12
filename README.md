@@ -35,10 +35,15 @@ Milestones **M0**, **M1**, and **M2 — built** and **deployed to production**.
   share); ritual questions; subject↔goddess messaging with safety triage +
   AI-drafted replies (voice-corpus trained, draft-first) + CRM profiles with
   timeline, rename, and one-tap personal push; live Sanctum Today.
+- **M5 commissions + offline + lapse:** admin-editable commission form + open/
+  closed toggle + waitlist; request board with statuses and private delivery
+  via grants ("Made for you"); wishes board; in-app offline downloads (encrypted
+  IndexedDB via WebCrypto, entitlement-revalidated + purged); grace/frozen lapse
+  states with preserved progress.
 - **Deploy:** turnkey `compose.prod.yml` (Caddy auto-HTTPS) + `deploy/bootstrap.sh`
   + [`docs/DEPLOY.md`](docs/DEPLOY.md). Live on a VPS.
 
-116 tests. Next: **M5 (commissions + offline + lapse)** — see PLAN §23.
+118 tests. Next: **M6 (scale: v1.1 automations, vault UI, Descent, Threshold)** — PLAN §23.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

@@ -10,6 +10,8 @@ const nav = [
   { href: "/sanctum/library", label: "Library" },
   { href: "/sanctum/organize", label: "Organize" },
   { href: "/sanctum/programs", label: "Programs" },
+  { href: "/sanctum/commissions", label: "Commissions" },
+  { href: "/sanctum/wishes", label: "Wishes" },
   { href: "/sanctum/broadcast", label: "Broadcast" },
   { href: "/sanctum/whispers", label: "Whispers" },
   { href: "/sanctum/polls", label: "Polls" },

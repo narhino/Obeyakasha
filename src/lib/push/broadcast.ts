@@ -11,6 +11,30 @@ import { expandAudience } from "./audience";
 import { isWithinQuietHours } from "./quiet";
 import { sendToDevice, targetsForUsers, type PushPayload } from "./send";
 
+/** Notify the goddess (admin) — used for new messages/commissions/wishes. */
+export async function notifyGoddess(
+  title: string,
+  body: string,
+  deepLink: string,
+): Promise<void> {
+  const { db } = await import("@/lib/db");
+  const { users } = await import("@/lib/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const goddesses = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.role, "goddess"));
+  if (goddesses.length === 0) return;
+  await broadcast({
+    title,
+    body,
+    deepLink,
+    audience: { type: "users", userIds: goddesses.map((g) => g.id) },
+    kind: "system",
+    respectQuietHours: false,
+  });
+}
+
 export interface BroadcastInput {
   title: string;
   body?: string;

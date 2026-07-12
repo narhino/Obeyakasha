@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePlayer } from "@/lib/player/store";
 import { beacon, postJson } from "@/lib/player/telemetry";
+import { offlineBlobUrl } from "@/lib/offline/store";
 import { MiniBar } from "./MiniBar";
 import { Fullscreen } from "./Fullscreen";
 import { DropPrompt } from "./DropPrompt";
@@ -45,11 +46,16 @@ export function PlayerRoot() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/tracks/${current.id}/stream-url`);
-        if (!res.ok) return;
-        const { url } = (await res.json()) as { url: string };
-        if (cancelled) return;
-        audio.src = url;
+        // Prefer a kept, offline copy (works with no network).
+        const offline = await offlineBlobUrl(current.id).catch(() => null);
+        let src = offline;
+        if (!src) {
+          const res = await fetch(`/api/tracks/${current.id}/stream-url`);
+          if (!res.ok) return;
+          src = ((await res.json()) as { url: string }).url;
+        }
+        if (cancelled || !src) return;
+        audio.src = src;
         if (usePlayer.getState().playing) await audio.play().catch(() => {});
       } catch {
         // ignore; UI shows paused

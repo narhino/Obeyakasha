@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import type { LibraryTrack } from "@/lib/library/queries";
 import { Badge } from "@/components/ui";
+import { KeepButton } from "@/components/offline/KeepButton";
 import { copy, fill } from "@/copy/copy";
 
 function toQueueTrack(t: LibraryTrack): QueueTrack {
@@ -124,7 +125,12 @@ export function LibraryClient({
                 {t.unlocked ? "▶" : "🔒"}
               </button>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-text">{t.title}</p>
+                <p className="truncate text-sm text-text">
+                  {t.title}
+                  {t.madeForYou ? (
+                    <span className="ml-2 text-xs text-gold">{copy.library.madeForYou}</span>
+                  ) : null}
+                </p>
                 <p className="text-xs text-text-dim">
                   {fmt(t.durationS)}
                   {t.tags.length > 0
@@ -133,12 +139,15 @@ export function LibraryClient({
                 </p>
               </div>
               {t.unlocked ? (
-                <button
-                  onClick={() => addToQueue(toQueueTrack(t))}
-                  className="shrink-0 text-xs text-text-dim hover:text-gold"
-                >
-                  + queue
-                </button>
+                <div className="flex shrink-0 items-center gap-3">
+                  {t.downloadable ? <KeepButton trackId={t.id} /> : null}
+                  <button
+                    onClick={() => addToQueue(toQueueTrack(t))}
+                    className="text-xs text-text-dim hover:text-gold"
+                  >
+                    + queue
+                  </button>
+                </div>
               ) : (
                 <Badge tone="sealed">
                   {fill(copy.library.sealed, { level: `level ${t.minAccessLevel}` })}

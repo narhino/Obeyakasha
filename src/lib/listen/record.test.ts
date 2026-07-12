@@ -123,22 +123,25 @@ describe("listen recording", () => {
 
 describe("library entitlement filter", () => {
   it("marks tracks unlocked based on access level", async () => {
+    const uid = await makeUser();
     await makeTrack({ durationS: 100, minAccessLevel: 1 });
     await makeTrack({ durationS: 100, minAccessLevel: 3 });
-    const atLevel1 = await listLibraryTracks(1);
+    const atLevel1 = await listLibraryTracks(uid, 1);
     expect(atLevel1.find((t) => t.minAccessLevel === 1)?.unlocked).toBe(true);
     expect(atLevel1.find((t) => t.minAccessLevel === 3)?.unlocked).toBe(false);
   });
 
   it("getAccessibleTrack returns null when sealed and the track when allowed", async () => {
+    const uid = await makeUser();
     const sealedId = await makeTrack({ durationS: 100, minAccessLevel: 3 });
-    expect(await getAccessibleTrack(sealedId, 1)).toBeNull();
-    expect(await getAccessibleTrack(sealedId, 3)).not.toBeNull();
+    expect(await getAccessibleTrack(sealedId, uid, 1)).toBeNull();
+    expect(await getAccessibleTrack(sealedId, uid, 3)).not.toBeNull();
   });
 
   it("drafts never appear in the library", async () => {
+    const uid = await makeUser();
     await makeTrack({ durationS: 100, visibility: "draft" });
-    const list = await listLibraryTracks(5);
+    const list = await listLibraryTracks(uid, 5);
     expect(list).toHaveLength(0);
   });
 });

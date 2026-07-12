@@ -18,7 +18,7 @@ export async function GET(
 
   const { id } = await params;
   const access = await resolveAccess(session.user.id);
-  const track = await getAccessibleTrack(id, access.accessLevel);
+  const track = await getAccessibleTrack(id, session.user.id, access.accessLevel);
   if (!track || !track.streamKey) {
     return Response.json({ error: "not_found_or_sealed" }, { status: 404 });
   }

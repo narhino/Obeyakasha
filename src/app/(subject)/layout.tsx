@@ -8,6 +8,7 @@ import { PlayerRoot } from "@/components/player/PlayerRoot";
 import { SubjectGate } from "@/components/gate/SubjectGate";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
+import { OfflineSync } from "@/components/offline/OfflineSync";
 import { copy } from "@/copy/copy";
 
 const nav = [
@@ -16,6 +17,7 @@ const nav = [
   { href: "/whispers", label: "Whispers" },
   { href: "/asks", label: "Asks" },
   { href: "/messages", label: "Speak" },
+  { href: "/commissions", label: "Commission" },
   { href: "/me", label: "You" },
 ];
 
@@ -61,6 +63,7 @@ export default async function SubjectLayout({
         </header>
         {children}
         <PlayerRoot />
+        <OfflineSync />
       </div>
       </IntakeGuard>
     </SubjectGate>

@@ -7,18 +7,18 @@ import { settings } from "@/lib/db/schema";
  * Sanctum edits the DB rows. Values are cached 60s to avoid a query per read.
  */
 export const SETTINGS_DEFAULTS = {
-  commissions_open: false,
-  grace_days: 3,
-  offline_ttl_days: 14,
-  chain_min_seconds: 300,
-  chain_mantra: "I obey. I belong to Akasha. 888.",
-  msg_daily_limit: 5,
-  normalize_loudness: false,
-  downloads_enabled: true,
+  commissions_open: false as boolean,
+  grace_days: 3 as number,
+  offline_ttl_days: 14 as number,
+  chain_min_seconds: 300 as number,
+  chain_mantra: "I obey. I belong to Akasha. 888." as string,
+  msg_daily_limit: 5 as number,
+  normalize_loudness: false as boolean,
+  downloads_enabled: true as boolean,
   vault_gating: "soft" as "soft" | "hard",
   threshold_track_ids: [] as string[],
   quiet_hours_default: [22, 9] as [number, number],
-} as const;
+};
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;
 export type SettingsShape = {
