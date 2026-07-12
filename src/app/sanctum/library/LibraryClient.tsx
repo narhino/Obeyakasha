@@ -153,6 +153,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                   <Button
                     size="sm"
                     variant="gold"
+                    loading={busyId === t.id}
                     disabled={!t.hasAudio || busyId === t.id}
                     onClick={() => onVisibility(t.id, "published")}
                   >
@@ -162,6 +163,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                   <Button
                     size="sm"
                     variant="ghost"
+                    loading={busyId === t.id}
                     disabled={busyId === t.id}
                     onClick={() => onVisibility(t.id, "draft")}
                   >
@@ -171,6 +173,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                 <Button
                   size="sm"
                   variant="ghost"
+                  loading={busyId === t.id && !isWorking(t)}
                   disabled={!t.hasAudio || busyId === t.id || isWorking(t)}
                   onClick={() => onTranscribe(t.id)}
                 >
@@ -179,6 +182,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                 <Button
                   size="sm"
                   variant="ghost"
+                  loading={busyId === t.id}
                   disabled={busyId === t.id}
                   onClick={() => onOrganize(t.id)}
                 >

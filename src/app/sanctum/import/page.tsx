@@ -1,6 +1,7 @@
 import { requireGoddess } from "@/lib/auth-helpers";
 import { listImportablePosts } from "@/lib/patreon/import";
-import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { importAllNewAction, importPostAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -68,9 +69,9 @@ export default async function ImportPage() {
                   name="postIds"
                   value={fresh.map((p) => p.postId).join(",")}
                 />
-                <Button type="submit" size="sm" variant="gold">
+                <SubmitButton size="sm" variant="gold">
                   Import all new ({fresh.length})
-                </Button>
+                </SubmitButton>
               </form>
             ) : null}
             <Whisper className="text-xs">
@@ -105,9 +106,9 @@ export default async function ImportPage() {
                     ) : (
                       <form action={importPostAction}>
                         <input type="hidden" name="postId" value={p.postId} />
-                        <Button type="submit" size="sm" variant="ghost">
+                        <SubmitButton size="sm" variant="ghost">
                           {p.jobStatus === "failed" ? "Retry" : "Import"}
-                        </Button>
+                        </SubmitButton>
                       </form>
                     )}
                   </div>

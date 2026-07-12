@@ -25,20 +25,39 @@ const sizes: Record<Size, string> = {
   lg: "px-8 py-3 text-base",
 };
 
+/** Small token-coloured spinner (uses currentColor). */
+export function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-block h-[0.9em] w-[0.9em] animate-spin rounded-full border-2 border-current border-t-transparent align-[-0.1em] ${className}`}
+    />
+  );
+}
+
 export function Button({
   variant = "primary",
   size = "md",
+  loading = false,
   className = "",
+  disabled,
+  children,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
+  loading?: boolean;
 }) {
   return (
     <button
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius)] tracking-[0.08em] uppercase transition-all duration-[var(--dur-med)] disabled:cursor-not-allowed disabled:opacity-35 ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
-    />
+    >
+      {loading ? <Spinner /> : null}
+      {children}
+    </button>
   );
 }
 
