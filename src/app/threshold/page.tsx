@@ -6,6 +6,9 @@ import { getSetting } from "@/lib/settings";
 import { Button, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
+// Reads a DB setting → must not be prerendered at build (no DB then).
+export const dynamic = "force-dynamic";
+
 /**
  * The Threshold (A18) — public funnel for YouTube arrivals. Shows the free
  * teaser tracks (ADMIN-CONFIG threshold_track_ids) and drives sign-in. Playing
