@@ -139,3 +139,40 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   `quiet.test.ts`) with `web-push` mocked: audience expansion (all/level/users),
   personalization, delivery recording, no-device + quiet-hours skip paths.
   Real device delivery is verified on a phone after deploy.
+
+## 2026-07-11 — M3 build (transcription + organize)
+
+- **Transcription: self-hosted Whisper, free (Akasha's call).** ElevenLabs
+  Scribe is more accurate but paid (~$0.40/hr after a small free tier); she
+  asked to start free. Built a `TranscriptionProvider` interface with a Whisper
+  adapter (posts audio bytes as multipart to the sidecar); an ElevenLabs adapter
+  is a future drop-in behind the same interface. `WHISPER_MODEL` default `base`
+  (light for small servers). Real model enabled by default (`TRANSCRIBER_STUB=0`).
+- **Sidecar takes bytes, not storage access.** The web/worker reads audio via
+  `mediaProvider.readBytes()` (added to local + Bunny) and POSTs multipart to the
+  sidecar, so the transcriber needs no media-volume mount and works identically
+  for local and Bunny storage. Audio never leaves the server.
+- **Transcription is fire-and-forget** from the admin action (marks `processing`,
+  runs in the background on the persistent Node server, updates to `done`). A
+  pg-boss queue is the eventual home for very long files; adequate for now.
+- **Organize agent works with NO LLM key.** A heuristic pass (title bracket
+  tokens + transcript keyword scan + known-trigger matching with segment
+  timestamps + title→program patterns) produces real proposals from Akasha's
+  own conventions. An optional Anthropic pass (`ANTHROPIC_API_KEY`, direct
+  Messages API, zod-validated, returns null on any failure) blends in when
+  configured. Chosen because she has ElevenLabs (voice) but not necessarily an
+  LLM key — organize must work regardless.
+- **Nothing auto-applies.** Every organize run writes a pending `review_queue`
+  row; the Sanctum Organize page approves/rejects per track. Approval is
+  idempotent (tags/triggers/playlist placements de-duplicate). Granular
+  per-proposal editing is a follow-up; per-track approve/reject ships now.
+- **Trigger vault populated on completion** — completing a track that `installs`
+  a trigger writes `user_triggers` (A5 data; the vault UI itself is M6).
+- **FTS via on-the-fly query, no schema change** — deferred the `tracks.fts`
+  tsvector column; transcript search can compute `to_tsvector` on demand at this
+  scale. Add the generated column later if search gets heavy.
+- **Verified** (`heuristic.test.ts`, `apply.test.ts`): title/keyword→tags,
+  known-trigger detection with evidence + relation, program suggestions,
+  no-hallucinated-triggers; apply creates tags/triggers/playlist placement,
+  marks approved, and is idempotent. 93 tests total. Real Whisper transcription
+  of a live file is verified on the server after `up -d --build`.

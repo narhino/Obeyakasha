@@ -4,9 +4,30 @@ import {
   dropReports,
   listenSessions,
   resumePoints,
+  trackTriggers,
   tracks,
+  userTriggers,
 } from "@/lib/db/schema";
 import { isComplete } from "./completion";
+
+/** On a completed listen, add any triggers this track INSTALLS to the vault (A5). */
+async function grantInstalledTriggers(userId: string, trackId: string) {
+  const installs = await db
+    .select({ triggerId: trackTriggers.triggerId })
+    .from(trackTriggers)
+    .where(
+      and(
+        eq(trackTriggers.trackId, trackId),
+        eq(trackTriggers.relation, "installs"),
+      ),
+    );
+  for (const t of installs) {
+    await db
+      .insert(userTriggers)
+      .values({ userId, triggerId: t.triggerId, acquiredViaTrackId: trackId })
+      .onConflictDoNothing();
+  }
+}
 
 type EndReason = "finished" | "stopped" | "grounded" | "abandoned";
 
@@ -108,6 +129,7 @@ export async function recordEnd(params: {
       .where(
         and(eq(resumePoints.userId, userId), eq(resumePoints.trackId, trackId)),
       );
+    await grantInstalledTriggers(userId, trackId);
   }
 
   return { completed };

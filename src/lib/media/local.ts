@@ -111,6 +111,11 @@ export class LocalMediaProvider implements MediaProvider {
     };
   }
 
+  async readBytes(key: string): Promise<Uint8Array> {
+    const { readFile } = await import("node:fs/promises");
+    return new Uint8Array(await readFile(keyToPath(key)));
+  }
+
   async delete(key: string): Promise<void> {
     await rm(keyToPath(key), { force: true });
   }

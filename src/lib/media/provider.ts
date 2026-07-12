@@ -26,5 +26,7 @@ export interface MediaProvider {
   signStreamUrl(streamKey: string, ttlSeconds: number): Promise<string>;
   /** Local-only: serve bytes (optionally a Range). Bunny serves via CDN directly. */
   readStream(streamKey: string, range?: string | null): Promise<ReadResult>;
+  /** Full bytes of a stored object (used for transcription). */
+  readBytes(key: string): Promise<Uint8Array>;
   delete(key: string): Promise<void>;
 }

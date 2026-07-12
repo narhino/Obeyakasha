@@ -1,8 +1,15 @@
 import { desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tracks } from "@/lib/db/schema";
+import { tracks, transcripts } from "@/lib/db/schema";
 import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
-import { setTrackVisibility, updateTrackMeta, uploadTrack } from "./actions";
+import {
+  requestTranscription,
+  saveTranscript,
+  setTrackVisibility,
+  updateTrackMeta,
+  uploadTrack,
+} from "./actions";
+import { organizeTrackAction } from "../organize/actions";
 
 function fmtDuration(s: number | null): string {
   if (s == null) return "—";
@@ -13,6 +20,10 @@ function fmtDuration(s: number | null): string {
 
 export default async function SanctumLibrary() {
   const all = await db.select().from(tracks).orderBy(desc(tracks.createdAt));
+  const trs = all.length
+    ? await db.select().from(transcripts)
+    : [];
+  const transcriptByTrack = new Map(trs.map((t) => [t.trackId, t]));
 
   return (
     <div className="max-w-3xl">
@@ -159,6 +170,61 @@ export default async function SanctumLibrary() {
                     </form>
                   )}
                 </div>
+
+                {/* Script (transcript) + Organize — PLAN §8 */}
+                {(() => {
+                  const tr = transcriptByTrack.get(t.id);
+                  const status = tr?.status ?? "none";
+                  return (
+                    <div className="mt-4 border-t border-line pt-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Whisper className="text-xs uppercase tracking-wide">
+                          Script
+                        </Whisper>
+                        <span className="text-xs text-text-dim">
+                          {status === "none" ? "not transcribed" : status}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <form action={requestTranscription}>
+                          <input type="hidden" name="trackId" value={t.id} />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="ghost"
+                            disabled={!t.streamKey || status === "processing"}
+                          >
+                            {status === "done" ? "Re-transcribe" : "Transcribe"}
+                          </Button>
+                        </form>
+                        <form action={organizeTrackAction}>
+                          <input type="hidden" name="trackId" value={t.id} />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="ghost"
+                          >
+                            Organize
+                          </Button>
+                        </form>
+                      </div>
+                      {tr?.fullText ? (
+                        <form action={saveTranscript} className="mt-2">
+                          <input type="hidden" name="trackId" value={t.id} />
+                          <textarea
+                            name="fullText"
+                            defaultValue={tr.fullText}
+                            rows={4}
+                            className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-xs text-text-dim focus:border-gold focus:outline-none"
+                          />
+                          <Button type="submit" size="sm" variant="ghost" className="mt-1">
+                            Save script
+                          </Button>
+                        </form>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </details>
             </Card>
           ))

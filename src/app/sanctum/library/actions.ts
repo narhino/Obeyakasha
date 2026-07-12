@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tracks } from "@/lib/db/schema";
+import { tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { ingestUpload } from "@/lib/media/ingest";
+import { transcribeTrack } from "@/lib/transcribe/run";
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2GB (PLAN §7.2)
 
@@ -91,5 +92,29 @@ export async function setTrackVisibility(formData: FormData) {
     })
     .where(eq(tracks.id, trackId));
   await logAudit(session.user.id, "track.visibility", { trackId, visibility });
+  revalidatePath("/sanctum/library");
+}
+
+/** Kick off transcription (fire-and-forget; runs on the persistent server). */
+export async function requestTranscription(formData: FormData) {
+  const session = await requireGoddess();
+  const trackId = String(formData.get("trackId"));
+  if (!trackId) throw new Error("No track");
+  await logAudit(session.user.id, "transcript.requested", { trackId });
+  // Not awaited: the UI returns immediately and shows "processing".
+  void transcribeTrack(trackId).catch(() => {});
+  revalidatePath("/sanctum/library");
+}
+
+/** Save Akasha's edits to a transcript (fixing mishears). PLAN §8.2. */
+export async function saveTranscript(formData: FormData) {
+  const session = await requireGoddess();
+  const trackId = String(formData.get("trackId"));
+  const fullText = String(formData.get("fullText") ?? "");
+  await db
+    .update(transcripts)
+    .set({ fullText, updatedAt: new Date() })
+    .where(eq(transcripts.trackId, trackId));
+  await logAudit(session.user.id, "transcript.edited", { trackId });
   revalidatePath("/sanctum/library");
 }

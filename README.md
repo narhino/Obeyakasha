@@ -25,10 +25,15 @@ Milestones **M0**, **M1**, and **M2 — built** and **deployed to production**.
   (iOS/Android/desktop), device + consent recording, VAPID web push with a
   Sanctum broadcast composer (all/tier/individual, `{name}` personalization,
   quiet hours), and an in-app Whispers inbox.
+- **M3 transcription + organize:** self-hosted Whisper transcription (free;
+  pluggable — ElevenLabs Scribe drop-in ready), admin Script tab (view/edit),
+  and the organize agent that proposes tags/triggers/playlists from your title
+  conventions + transcripts (no AI key needed; optional Anthropic pass) into a
+  Sanctum review queue you approve; trigger-vault population on completion.
 - **Deploy:** turnkey `compose.prod.yml` (Caddy auto-HTTPS) + `deploy/bootstrap.sh`
   + [`docs/DEPLOY.md`](docs/DEPLOY.md). Live on a VPS.
 
-85 tests. Next: **M3 (transcription + organize agent)** — see PLAN §23.
+93 tests. Next: **M4 (relationship core)** — see PLAN §23.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

@@ -68,6 +68,15 @@ export class BunnyMediaProvider implements MediaProvider {
     throw new Error("readStream is not supported by the Bunny provider");
   }
 
+  async readBytes(key: string): Promise<Uint8Array> {
+    // Read straight from the storage zone (server-to-server).
+    const res = await fetch(`${this.storageBase()}/${key}`, {
+      headers: { AccessKey: env.BUNNY_STORAGE_KEY! },
+    });
+    if (!res.ok) throw new Error(`Bunny GET ${key} → ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
   async delete(key: string): Promise<void> {
     await fetch(`${this.storageBase()}/${key}`, {
       method: "DELETE",

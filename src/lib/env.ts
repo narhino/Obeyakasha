@@ -30,8 +30,10 @@ const schema = z.object({
   BUNNY_CDN_HOST: z.string().optional(),
   BUNNY_TOKEN_KEY: z.string().optional(),
   TRANSCRIBER_URL: z.string().optional(),
+  ELEVENLABS_API_KEY: z.string().optional(), // optional paid STT alternative
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
+  LLM_ORGANIZE_MODEL: z.string().optional(),
   LLM_TASK_ORGANIZE: z.string().default("anthropic"),
   LLM_TASK_TRIAGE: z.string().default("anthropic"),
   LLM_TASK_CLUSTER: z.string().default("anthropic"),

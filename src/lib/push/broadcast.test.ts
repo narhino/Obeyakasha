@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 
 // Mock web-push so no real network calls happen; capture sent payloads.
-const sendNotification = vi.fn(async () => ({ statusCode: 201 }));
+const sendNotification = vi.fn(async (..._args: unknown[]) => ({
+  statusCode: 201,
+}));
 vi.mock("web-push", () => ({
   default: {
     setVapidDetails: vi.fn(),

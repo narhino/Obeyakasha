@@ -61,7 +61,10 @@ services:
     build: { context: ./src/transcriber, dockerfile: Dockerfile }
     restart: unless-stopped
     environment:
-      TRANSCRIBER_STUB: ${TRANSCRIBER_STUB:-1}
+      # Real self-hosted transcription is on by default. Model: base (light) →
+      # small/medium for more accuracy (needs more RAM). Set STUB=1 to disable.
+      TRANSCRIBER_STUB: ${TRANSCRIBER_STUB:-0}
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
     expose:
       - "8000"
 

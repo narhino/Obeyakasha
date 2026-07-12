@@ -238,3 +238,36 @@ Now:
 added to the Home Screen (iOS 16.4+), which is exactly why the Gate requires it.
 The install/permission steps are guided but not forced (a browser can't reliably
 confirm "added to home screen"), so no one gets locked out.
+
+---
+
+## Transcription + organize (M3)
+
+Transcription is **self-hosted and free** — your audio never leaves your server.
+It's on by default after you redeploy (`git pull` + `up -d --build`). The first
+build downloads the speech model; the first transcription of each file downloads
+the model weights once (a minute or two), then it's fast.
+
+**Using it (in the Sanctum):**
+1. **Library → a track → Transcribe.** Status shows *processing*, then *done*.
+   The script appears in an editable box (fix any mishears, Save).
+2. **Organize** (on the track, or **Organize → Organize all**). The agent reads
+   the transcript and proposes tags, triggers (with the exact quote as evidence),
+   and playlist/program placement.
+3. **Organize page → Approve / Reject** each track's proposals. Nothing is
+   applied to the Library until you approve it. Approved tags immediately power
+   the subject-side filters, and installed triggers start filling each subject's
+   vault as they complete files.
+
+**Model size / resources:** default `WHISPER_MODEL=base` is light enough for a
+small server. For more accuracy set `WHISPER_MODEL=small` (or `medium`) in
+`.env` and redeploy — those use more memory, so prefer them on a 4GB+ server.
+
+**The organize agent needs no AI key** — it works from your title conventions
+(`[F4M]`, `[FDOM]`, `DAY 2`, `Training Session 3`…) and transcript keywords. If
+you ever want richer proposals, add an `ANTHROPIC_API_KEY` to `.env` and it will
+blend in an LLM pass automatically.
+
+**Prefer ElevenLabs?** Scribe (their speech-to-text) is more accurate but paid
+(~$0.40/hour after a small free tier). The code already has a provider slot for
+it — say the word and I'll wire your `ELEVENLABS_API_KEY` in.
