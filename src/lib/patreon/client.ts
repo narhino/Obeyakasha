@@ -224,10 +224,22 @@ export async function fetchCampaignPosts(
   const media = mediaMap(doc);
   const rows = Array.isArray(doc.data) ? doc.data : [doc.data];
   const posts = rows.map((p) => parsePost(p, media));
-  const meta = (
-    doc as { meta?: { pagination?: { cursors?: { next?: string | null } } } }
-  ).meta;
-  return { posts, nextCursor: meta?.pagination?.cursors?.next ?? null };
+
+  // Cursor may live in meta.pagination.cursors.next OR be embedded in links.next.
+  const d = doc as {
+    meta?: { pagination?: { cursors?: { next?: string | null } } };
+    links?: { next?: string | null };
+  };
+  let nextCursor = d.meta?.pagination?.cursors?.next ?? null;
+  if (!nextCursor && d.links?.next) {
+    try {
+      nextCursor =
+        new URL(d.links.next).searchParams.get("page[cursor]") ?? null;
+    } catch {
+      nextCursor = null;
+    }
+  }
+  return { posts, nextCursor };
 }
 
 /** One post by id, with fresh (short-lived) audio download URLs. */

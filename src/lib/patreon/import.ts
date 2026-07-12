@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tracks } from "@/lib/db/schema";
+import { jobs, tracks } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { getRawSetting, getSetting, setRawSetting } from "@/lib/settings";
 import { ingestUploadFromPath } from "@/lib/media/ingest";
@@ -56,25 +56,25 @@ export function htmlToText(html: string): string {
 
 export interface ImportablePost extends CampaignPost {
   imported: boolean;
-  hasAudio: boolean;
+  /** Import-job state for feedback: queued | running | done | failed | null. */
+  jobStatus: string | null;
+  jobError: string | null;
 }
 
-/** A page of posts marked with whether each is already imported. */
-export async function listImportablePosts(
-  cursor?: string,
-): Promise<{
+const MAX_PAGES = 15; // ~300 posts — enough for a full catalog
+
+/** Every post across all pages, marked imported / in-progress / failed. */
+export async function listImportablePosts(): Promise<{
   ready: boolean;
   posts: ImportablePost[];
-  nextCursor: string | null;
   error?: string;
 }> {
   const token = creatorToken();
-  if (!token) return { ready: false, posts: [], nextCursor: null };
+  if (!token) return { ready: false, posts: [] };
 
   try {
     let cid = await creatorCampaignId();
     if (!cid) {
-      // Discover the campaign from the creator token if not stored yet.
       const { campaignId } = await fetchCampaignTiers(token);
       if (campaignId) {
         await setRawSetting("patreon_campaign_id", campaignId);
@@ -85,13 +85,21 @@ export async function listImportablePosts(
       return {
         ready: true,
         posts: [],
-        nextCursor: null,
         error: "No campaign found for this access token.",
       };
     }
 
-    const { posts, nextCursor } = await fetchCampaignPosts(token, cid, cursor);
-    const ids = posts.map((p) => p.postId);
+    // Walk every page so older years show, not just the latest.
+    const all: CampaignPost[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const { posts, nextCursor } = await fetchCampaignPosts(token, cid, cursor);
+      all.push(...posts);
+      if (!nextCursor) break;
+      cursor = nextCursor;
+    }
+
+    const ids = all.map((p) => p.postId);
     const existing = ids.length
       ? await db
           .select({ pid: tracks.patreonPostId })
@@ -99,21 +107,42 @@ export async function listImportablePosts(
           .where(inArray(tracks.patreonPostId, ids))
       : [];
     const importedSet = new Set(existing.map((e) => e.pid));
+
+    // Import-job status per post (for live feedback on the page).
+    const jobRows = await db
+      .select({
+        payload: jobs.payload,
+        status: jobs.status,
+        lastError: jobs.lastError,
+      })
+      .from(jobs)
+      .where(eq(jobs.kind, "patreon-import"))
+      .orderBy(desc(jobs.updatedAt))
+      .limit(500);
+    const jobByPost = new Map<string, { status: string; error: string | null }>();
+    for (const j of jobRows) {
+      const pid = (j.payload as { postId?: string } | null)?.postId;
+      if (pid && !jobByPost.has(pid)) {
+        jobByPost.set(pid, { status: j.status, error: j.lastError ?? null });
+      }
+    }
+
     return {
       ready: true,
-      nextCursor,
-      posts: posts.map((p) => ({
-        ...p,
-        imported: importedSet.has(p.postId),
-        hasAudio: p.audio.length > 0,
-      })),
+      posts: all.map((p) => {
+        const job = jobByPost.get(p.postId);
+        return {
+          ...p,
+          imported: importedSet.has(p.postId),
+          jobStatus: job?.status ?? null,
+          jobError: job?.error ?? null,
+        };
+      }),
     };
   } catch (err) {
-    // Surface the Patreon error on the page instead of crashing it.
     return {
       ready: true,
       posts: [],
-      nextCursor: null,
       error: err instanceof Error ? err.message : "Patreon request failed",
     };
   }
@@ -147,7 +176,10 @@ export async function importPatreonPost(postId: string): Promise<string[]> {
   if (already) return [];
 
   const post = await fetchPost(token, postId);
-  if (!post || post.audio.length === 0) return [];
+  // Null = the single-post fetch failed (surface it as a failed job). Empty
+  // audio = a text post → skip quietly (job succeeds, no track).
+  if (!post) throw new Error("Patreon returned no data for this post");
+  if (post.audio.length === 0) return [];
 
   const description = htmlToText(post.contentHtml) || null;
   const autoPipeline = await getSetting("auto_pipeline");

@@ -21,7 +21,11 @@ function fmtDate(iso: string | null): string {
 export default async function ImportPage() {
   await requireGoddess();
   const { ready, posts, error } = await listImportablePosts();
-  const notImported = posts.filter((p) => !p.imported);
+  // "new" = never imported and not currently queued/running/done.
+  const fresh = posts.filter(
+    (p) =>
+      !p.imported && (p.jobStatus === null || p.jobStatus === "failed"),
+  );
 
   return (
     <div className="max-w-2xl">
@@ -56,22 +60,24 @@ export default async function ImportPage() {
         </Card>
       ) : (
         <>
-          {notImported.length > 0 ? (
-            <form action={importAllNewAction} className="mt-6">
-              <input
-                type="hidden"
-                name="postIds"
-                value={notImported.map((p) => p.postId).join(",")}
-              />
-              <Button type="submit" size="sm" variant="gold">
-                Import all new ({notImported.length})
-              </Button>
-            </form>
-          ) : null}
-          <Whisper className="mt-2 text-xs">
-            Posts with audio become tracks; text-only posts are skipped
-            automatically.
-          </Whisper>
+          <div className="mt-6 flex items-center gap-3">
+            {fresh.length > 0 ? (
+              <form action={importAllNewAction}>
+                <input
+                  type="hidden"
+                  name="postIds"
+                  value={fresh.map((p) => p.postId).join(",")}
+                />
+                <Button type="submit" size="sm" variant="gold">
+                  Import all new ({fresh.length})
+                </Button>
+              </form>
+            ) : null}
+            <Whisper className="text-xs">
+              {posts.length} posts · watch progress in the Library. Text-only
+              posts are skipped.
+            </Whisper>
+          </div>
 
           <div className="mt-4 space-y-2">
             {posts.map((p) => (
@@ -84,16 +90,23 @@ export default async function ImportPage() {
                     <Whisper className="text-xs">
                       {fmtDate(p.publishedAt)}
                       {p.isPublic ? " · public" : ""}
+                      {p.jobStatus === "failed" && p.jobError
+                        ? ` · ${p.jobError.slice(0, 80)}`
+                        : ""}
                     </Whisper>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {p.imported ? (
                       <Badge tone="gold">imported</Badge>
+                    ) : p.jobStatus === "queued" || p.jobStatus === "running" ? (
+                      <Badge tone="neutral">importing…</Badge>
+                    ) : p.jobStatus === "done" ? (
+                      <Badge tone="sealed">no audio</Badge>
                     ) : (
                       <form action={importPostAction}>
                         <input type="hidden" name="postId" value={p.postId} />
                         <Button type="submit" size="sm" variant="ghost">
-                          Import
+                          {p.jobStatus === "failed" ? "Retry" : "Import"}
                         </Button>
                       </form>
                     )}
