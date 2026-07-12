@@ -4,6 +4,7 @@ import { tracks } from "@/lib/db/schema";
 import { transcribeTrack } from "@/lib/transcribe/run";
 import { organizeTrack } from "@/lib/organize/run";
 import { analyzeTrack } from "@/lib/analyze/run";
+import { importPatreonPost } from "@/lib/patreon/import";
 import { getSetting } from "@/lib/settings";
 import { enqueue } from "./queue";
 import { registerHandler } from "./runner";
@@ -85,6 +86,17 @@ export function registerCoreJobHandlers(): void {
         throw err;
       }
       await setPipeline(trackId, "ready");
+    },
+    2,
+  );
+
+  // Import one Patreon post's audio → the pipeline (ROADMAP Phase I).
+  registerHandler(
+    "patreon-import",
+    async (payload) => {
+      const postId = String(payload.postId ?? "");
+      if (!postId) throw new Error("patreon-import: missing postId");
+      await importPatreonPost(postId);
     },
     2,
   );

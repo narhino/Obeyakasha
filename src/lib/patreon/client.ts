@@ -32,6 +32,23 @@ export interface PatreonTier {
   patronCount: number | null;
 }
 
+export interface PatreonAudio {
+  downloadUrl: string;
+  fileName: string;
+  mime: string | null;
+  bytes: number | null;
+}
+
+export interface CampaignPost {
+  postId: string;
+  title: string;
+  contentHtml: string;
+  url: string | null;
+  publishedAt: string | null;
+  isPublic: boolean;
+  audio: PatreonAudio[];
+}
+
 interface JsonApiResource {
   id: string;
   type: string;
@@ -137,4 +154,90 @@ export async function fetchCampaignTiers(
     }))
     .sort((a, b) => a.amountCents - b.amountCents);
   return { campaignId, tiers };
+}
+
+const POST_QUERY_FIELDS =
+  "&fields%5Bpost%5D=title,content,url,published_at,is_public" +
+  "&fields%5Bmedia%5D=download_url,file_name,mimetype,size_bytes";
+
+function parsePost(
+  p: JsonApiResource,
+  media: Map<string, JsonApiResource>,
+): CampaignPost {
+  const audio: PatreonAudio[] = asArray(
+    p.relationships?.attachments_media?.data,
+  )
+    .map((ref) => media.get(ref.id))
+    .filter((m): m is JsonApiResource => Boolean(m))
+    .map((m) => ({
+      downloadUrl: (m.attributes?.download_url as string | undefined) ?? "",
+      fileName: (m.attributes?.file_name as string | undefined) ?? "audio",
+      mime:
+        (m.attributes?.mimetype as string | undefined) ??
+        (m.attributes?.mime_type as string | undefined) ??
+        null,
+      bytes: (m.attributes?.size_bytes as number | undefined) ?? null,
+    }))
+    .filter(
+      (a) =>
+        a.downloadUrl &&
+        /audio|\.(mp3|m4a|wav|aac|ogg)/i.test(`${a.mime ?? ""} ${a.fileName}`),
+    );
+  return {
+    postId: p.id,
+    title: (p.attributes?.title as string | undefined) ?? "(untitled)",
+    contentHtml: (p.attributes?.content as string | undefined) ?? "",
+    url: (p.attributes?.url as string | undefined) ?? null,
+    publishedAt: (p.attributes?.published_at as string | undefined) ?? null,
+    isPublic: Boolean(p.attributes?.is_public),
+    audio,
+  };
+}
+
+function mediaMap(doc: JsonApiDoc): Map<string, JsonApiResource> {
+  return new Map(
+    (doc.included ?? [])
+      .filter((r) => r.type === "media")
+      .map((m) => [m.id, m] as const),
+  );
+}
+
+/**
+ * The creator's own posts with any audio attachments (ROADMAP Phase I). Cursor-
+ * paginated; call with the returned nextCursor until it's null. Uses the
+ * long-lived Creator's Access Token. Tolerant JSON:API parsing like the rest.
+ */
+export async function fetchCampaignPosts(
+  accessToken: string,
+  campaignId: string,
+  cursor?: string,
+): Promise<{ posts: CampaignPost[]; nextCursor: string | null }> {
+  const query =
+    `/campaigns/${campaignId}/posts?include=attachments_media` +
+    POST_QUERY_FIELDS +
+    "&page%5Bcount%5D=20&sort=-published_at" +
+    (cursor ? `&page%5Bcursor%5D=${encodeURIComponent(cursor)}` : "");
+  const doc = await patreonGet(query, accessToken);
+  const media = mediaMap(doc);
+  const rows = Array.isArray(doc.data) ? doc.data : [doc.data];
+  const posts = rows.map((p) => parsePost(p, media));
+  const meta = (
+    doc as { meta?: { pagination?: { cursors?: { next?: string | null } } } }
+  ).meta;
+  return { posts, nextCursor: meta?.pagination?.cursors?.next ?? null };
+}
+
+/** One post by id, with fresh (short-lived) audio download URLs. */
+export async function fetchPost(
+  accessToken: string,
+  postId: string,
+): Promise<CampaignPost | null> {
+  const doc = await patreonGet(
+    `/posts/${postId}?include=attachments_media${POST_QUERY_FIELDS}`,
+    accessToken,
+  ).catch(() => null);
+  if (!doc) return null;
+  const resource = Array.isArray(doc.data) ? doc.data[0] : doc.data;
+  if (!resource) return null;
+  return parsePost(resource, mediaMap(doc));
 }
