@@ -87,6 +87,28 @@ export async function ingestUpload(params: {
   return { trackId, durationS, streamKey };
 }
 
+/**
+ * Ingest from a file already streamed to disk (the /api/sanctum/upload route,
+ * ROADMAP C1.2). Reads the temp file once and reuses the buffer-based path;
+ * at real catalog sizes (tens of MB per session) this is well within memory.
+ * A fully streaming provider write is a later optimization (see ROADMAP).
+ */
+export async function ingestUploadFromPath(params: {
+  path: string;
+  filename: string;
+  title?: string;
+  clientDurationS?: number | null;
+}): Promise<IngestResult> {
+  const { readFile } = await import("node:fs/promises");
+  const bytes = new Uint8Array(await readFile(params.path));
+  return ingestUpload({
+    filename: params.filename,
+    bytes,
+    title: params.title,
+    clientDurationS: params.clientDurationS ?? null,
+  });
+}
+
 async function probeToTemp(
   bytes: Uint8Array,
   ext: string,

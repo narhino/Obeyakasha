@@ -7,42 +7,10 @@ import { db } from "@/lib/db";
 import { tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
-import { ingestUpload } from "@/lib/media/ingest";
 import { enqueue } from "@/lib/jobs/queue";
 
-const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2GB (PLAN §7.2)
-
-/** Upload one audio file → draft track (batch = call once per file). */
-export async function uploadTrack(formData: FormData) {
-  const session = await requireGoddess();
-  const file = formData.get("file");
-  if (!(file instanceof File)) throw new Error("No file provided");
-  if (file.size > MAX_BYTES) throw new Error("File exceeds 2GB");
-
-  const title = (formData.get("title") as string | null) ?? undefined;
-  const clientDurationRaw = formData.get("durationS");
-  const clientDurationS =
-    clientDurationRaw != null && clientDurationRaw !== ""
-      ? Math.round(Number(clientDurationRaw))
-      : null;
-
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const result = await ingestUpload({
-    filename: file.name,
-    bytes,
-    title,
-    clientDurationS: Number.isFinite(clientDurationS as number)
-      ? clientDurationS
-      : null,
-  });
-
-  await logAudit(session.user.id, "track.uploaded", {
-    trackId: result.trackId,
-    filename: file.name,
-    durationS: result.durationS,
-  });
-  revalidatePath("/sanctum/library");
-}
+// Uploads now stream through POST /api/sanctum/upload (ROADMAP C1.2); the old
+// buffered server-action upload was removed.
 
 const metaSchema = z.object({
   trackId: z.string().uuid(),
