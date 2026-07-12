@@ -1,6 +1,8 @@
 # Multi-stage build for the Next.js web app + worker (share one image).
 FROM node:22-slim AS base
 ENV PNPM_HOME="/pnpm" PATH="/pnpm:$PATH"
+# Non-interactive corepack; pnpm version is pinned by package.json "packageManager".
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 
