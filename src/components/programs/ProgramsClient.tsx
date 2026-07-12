@@ -2,6 +2,7 @@
 
 import { usePlayer } from "@/lib/player/store";
 import type { ProgramView } from "@/lib/programs/queries";
+import { IconCheck, IconLock, IconPlay } from "@/components/ui/icons";
 
 function fmtWhen(ms: number | null): string {
   if (!ms) return "";
@@ -58,10 +59,16 @@ export function ProgramsClient({ programs }: { programs: ProgramView[] }) {
                       0,
                     )
                   }
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-sm text-bg disabled:bg-line disabled:text-text-dim"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep disabled:bg-surface-raised disabled:text-text-dim/60"
                   aria-label={`Play ${it.title}`}
                 >
-                  {it.completed ? "✓" : it.unlocked ? "▶" : "🔒"}
+                  {it.completed ? (
+                    <IconCheck size={14} />
+                  ) : it.unlocked ? (
+                    <IconPlay size={14} />
+                  ) : (
+                    <IconLock size={14} />
+                  )}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-text">

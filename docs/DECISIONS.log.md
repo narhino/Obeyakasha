@@ -222,3 +222,26 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
 - **Backups**: `scripts/backup.sh` (pg_dump | gzip | optional age | optional
   Bunny upload) + cron/restore-drill instructions.
 - v1 complete: M0–M7. Full launch checklist in docs/DEPLOY.md.
+
+## 2026-07-12 — Design pass ("editorial-occult")
+
+- Full visual identity applied via the token contract (D8): new palette
+  (violet-black / bone / oxblood / antique gold), Cormorant Garamond loaded
+  via next/font (was silently falling back to Georgia before), system body
+  face, letterspaced small-caps labels, film-grain overlay, ornament rule,
+  slow-wheel landing motif, roman-numeral depth scale. Full spec: docs/DESIGN.md.
+- Anti-"AI look" constraints enforced: no Inter, no gradient-purple, no glass
+  cards, no emoji controls (replaced with a hand-drawn SVG icon set in
+  src/components/ui/icons.tsx; audited by a subagent sweep).
+- Mobile IA fix: subject nav moved to a 5-tab bottom bar (safe-area aware,
+  active states); secondary rooms (Asks/Orders/Commission/Settings) became
+  cards on the You page; mini-player floats above the bar. Desktop keeps a
+  letterspaced header row. Sanctum: scrollable rail on mobile, sticky sidebar
+  on desktop.
+- Spiral canvas fallbacks + clear color updated to the new palette; manifest/
+  themeColor #0b0812; viewportFit cover for iOS safe areas.
+- playwright-core added as a dev dep (drives the preinstalled Chromium) for
+  design screenshots; verified landing (mobile+desktop) and /styleguide
+  visually. Note: fixed grain overlay stitches oddly in full-page screenshot
+  tools; live rendering is uniform.
+- 124 tests, typecheck, lint, prod build (incl. build-time font fetch) green.

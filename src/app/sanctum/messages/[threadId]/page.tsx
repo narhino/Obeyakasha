@@ -6,6 +6,7 @@ import { threadMessages } from "@/lib/messages/ops";
 import { collarCard } from "@/lib/profile/collar";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { IconWarn } from "@/components/ui/icons";
 import { ReplyBox } from "@/components/messages/ReplyBox";
 
 export default async function SanctumThread({
@@ -52,7 +53,9 @@ export default async function SanctumThread({
             >
               {m.body}
               {m.flaggedSafety ? (
-                <span className="ml-2 text-xs text-danger">⚠</span>
+                <span className="ml-2 inline-flex translate-y-0.5 text-danger">
+                  <IconWarn size={13} />
+                </span>
               ) : null}
             </div>
           ))}

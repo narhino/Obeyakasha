@@ -128,16 +128,23 @@ export function IntakeFlow({ onDone }: { onDone: () => void }) {
         }}
       />
       {step === 0 ? (
-        <Whisper className="mb-4 text-base italic">{copy.intake.welcome}</Whisper>
+        <Whisper className="mb-5 font-[family-name:var(--font-display)] text-lg italic">
+          {copy.intake.welcome}
+        </Whisper>
       ) : null}
       <div className="w-full max-w-sm">
-        <Display className="text-2xl">{current.title}</Display>
-        <div className="mt-6">{current.field}</div>
-        <div className="mt-8 flex items-center justify-center gap-3">
+        <Display className="text-[1.75rem]">{current.title}</Display>
+        <div className="ornament mx-auto mt-4 w-24" aria-hidden>
+          <span className="font-[family-name:var(--font-display)] text-xs leading-none">
+            ✦
+          </span>
+        </div>
+        <div className="mt-7">{current.field}</div>
+        <div className="mt-9 flex items-center justify-center gap-4">
           {step > 0 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className="text-sm text-text-dim/70"
+              className="text-[0.6875rem] tracking-[0.14em] uppercase text-text-dim/60 transition-colors hover:text-text-dim"
             >
               back
             </button>
@@ -151,8 +158,8 @@ export function IntakeFlow({ onDone }: { onDone: () => void }) {
             {isLast ? copy.intake.done : "Continue"}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-text-dim/60">
-          {step + 1} / {steps.length}
+        <p className="mt-7 font-[family-name:var(--font-display)] text-sm text-text-dim/50">
+          {["I", "II", "III", "IV", "V", "VI"][step]} · {steps.length}
         </p>
       </div>
     </div>

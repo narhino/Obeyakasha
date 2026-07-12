@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePlayer } from "@/lib/player/store";
 import { postJson } from "@/lib/player/telemetry";
 import { copy } from "@/copy/copy";
+import { Ornament } from "@/components/ui";
 
 interface DropTarget {
   sessionId: string;
@@ -11,9 +12,11 @@ interface DropTarget {
   title: string;
 }
 
+const NUMERALS = ["I", "II", "III", "IV", "V"];
+
 /**
- * Post-session drop report (PLAN §9, A9) and the grounding return screen (A20).
- * Both are lightweight overlays driven by window events from the engine.
+ * Post-session drop report (A9) + the grounding return screen (A20).
+ * Framed as reporting for inspection — roman numerals, not star ratings.
  */
 export function DropPrompt() {
   const [target, setTarget] = useState<DropTarget | null>(null);
@@ -50,7 +53,8 @@ export function DropPrompt() {
   if (grounded) {
     return (
       <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-bg px-6 text-center">
-        <p className="font-[family-name:var(--font-display)] text-2xl text-text">
+        <Ornament className="mb-8 w-40" />
+        <p className="max-w-sm font-[family-name:var(--font-display)] text-2xl leading-snug text-text">
           {copy.player.groundReturn}
         </p>
         <button
@@ -59,7 +63,7 @@ export function DropPrompt() {
             endGrounding();
             usePlayer.getState().setFullscreen(false);
           }}
-          className="mt-8 rounded-[var(--radius)] border border-line px-5 py-2 text-text-dim"
+          className="mt-10 rounded-[var(--radius)] border border-line px-6 py-2.5 text-[0.75rem] tracking-[0.14em] uppercase text-text-dim transition-colors hover:border-text-dim hover:text-text"
         >
           I&apos;m here
         </button>
@@ -70,20 +74,25 @@ export function DropPrompt() {
   if (!target) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 sm:items-center">
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-surface-raised p-5">
-        <p className="font-[family-name:var(--font-display)] text-xl text-text">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-bg/75 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-surface-raised p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
+        <p className="text-center font-[family-name:var(--font-display)] text-2xl text-text">
           {copy.player.dropTitle}
         </p>
-        <div className="mt-4 flex justify-between gap-1">
+        <Ornament className="mx-auto mt-3 w-28" />
+        <div className="mt-5 flex justify-between gap-1.5">
           {copy.player.dropScale.map((label, i) => (
             <button
               key={label}
               onClick={() => submitDepth(i + 1)}
-              className="flex flex-1 flex-col items-center rounded-[var(--radius)] border border-line py-2 text-xs text-text-dim hover:border-gold hover:text-gold"
+              className="group flex flex-1 flex-col items-center gap-1 rounded-[var(--radius)] border border-line/70 py-2.5 transition-colors duration-[var(--dur-med)] hover:border-gold/60 hover:bg-gold/5"
             >
-              <span className="text-base">{i + 1}</span>
-              {label}
+              <span className="font-[family-name:var(--font-display)] text-lg text-text-dim transition-colors group-hover:text-gold">
+                {NUMERALS[i]}
+              </span>
+              <span className="text-[0.5625rem] tracking-[0.12em] uppercase text-text-dim/70">
+                {label}
+              </span>
             </button>
           ))}
         </div>
@@ -92,11 +101,11 @@ export function DropPrompt() {
           onChange={(e) => setNote(e.target.value)}
           placeholder={copy.player.dropNote}
           rows={2}
-          className="mt-3 w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
+          className="mt-4 w-full rounded-[var(--radius)] border border-line bg-bg/60 px-3 py-2 text-sm text-text placeholder:text-text-dim/45 focus:border-gold/70 focus:outline-none"
         />
         <button
           onClick={() => setTarget(null)}
-          className="mt-2 text-xs text-text-dim/70"
+          className="mt-3 w-full text-center text-[0.6875rem] tracking-[0.14em] uppercase text-text-dim/60 transition-colors hover:text-text-dim"
         >
           {copy.player.dropSkip}
         </button>

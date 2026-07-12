@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { IconSpark } from "@/components/ui/icons";
 
 /**
  * Header bell with an unseen dot. "Seen" is tracked client-side (localStorage)
@@ -35,12 +36,12 @@ export function InboxBell() {
   return (
     <Link
       href="/inbox"
-      className="relative text-text-dim hover:text-text"
-      aria-label="Whispers from Akasha"
+      className="relative text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold"
+      aria-label="Notifications"
     >
-      <span className="text-lg">✦</span>
+      <IconSpark size={18} />
       {hasUnseen ? (
-        <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-gold" />
+        <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_8px_rgba(212,175,106,0.8)]" />
       ) : null}
     </Link>
   );

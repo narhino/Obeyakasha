@@ -9,19 +9,8 @@ import { SubjectGate } from "@/components/gate/SubjectGate";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
 import { OfflineSync } from "@/components/offline/OfflineSync";
+import { BottomNav, DesktopNav } from "@/components/nav/SubjectNav";
 import { copy } from "@/copy/copy";
-
-const nav = [
-  { href: "/library", label: copy.library.title },
-  { href: "/programs", label: "Trainings" },
-  { href: "/whispers", label: "Whispers" },
-  { href: "/asks", label: "Asks" },
-  { href: "/orders", label: "Orders" },
-  { href: "/messages", label: "Speak" },
-  { href: "/commissions", label: "Commission" },
-  { href: "/settings", label: "Settings" },
-  { href: "/me", label: "You" },
-];
 
 export default async function SubjectLayout({
   children,
@@ -40,33 +29,27 @@ export default async function SubjectLayout({
   return (
     <SubjectGate alreadyConsented={consented}>
       <IntakeGuard done={intakeDone}>
-      <div className="min-h-dvh pb-24">
-        <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-            <Link
-              href="/library"
-              className="font-[family-name:var(--font-display)] text-xl text-gold"
-            >
-              {copy.brand.name}
-            </Link>
-            <nav className="flex items-center gap-4 text-sm">
-              {nav.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className="text-text-dim hover:text-text"
-                >
-                  {n.label}
-                </Link>
-              ))}
-              <InboxBell />
-            </nav>
-          </div>
-        </header>
-        {children}
-        <PlayerRoot />
-        <OfflineSync />
-      </div>
+        {/* bottom padding clears the tab bar + mini player on mobile */}
+        <div className="min-h-dvh pb-44 md:pb-28">
+          <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 backdrop-blur-md">
+            <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+              <Link
+                href="/library"
+                className="font-[family-name:var(--font-display)] text-xl tracking-[0.32em] text-gold"
+              >
+                {copy.brand.name}
+              </Link>
+              <div className="flex items-center gap-6">
+                <DesktopNav />
+                <InboxBell />
+              </div>
+            </div>
+          </header>
+          {children}
+          <PlayerRoot />
+          <OfflineSync />
+          <BottomNav />
+        </div>
       </IntakeGuard>
     </SubjectGate>
   );

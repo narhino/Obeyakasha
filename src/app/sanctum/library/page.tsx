@@ -74,7 +74,7 @@ export default async function SanctumLibrary() {
                   </p>
                   <Whisper className="text-xs">
                     {fmtDuration(t.durationS)} · level {t.minAccessLevel} ·{" "}
-                    {t.streamKey ? "audio ✓" : "no audio"}
+                    {t.streamKey ? "audio ready" : "no audio"}
                   </Whisper>
                 </div>
                 <Badge

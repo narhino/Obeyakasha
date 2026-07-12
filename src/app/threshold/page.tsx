@@ -31,11 +31,11 @@ export default async function Threshold() {
             "radial-gradient(60% 50% at 50% 40%, var(--color-accent-soft) 0%, transparent 70%)",
         }}
       />
-      <p className="mb-4 font-[family-name:var(--font-display)] text-5xl text-gold">
+      <p className="mb-4 font-[family-name:var(--font-display)] text-6xl text-gold [text-shadow:0_0_50px_rgba(212,175,106,0.3)]">
         {copy.brand.mark}
       </p>
-      <Display className="text-3xl">{copy.brand.name}</Display>
-      <Whisper className="mt-3 max-w-sm text-base italic">
+      <Display className="text-3xl tracking-[0.3em]">{copy.brand.name}</Display>
+      <Whisper className="mt-4 max-w-sm font-[family-name:var(--font-display)] text-base italic">
         {copy.brand.tagline}
       </Whisper>
 

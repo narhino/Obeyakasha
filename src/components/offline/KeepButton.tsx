@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getDeviceId } from "@/lib/pwa/client";
 import { isKept, keepTrack, removeTrack } from "@/lib/offline/store";
+import { IconCheck, IconKeep } from "@/components/ui/icons";
 
 /** "Keep with you" — YouTube-style in-app offline (D4). */
 export function KeepButton({ trackId }: { trackId: string }) {
@@ -45,10 +46,22 @@ export function KeepButton({ trackId }: { trackId: string }) {
   return (
     <button
       onClick={toggle}
-      className="shrink-0 text-xs text-text-dim hover:text-gold"
+      className={`flex shrink-0 items-center gap-1 text-[0.6875rem] tracking-[0.1em] uppercase transition-colors duration-[var(--dur-med)] ${
+        state === "kept" ? "text-gold" : "text-text-dim hover:text-gold"
+      }`}
       title="Keep offline"
     >
-      {state === "kept" ? "✓ kept" : state === "working" ? "…" : "↓ keep"}
+      {state === "kept" ? (
+        <>
+          <IconCheck size={13} /> kept
+        </>
+      ) : state === "working" ? (
+        "…"
+      ) : (
+        <>
+          <IconKeep size={13} /> keep
+        </>
+      )}
     </button>
   );
 }

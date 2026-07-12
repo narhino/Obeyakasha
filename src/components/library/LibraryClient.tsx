@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import type { LibraryTrack } from "@/lib/library/queries";
 import { Badge } from "@/components/ui";
+import { IconLock, IconPlay } from "@/components/ui/icons";
 import { KeepButton } from "@/components/offline/KeepButton";
 import { copy, fill } from "@/copy/copy";
 
@@ -120,9 +121,9 @@ export function LibraryClient({
                 disabled={!t.unlocked}
                 onClick={() => playFrom(filtered, i)}
                 aria-label={`Play ${t.title}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg disabled:bg-line disabled:text-text-dim"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep disabled:bg-surface-raised disabled:text-text-dim/60"
               >
-                {t.unlocked ? "▶" : "🔒"}
+                {t.unlocked ? <IconPlay size={16} /> : <IconLock size={16} />}
               </button>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-text">

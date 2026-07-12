@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0b0a0e",
-    theme_color: "#0b0a0e",
+    background_color: "#0b0812",
+    theme_color: "#0b0812",
     icons: [
       // Placeholder icons; replaced in the design pass (PLAN §11).
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

@@ -174,10 +174,10 @@ export function SubjectGate({
         className="breathe pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(55% 45% at 50% 45%, var(--color-accent-soft) 0%, transparent 70%)",
+            "radial-gradient(55% 45% at 50% 45%, var(--color-accent-soft) 0%, transparent 72%)",
         }}
       />
-      <p className="mb-6 font-[family-name:var(--font-display)] text-4xl text-gold">
+      <p className="mb-7 font-[family-name:var(--font-display)] text-5xl text-gold [text-shadow:0_0_50px_rgba(212,175,106,0.3)]">
         {copy.brand.mark}
       </p>
 
@@ -241,9 +241,14 @@ function Panel({
 }) {
   return (
     <div className="max-w-sm">
-      <Display className="text-2xl">{title}</Display>
-      <Whisper className="mt-3 text-base">{body}</Whisper>
-      <div className="mt-8 flex flex-col items-center gap-3">{children}</div>
+      <Display className="text-[1.75rem]">{title}</Display>
+      <div className="ornament mx-auto mt-4 w-28" aria-hidden>
+        <span className="font-[family-name:var(--font-display)] text-xs leading-none">
+          ✦
+        </span>
+      </div>
+      <Whisper className="mt-4 text-base leading-relaxed">{body}</Whisper>
+      <div className="mt-9 flex flex-col items-center gap-3">{children}</div>
     </div>
   );
 }

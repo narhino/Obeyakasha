@@ -45,11 +45,11 @@ export function Spiral({
     const accent =
       getComputedStyle(document.documentElement)
         .getPropertyValue("--color-spiral-a")
-        .trim() || "#7a1f3d";
+        .trim() || "#8a2e4f";
     const gold =
       getComputedStyle(document.documentElement)
         .getPropertyValue("--color-spiral-b")
-        .trim() || "#c9a227";
+        .trim() || "#d4af6a";
 
     function draw() {
       const c = canvas as HTMLCanvasElement;
@@ -61,7 +61,7 @@ export function Spiral({
       const maxR = Math.hypot(w, h) / 2;
 
       g.clearRect(0, 0, w, h);
-      g.fillStyle = "#0b0a0e";
+      g.fillStyle = "#0b0812";
       g.fillRect(0, 0, w, h);
 
       const arms = variant === "double" ? 2 : 1;

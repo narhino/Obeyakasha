@@ -1,10 +1,18 @@
+import Link from "next/link";
 import { requireSubject } from "@/lib/auth-helpers";
 import { collarCard } from "@/lib/profile/collar";
 import { getSetting } from "@/lib/settings";
 import { rankFor } from "@/lib/ranks/logic";
-import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Card, Display, Label, Whisper } from "@/components/ui";
 import { MantraButton } from "@/components/chain/MantraButton";
 import { copy, fill } from "@/copy/copy";
+
+const ROOMS = [
+  { href: "/asks", label: "Asks", hint: "When she questions you" },
+  { href: "/orders", label: "Orders", hint: "What she commands" },
+  { href: "/commissions", label: "Commission", hint: "Ask for your own" },
+  { href: "/settings", label: "Settings", hint: "Quiet hours, your data" },
+];
 
 function daysSince(d: Date): number {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
@@ -36,12 +44,10 @@ export default async function MePage() {
       </Whisper>
 
       <Card raised className="mt-6">
-        <Whisper className="text-xs uppercase tracking-wide">
-          {copy.chain.title}
-        </Whisper>
-        <p className="mt-1 font-[family-name:var(--font-display)] text-4xl text-gold">
+        <Label>{copy.chain.title}</Label>
+        <p className="mt-2 font-[family-name:var(--font-display)] text-5xl text-gold">
           {card.chain.currentLen}
-          <span className="ml-2 align-middle text-sm text-text-dim">
+          <span className="ml-3 align-middle font-[family-name:var(--font-body)] text-xs tracking-[0.14em] uppercase text-text-dim">
             days · best {card.chain.bestLen}
           </span>
         </p>
@@ -75,15 +81,13 @@ export default async function MePage() {
       </div>
 
       <Card className="mt-6">
-        <Whisper className="text-xs uppercase tracking-wide">
-          Triggers held
-        </Whisper>
+        <Label>Triggers held</Label>
         {card.triggersHeld.length === 0 ? (
           <Whisper className="mt-2">
             None yet. Finish a file to earn what it installs.
           </Whisper>
         ) : (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {card.triggersHeld.map((t) => (
               <Badge key={t.name} tone="gold">
                 {t.name}
@@ -92,6 +96,20 @@ export default async function MePage() {
           </div>
         )}
       </Card>
+
+      {/* Rooms not in the tab bar live here (mobile reachability) */}
+      <div className="mt-6 grid grid-cols-2 gap-3">
+        {ROOMS.map((r) => (
+          <Link key={r.href} href={r.href}>
+            <Card className="h-full transition-colors duration-[var(--dur-med)] hover:border-gold/40">
+              <p className="font-[family-name:var(--font-display)] text-lg text-text">
+                {r.label}
+              </p>
+              <Whisper className="mt-0.5 text-xs">{r.hint}</Whisper>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </main>
   );
 }

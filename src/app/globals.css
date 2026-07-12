@@ -2,45 +2,49 @@
 
 /*
  * OBEY AKASHA — design token contract (PLAN §4, D8).
- * Components reference ONLY these tokens, never raw colors/fonts.
- * The later design pass restyles the platform by editing THIS file
- * (+ component skins) — no logic changes. Dark theme only.
+ * ─────────────────────────────────────────────────────────────────────────
+ * The look: editorial-occult. Candlelit stone, engraved serif, antique gold
+ * on violet-black, hairline rules, film grain, slow deliberate motion.
+ * Components style ONLY through these tokens. Restyle the app here.
  */
 
 @theme {
-  /* surfaces */
-  --color-bg: #0b0a0e;
-  --color-surface: #14111a;
-  --color-surface-raised: #1e1926;
-  --color-line: #2c2536;
+  /* ── surfaces — warm violet-blacks, like a room lit by one candle ── */
+  --color-bg: #0b0812;
+  --color-surface: #140f1d;
+  --color-surface-raised: #1c1527;
+  --color-line: #2c2338;
 
-  /* text */
-  --color-text: #ede6da;
-  --color-text-dim: #9b9298;
+  /* ── ink — bone and ash ── */
+  --color-text: #eae3d6;
+  --color-text-dim: #9a8fa6;
 
-  /* accents */
-  --color-accent: #7a1f3d;        /* deep wine */
-  --color-accent-soft: #2a0e1e;
-  --color-gold: #c9a227;          /* candle gold */
+  /* ── accents — oxblood wine, antique gold ── */
+  --color-accent: #8a2e4f;
+  --color-accent-soft: #2b1020;
+  --color-gold: #d4af6a;
+  --color-gold-deep: #a9853f;
   --color-danger: #b3402f;
 
-  /* spiral / trance visuals */
-  --color-spiral-a: #7a1f3d;
-  --color-spiral-b: #c9a227;
+  /* ── trance visuals ── */
+  --color-spiral-a: #8a2e4f;
+  --color-spiral-b: #d4af6a;
 
-  /* typography */
-  --font-display: "Cormorant Garamond", "Georgia", serif;
+  /* ── typography ──
+     Display: Cormorant Garamond (loaded via next/font, var set on <html>).
+     Body: quiet system humanist stack — deliberately NOT a webfont. */
+  --font-display: var(--font-cormorant, "Cormorant Garamond"), "Georgia", serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  /* radii */
-  --radius-sm: 0.25rem;
-  --radius: 0.5rem;
-  --radius-lg: 1rem;
+  /* ── shape — sharper than app-default; engraved, not bubbly ── */
+  --radius-sm: 0.1875rem;
+  --radius: 0.375rem;
+  --radius-lg: 0.625rem;
   --radius-full: 9999px;
 
-  /* motion — slow, hypnotic, deliberate (never bouncy) */
+  /* ── motion — slow, hypnotic, deliberate; never bouncy ── */
   --ease-trance: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur-slow: 600ms;
+  --dur-slow: 700ms;
   --dur-med: 400ms;
 }
 
@@ -55,25 +59,77 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  letter-spacing: 0.01em;
 }
 
-/* breathing gradient used behind trance surfaces */
+/* iOS PWA: paint under the notch/home bar */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-gold) 30%, transparent);
+  color: var(--color-text);
+}
+
+/* Quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── film grain — kills the flat digital look; static, cheap ── */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+/* ── candlelight breathing ── */
 @keyframes breathe {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.45;
   }
   50% {
-    opacity: 0.9;
+    opacity: 0.85;
   }
 }
-
 .breathe {
-  animation: breathe 8s var(--ease-trance) infinite;
+  animation: breathe 9s var(--ease-trance) infinite;
+}
+
+/* ── the slow wheel — decorative spiral disc (landing, gate) ── */
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.turn-slow {
+  animation: turn 240s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .breathe {
+  .breathe,
+  .turn-slow {
     animation: none;
   }
   * {
@@ -82,8 +138,50 @@ body {
   }
 }
 
-/* focus ring — accessible, on-brand */
+/* ── engraved ornament rule: ── ✦ ── */
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  color: color-mix(in srgb, var(--color-gold) 65%, transparent);
+}
+.ornament::before,
+.ornament::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(
+    to var(--tw-ornament-dir, right),
+    transparent,
+    color-mix(in srgb, var(--color-gold) 35%, transparent)
+  );
+}
+.ornament::after {
+  background: linear-gradient(
+    to left,
+    transparent,
+    color-mix(in srgb, var(--color-gold) 35%, transparent)
+  );
+}
+
+/* ── letterspaced small-caps label ── */
+.label-caps {
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* ── focus — a thin gold thread ── */
 :focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
+  outline: 1px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+/* range inputs pick up the gold */
+input[type="range"] {
+  accent-color: var(--color-gold);
+}
+input[type="checkbox"] {
+  accent-color: var(--color-accent);
 }
