@@ -8,6 +8,8 @@ import {
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import { llmOrganize } from "@/lib/llm/organize";
+import { getSetting } from "@/lib/settings";
+import { autoApplyOrganize } from "./apply";
 import { heuristicOrganize } from "./heuristic";
 import { organizeProposalSchema, type OrganizeProposal } from "./types";
 
@@ -89,18 +91,28 @@ export async function organizeTrack(trackId: string): Promise<void> {
     await db.delete(reviewQueue).where(inArray(reviewQueue.id, stale));
   }
 
-  await db.insert(reviewQueue).values({
-    kind: "tags",
-    subjectRef: { trackId, title: track.title },
-    proposal,
-    agentRationale: llm ? "heuristic + llm" : "heuristic",
-    status: "pending",
-  });
+  const [review] = await db
+    .insert(reviewQueue)
+    .values({
+      kind: "tags",
+      subjectRef: { trackId, title: track.title },
+      proposal,
+      agentRationale: llm ? "heuristic + llm" : "heuristic",
+      status: "pending",
+    })
+    .returning({ id: reviewQueue.id });
   await logAudit(null, "organize.proposed", {
     trackId,
     tags: proposal.tags.length,
     triggers: proposal.triggers.length,
   });
+
+  // Auto-apply per the goddess's dial (ROADMAP-v1.5 C1.3). Default tags_only:
+  // tags + playlists land now, triggers wait for review.
+  const mode = await getSetting("organize_auto_apply");
+  if (mode !== "review_all") {
+    await autoApplyOrganize(trackId, review?.id ?? null, proposal, mode);
+  }
 }
 
 /** Organize every published track that has a completed transcript. */

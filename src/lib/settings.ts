@@ -19,6 +19,11 @@ export const SETTINGS_DEFAULTS = {
   vault_gating: "soft" as "soft" | "hard",
   threshold_track_ids: [] as string[],
   quiet_hours_default: [22, 9] as [number, number],
+  // Content pipeline (ROADMAP-v1.5 C1.3). auto_pipeline chains
+  // ingest → transcribe → organize; organize_auto_apply controls how much of
+  // the organize proposal lands without review.
+  auto_pipeline: true as boolean,
+  organize_auto_apply: "tags_only" as "review_all" | "tags_only" | "everything",
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

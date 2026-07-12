@@ -24,6 +24,7 @@ export default async function SanctumLibrary() {
       durationS: tracks.durationS,
       downloadable: tracks.downloadable,
       streamKey: tracks.streamKey,
+      pipeline: tracks.pipeline,
       transcriptStatus: transcripts.status,
     })
     .from(tracks)
@@ -48,6 +49,7 @@ export default async function SanctumLibrary() {
     durationS: r.durationS,
     downloadable: r.downloadable,
     hasAudio: r.streamKey != null,
+    pipeline: r.pipeline,
     transcriptStatus: (r.transcriptStatus ??
       "none") as LibraryRow["transcriptStatus"],
     tagCount: tagMap.get(r.id) ?? 0,

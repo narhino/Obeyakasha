@@ -8,6 +8,8 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { logAudit } from "@/lib/audit";
 import { ingestUploadFromPath } from "@/lib/media/ingest";
+import { enqueue } from "@/lib/jobs/queue";
+import { getSetting } from "@/lib/settings";
 
 /**
  * Streaming upload endpoint (ROADMAP-v1.5 C1.2). Accepts ONE audio file as a
@@ -62,6 +64,15 @@ export async function POST(req: NextRequest) {
       filename,
       durationS: result.durationS,
     });
+    // Auto-pipeline (ROADMAP C1.3): drop it in, walk away. The worker chains
+    // transcribe → organize; the track lands ready with tags proposed.
+    if (await getSetting("auto_pipeline")) {
+      await enqueue(
+        "transcribe",
+        { trackId: result.trackId },
+        { dedupeKey: `transcribe:${result.trackId}` },
+      );
+    }
     return Response.json({ trackId: result.trackId });
   } catch (err) {
     const message = err instanceof Error ? err.message : "upload failed";

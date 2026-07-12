@@ -46,16 +46,32 @@ export async function saveTierMapping(formData: FormData) {
   revalidatePath("/sanctum/access");
 }
 
-/** Toggle a boolean feature setting (automations, downloads). */
+/** Toggle a boolean feature setting (automations, downloads, auto-pipeline). */
 export async function toggleSetting(formData: FormData) {
   const session = await requireGoddess();
   const key = String(formData.get("key"));
-  const allowed = ["automations_enabled", "downloads_enabled"] as const;
+  const allowed = [
+    "automations_enabled",
+    "downloads_enabled",
+    "auto_pipeline",
+  ] as const;
   if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
   const { getSetting, setSetting } = await import("@/lib/settings");
   const k = key as (typeof allowed)[number];
   const current = await getSetting(k);
   await setSetting(k, !current);
   await logAudit(session.user.id, "setting.toggled", { key, value: !current });
+  revalidatePath("/sanctum/access");
+}
+
+/** Set how much of the organize proposal auto-applies (ROADMAP C1.3). */
+export async function setOrganizeAutoApply(formData: FormData) {
+  const session = await requireGoddess();
+  const value = String(formData.get("value"));
+  const allowed = ["review_all", "tags_only", "everything"] as const;
+  if (!(allowed as readonly string[]).includes(value)) throw new Error("bad value");
+  const { setSetting } = await import("@/lib/settings");
+  await setSetting("organize_auto_apply", value as (typeof allowed)[number]);
+  await logAudit(session.user.id, "setting.organize_auto_apply", { value });
   revalidatePath("/sanctum/access");
 }

@@ -9,6 +9,13 @@ export interface LibraryRow {
   durationS: number | null;
   downloadable: boolean;
   hasAudio: boolean;
+  pipeline:
+    | "uploaded"
+    | "transcribing"
+    | "organizing"
+    | "ready"
+    | "failed_transcribe"
+    | "failed_organize";
   transcriptStatus: "none" | "queued" | "processing" | "done" | "failed";
   tagCount: number;
 }

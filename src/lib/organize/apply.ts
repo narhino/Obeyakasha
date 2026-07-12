@@ -10,7 +10,7 @@ import {
   triggers,
 } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
-import { organizeProposalSchema } from "./types";
+import { organizeProposalSchema, type OrganizeProposal } from "./types";
 
 function slugify(s: string): string {
   return (
@@ -19,24 +19,12 @@ function slugify(s: string): string {
   );
 }
 
-/** Apply an approved organize proposal to the track (PLAN §8.3). Idempotent. */
-export async function applyReview(
-  reviewId: string,
-  actorId: string,
+/** Tags → canonical tags + track_tags. Idempotent. */
+async function applyTags(
+  trackId: string,
+  tagsProp: OrganizeProposal["tags"],
 ): Promise<void> {
-  const [row] = await db
-    .select()
-    .from(reviewQueue)
-    .where(eq(reviewQueue.id, reviewId))
-    .limit(1);
-  if (!row) throw new Error("Review not found");
-  const trackId = (row.subjectRef as { trackId?: string } | null)?.trackId;
-  if (!trackId) throw new Error("Review has no track");
-
-  const proposal = organizeProposalSchema.parse(row.proposal);
-
-  // Tags → canonical tags + track_tags.
-  for (const t of proposal.tags) {
+  for (const t of tagsProp) {
     const [tag] = await db
       .insert(tags)
       .values({ kind: t.kind, value: t.value })
@@ -58,9 +46,14 @@ export async function applyReview(
         .onConflictDoNothing();
     }
   }
+}
 
-  // Triggers → canonical triggers + track_triggers (with evidence timestamps).
-  for (const t of proposal.triggers) {
+/** Triggers → canonical triggers + track_triggers (with evidence). Idempotent. */
+async function applyTriggers(
+  trackId: string,
+  trigsProp: OrganizeProposal["triggers"],
+): Promise<void> {
+  for (const t of trigsProp) {
     const slug = slugify(t.name);
     const [trig] = await db
       .insert(triggers)
@@ -88,10 +81,14 @@ export async function applyReview(
         .onConflictDoNothing();
     }
   }
+}
 
-  // Playlists → find/create by title + placement.
-  for (const p of proposal.playlists) {
-    const slug = slugify(p.target);
+/** Playlists → find/create by title + placement. Idempotent. */
+async function applyPlaylists(
+  trackId: string,
+  plsProp: OrganizeProposal["playlists"],
+): Promise<void> {
+  for (const p of plsProp) {
     const [existing] = await db
       .select({ id: playlists.id })
       .from(playlists)
@@ -105,7 +102,6 @@ export async function applyReview(
         .returning();
       playlistId = created!.id;
     }
-    // Avoid duplicate placement.
     const [placed] = await db
       .select({ id: playlistItems.id })
       .from(playlistItems)
@@ -119,14 +115,66 @@ export async function applyReview(
     if (!placed) {
       await db.insert(playlistItems).values({ playlistId, trackId, sort: 0 });
     }
-    void slug;
   }
+}
+
+/** Apply an approved organize proposal to the track (PLAN §8.3). Idempotent. */
+export async function applyReview(
+  reviewId: string,
+  actorId: string,
+): Promise<void> {
+  const [row] = await db
+    .select()
+    .from(reviewQueue)
+    .where(eq(reviewQueue.id, reviewId))
+    .limit(1);
+  if (!row) throw new Error("Review not found");
+  const trackId = (row.subjectRef as { trackId?: string } | null)?.trackId;
+  if (!trackId) throw new Error("Review has no track");
+
+  const proposal = organizeProposalSchema.parse(row.proposal);
+  await applyTags(trackId, proposal.tags);
+  await applyTriggers(trackId, proposal.triggers);
+  await applyPlaylists(trackId, proposal.playlists);
 
   await db
     .update(reviewQueue)
     .set({ status: "approved", resolvedBy: actorId, resolvedAt: new Date() })
     .where(eq(reviewQueue.id, reviewId));
   await logAudit(actorId, "organize.approved", { reviewId, trackId });
+}
+
+/**
+ * Auto-apply an organize proposal per the `organize_auto_apply` setting
+ * (ROADMAP-v1.5 C1.3), called by the pipeline right after a proposal is made:
+ *  - "tags_only": apply tags + playlists now; leave triggers (safety-relevant)
+ *    in the pending review row for the goddess to approve.
+ *  - "everything": apply all three and mark the review row approved (system).
+ * Idempotent; a later manual approval re-applies harmlessly.
+ */
+export async function autoApplyOrganize(
+  trackId: string,
+  reviewId: string | null,
+  proposal: OrganizeProposal,
+  mode: "tags_only" | "everything",
+): Promise<void> {
+  await applyTags(trackId, proposal.tags);
+  await applyPlaylists(trackId, proposal.playlists);
+  if (mode === "everything") {
+    await applyTriggers(trackId, proposal.triggers);
+    if (reviewId) {
+      await db
+        .update(reviewQueue)
+        .set({ status: "approved", resolvedAt: new Date() })
+        .where(eq(reviewQueue.id, reviewId));
+    }
+  }
+  await logAudit(null, "organize.auto_applied", {
+    trackId,
+    mode,
+    tags: proposal.tags.length,
+    triggers: mode === "everything" ? proposal.triggers.length : 0,
+  });
 }
 
 export async function rejectReview(

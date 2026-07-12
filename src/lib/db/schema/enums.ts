@@ -157,3 +157,13 @@ export const jobStatus = pgEnum("job_status", [
   "done",
   "failed",
 ]);
+
+// Per-track content pipeline (ROADMAP-v1.5 C1.3)
+export const pipelineStatus = pgEnum("pipeline_status", [
+  "uploaded",
+  "transcribing",
+  "organizing",
+  "ready",
+  "failed_transcribe",
+  "failed_organize",
+]);

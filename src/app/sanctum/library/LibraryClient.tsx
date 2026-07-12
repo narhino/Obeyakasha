@@ -19,14 +19,35 @@ function fmtDuration(s: number | null): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-const WORKING = new Set(["queued", "processing"]);
+const TRANSCRIPT_WORKING = new Set(["queued", "processing"]);
+const PIPELINE_WORKING = new Set(["transcribing", "organizing"]);
 
-function StatusBadge({ status }: { status: LibraryRow["transcriptStatus"] }) {
-  if (status === "done") return <Badge tone="gold">script ready</Badge>;
-  if (status === "failed") return <Badge tone="danger">script failed</Badge>;
-  if (status === "processing") return <Badge tone="neutral">transcribing…</Badge>;
-  if (status === "queued") return <Badge tone="neutral">queued</Badge>;
-  return <Badge tone="sealed">no script</Badge>;
+function isWorking(t: LibraryRow): boolean {
+  return (
+    PIPELINE_WORKING.has(t.pipeline) ||
+    TRANSCRIPT_WORKING.has(t.transcriptStatus)
+  );
+}
+
+function PipelineBadge({ row }: { row: LibraryRow }) {
+  switch (row.pipeline) {
+    case "transcribing":
+      return <Badge tone="neutral">transcribing…</Badge>;
+    case "organizing":
+      return <Badge tone="neutral">organizing…</Badge>;
+    case "failed_transcribe":
+      return <Badge tone="danger">transcribe failed</Badge>;
+    case "failed_organize":
+      return <Badge tone="danger">organize failed</Badge>;
+    case "ready":
+      return row.transcriptStatus === "done" ? (
+        <Badge tone="gold">script ready</Badge>
+      ) : (
+        <Badge tone="sealed">ready</Badge>
+      );
+    default:
+      return <Badge tone="sealed">uploaded</Badge>;
+  }
 }
 
 export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
@@ -46,10 +67,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
     }
   }, []);
 
-  const anyWorking = useMemo(
-    () => tracks.some((t) => WORKING.has(t.transcriptStatus)),
-    [tracks],
-  );
+  const anyWorking = useMemo(() => tracks.some(isWorking), [tracks]);
   usePolling(() => void refetch(), uploadsActive || anyWorking ? 2500 : 15000);
 
   const patch = (id: string, next: Partial<LibraryRow>) =>
@@ -126,7 +144,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                   >
                     {t.visibility}
                   </Badge>
-                  <StatusBadge status={t.transcriptStatus} />
+                  <PipelineBadge row={t} />
                 </div>
               </div>
 
@@ -153,11 +171,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={
-                    !t.hasAudio ||
-                    busyId === t.id ||
-                    WORKING.has(t.transcriptStatus)
-                  }
+                  disabled={!t.hasAudio || busyId === t.id || isWorking(t)}
                   onClick={() => onTranscribe(t.id)}
                 >
                   {t.transcriptStatus === "done" ? "Re-transcribe" : "Transcribe"}

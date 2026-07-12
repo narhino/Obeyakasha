@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { users } from "./identity";
 import {
+  pipelineStatus,
   programGating,
   playlistKind,
   reviewKind,
@@ -41,6 +42,7 @@ export const tracks = pgTable(
     downloadable: boolean("downloadable").notNull().default(true),
     visibility: trackVisibility("visibility").notNull().default("draft"),
     kind: trackKind("kind").notNull().default("session"),
+    pipeline: pipelineStatus("pipeline").notNull().default("uploaded"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     source: trackSource("source").notNull().default("upload"),
     patreonPostId: text("patreon_post_id"),

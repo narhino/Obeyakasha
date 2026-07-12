@@ -3,14 +3,27 @@ import { tierMappings } from "@/lib/db/schema";
 import { getRawSetting, getSetting } from "@/lib/settings";
 import type { PatreonTier } from "@/lib/patreon/client";
 import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
-import { saveTierMapping, toggleSetting } from "./actions";
+import {
+  saveTierMapping,
+  setOrganizeAutoApply,
+  toggleSetting,
+} from "./actions";
 
 export default async function AccessPage() {
-  const [existing, discoveredTiers, automations, downloads] = await Promise.all([
+  const [
+    existing,
+    discoveredTiers,
+    automations,
+    downloads,
+    autoPipeline,
+    autoApply,
+  ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
     getSetting("automations_enabled"),
     getSetting("downloads_enabled"),
+    getSetting("auto_pipeline"),
+    getSetting("organize_auto_apply"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -130,6 +143,59 @@ export default async function AccessPage() {
           Automations send reclaim nudges to inactive subjects and broken chains
           (respects quiet hours). Off by default.
         </Whisper>
+      </Card>
+
+      {/* Content pipeline (ROADMAP C1.3) */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">Content pipeline</Whisper>
+        <div className="flex flex-wrap items-center gap-3">
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="auto_pipeline" />
+            <Button
+              type="submit"
+              size="sm"
+              variant={autoPipeline ? "gold" : "ghost"}
+            >
+              Auto-pipeline: {autoPipeline ? "on" : "off"}
+            </Button>
+          </form>
+        </div>
+        <Whisper className="mt-2 text-xs">
+          When on, a new upload transcribes and organizes itself — drop files in
+          and walk away. Everything still lands as a draft until you publish.
+        </Whisper>
+
+        <div className="mt-4 border-t border-line pt-3">
+          <Whisper className="mb-2 text-xs uppercase tracking-wide">
+            How much organizing applies on its own
+          </Whisper>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["tags_only", "Tags only"],
+                ["everything", "Everything"],
+                ["review_all", "Review all"],
+              ] as const
+            ).map(([value, label]) => (
+              <form action={setOrganizeAutoApply} key={value}>
+                <input type="hidden" name="value" value={value} />
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant={autoApply === value ? "gold" : "ghost"}
+                >
+                  {label}
+                </Button>
+              </form>
+            ))}
+          </div>
+          <Whisper className="mt-2 text-xs">
+            <b>Tags only</b> (recommended): tags and playlist placements apply
+            automatically; trigger suggestions wait for your approval.{" "}
+            <b>Everything</b>: triggers apply too. <b>Review all</b>: nothing
+            applies until you approve it in Organize.
+          </Whisper>
+        </div>
       </Card>
 
       {/* Manual add (fallback when tiers weren't auto-discovered). */}

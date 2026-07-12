@@ -264,3 +264,25 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   queue can retry; its one legacy caller already guarded with `.catch()`.
 - Idempotency: a partial unique index (`jobs_dedupe_active_uq`) allows at most
   one active job per dedupeKey; `enqueue` uses `ON CONFLICT DO NOTHING`.
+
+## 2026-07-12 — v1.5 C1.3: auto-pipeline + auto-apply (deviation from F5 "nothing auto-applies")
+
+- PLAN §8 / the F5 organize design held that NOTHING applies without the
+  goddess approving it in the review queue. C1.3 adds an opt-in auto-pipeline
+  (setting `auto_pipeline`, default on): an upload chains transcribe → organize
+  automatically, and a new `organize_auto_apply` dial controls how much lands
+  without review:
+    - `review_all` — original F5 behavior (nothing auto-applies).
+    - `tags_only` — DEFAULT: tags + playlist placements apply automatically;
+      trigger proposals still queue for review (triggers are safety-relevant).
+    - `everything` — tags + triggers + playlists apply; the review row is
+      marked approved (system actor) and Organize becomes an undo/curate view.
+  This is Akasha's explicit ask ("import-everything, organize-everything") and
+  it stays entirely her dial in Sanctum → Access. Auto-apply reuses the
+  idempotent apply helpers, so a later manual approval re-applies harmlessly.
+- New `tracks.pipeline` column (uploaded → transcribing → organizing → ready |
+  failed_transcribe | failed_organize) drives the live status in the reactive
+  library; existing rows backfilled to `ready` in 0002_track_pipeline.sql.
+- Pipeline transitions + the transcribe→organize chaining live in the job
+  handlers (one visible state machine); triggers still never auto-apply under
+  `tags_only`, preserving the safety posture for anything trigger-related.
