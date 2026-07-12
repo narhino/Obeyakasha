@@ -13,6 +13,8 @@ import { copy } from "@/copy/copy";
 const nav = [
   { href: "/library", label: copy.library.title },
   { href: "/programs", label: "Trainings" },
+  { href: "/whispers", label: "Whispers" },
+  { href: "/asks", label: "Asks" },
   { href: "/me", label: "You" },
 ];
 

@@ -9,6 +9,9 @@ const nav = [
   { href: "/sanctum/organize", label: "Organize" },
   { href: "/sanctum/programs", label: "Programs" },
   { href: "/sanctum/broadcast", label: "Broadcast" },
+  { href: "/sanctum/whispers", label: "Whispers" },
+  { href: "/sanctum/polls", label: "Polls" },
+  { href: "/sanctum/questions", label: "Questions" },
   { href: "/sanctum/access", label: "Access" },
   { href: "/sanctum/audit", label: "Audit" },
 ];
