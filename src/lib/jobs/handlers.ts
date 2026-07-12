@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { tracks } from "@/lib/db/schema";
 import { transcribeTrack } from "@/lib/transcribe/run";
 import { organizeTrack } from "@/lib/organize/run";
+import { analyzeTrack } from "@/lib/analyze/run";
 import { getSetting } from "@/lib/settings";
 import { enqueue } from "./queue";
 import { registerHandler } from "./runner";
@@ -43,6 +44,10 @@ export function registerCoreJobHandlers(): void {
       }
       if (await getSetting("auto_pipeline")) {
         await setPipeline(trackId, "organizing");
+        // analyze (dossier) and organize (review proposal) are independent
+        // writers over the same transcript — run both; an analyze failure must
+        // never block the track from reaching `ready`.
+        await enqueue("analyze", { trackId }, { dedupeKey: `analyze:${trackId}` });
         await enqueue(
           "organize",
           { trackId },
@@ -51,6 +56,18 @@ export function registerCoreJobHandlers(): void {
       } else {
         await setPipeline(trackId, "ready");
       }
+    },
+    1,
+  );
+
+  // Heavy dossier analysis (ROADMAP Phase D). Concurrency 1 — D3 routes this to
+  // Opus 4.8. Does not touch the pipeline state; it's supplementary to organize.
+  registerHandler(
+    "analyze",
+    async (payload) => {
+      const trackId = String(payload.trackId ?? "");
+      if (!trackId) throw new Error("analyze: missing trackId");
+      await analyzeTrack(trackId);
     },
     1,
   );
