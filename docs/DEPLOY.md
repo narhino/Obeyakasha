@@ -80,6 +80,15 @@ below is pasted into this window (right-click or Ctrl+Shift+V to paste).
 3. Save. DNS can take a few minutes (occasionally up to an hour) to take effect.
    You can continue while it propagates.
 
+> **If your domain is on Cloudflare — read this or the site breaks.**
+> Cloudflare shows an **orange cloud** next to each DNS record, meaning it
+> proxies your traffic. Your server (Caddy) gets its own HTTPS certificate
+> automatically, and the orange-cloud proxy *blocks* that from happening — the
+> result is a **"SSL handshake failed — Error code 525"** page for your visitors.
+> **Click the orange cloud so it turns grey ("DNS only")** on both the `@` and
+> `www` records. That's the setup this stack is built for. (See the 525 fix in
+> **Troubleshooting** below if you've already hit it.)
+
 ---
 
 ## D. Create your Patreon app (~10 min)
@@ -271,6 +280,52 @@ blend in an LLM pass automatically.
 **Prefer ElevenLabs?** Scribe (their speech-to-text) is more accurate but paid
 (~$0.40/hour after a small free tier). The code already has a provider slot for
 it — say the word and I'll wire your `ELEVENLABS_API_KEY` in.
+
+---
+
+## Troubleshooting
+
+### "SSL handshake failed — Error code 525"
+
+This exact error only ever comes from **Cloudflare**. It means Cloudflare is
+proxying your domain (the **orange cloud**), and it can't complete a secure
+handshake with your server — because your server's Caddy hasn't been allowed to
+get its own HTTPS certificate. That "works on one browser, fails on another"
+flicker is the same cause: different Cloudflare edges, some retrying the failed
+handshake.
+
+**The fix (2 minutes) — turn the proxy off:**
+
+1. Go to the **Cloudflare dashboard → your domain → DNS → Records**.
+2. On the `@` record (and `www` if present), click the **orange cloud** so it
+   turns **grey** — it now says **"DNS only."**
+3. Save. Wait ~2 minutes, then reload **https://YOURDOMAIN** in a fresh tab.
+   Caddy fetches its certificate and the 525 is gone.
+
+This is the right setup for this platform anyway: Caddy already gives you free,
+auto-renewing HTTPS, and going direct avoids Cloudflare's upload-size limit and
+buffering — which matter for long audio files and large uploads.
+
+**If you specifically want to keep Cloudflare's proxy on** (orange cloud, for
+its CDN/DDoS shield), you must give the origin a certificate Cloudflare trusts:
+
+1. Cloudflare → **SSL/TLS → Origin Server → Create Certificate** (accept the
+   defaults; it's a 15-year cert). Copy the **certificate** and **private key**.
+2. On the server, save them (e.g. `deploy/origin.pem` and `deploy/origin.key`),
+   and in `deploy/Caddyfile` replace the site line's automatic TLS by adding
+   inside the block: `tls /etc/caddy/origin.pem /etc/caddy/origin.key` (mount
+   the two files into the Caddy container), then redeploy.
+3. Cloudflare → **SSL/TLS → Overview → set the mode to "Full (strict)."**
+
+Grey-cloud (the first option) is what I recommend unless you have a specific
+reason to keep Cloudflare in front.
+
+### Site won't load at all / "took too long"
+
+- Give it 1–2 minutes on the very first visit (certificate fetch).
+- Check the app is up: in the server console, `docker compose -f
+  compose.prod.yml ps` — all services should say `running`/`healthy`.
+- Confirm DNS points at the server IP: DNS changes can take up to an hour.
 
 ---
 

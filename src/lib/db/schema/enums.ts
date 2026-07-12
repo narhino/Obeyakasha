@@ -149,3 +149,11 @@ export const automationTrigger = pgEnum("automation_trigger", [
   "anniversary",
   "lapse",
 ]);
+
+// Durable job queue (ROADMAP-v1.5 C1.1)
+export const jobStatus = pgEnum("job_status", [
+  "queued",
+  "running",
+  "done",
+  "failed",
+]);

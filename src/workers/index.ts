@@ -6,12 +6,15 @@ import { getSetting } from "@/lib/settings";
 import { closePoll, expiredOpenPolls } from "@/lib/polls/ops";
 import { broadcast } from "@/lib/push/broadcast";
 import { logAudit } from "@/lib/audit";
+import { jobsTick } from "@/lib/jobs/runner";
+import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
 
 /**
  * Worker process (PLAN §18). Interval-based rather than pg-boss for v1 — simple
  * and sufficient at this scale (see docs/DECISIONS.log.md). Runs safe,
  * deterministic ticks (poll close) always; presence automations only when the
  * `automations_enabled` setting is on, so nothing pings subjects by default.
+ * Also drains the durable job queue (ROADMAP-v1.5 C1.1) every 3s.
  */
 
 async function pollCloseTick() {
@@ -83,7 +86,10 @@ async function safe(name: string, fn: () => Promise<void>) {
 }
 
 async function main() {
-  console.log("[worker] started (interval scheduler).");
+  console.log("[worker] started (interval scheduler + job queue).");
+  registerCoreJobHandlers();
+  // Durable job queue: drain every 3s (transcribe/organize/…).
+  setInterval(() => void safe("jobs", jobsTick), 3_000);
   // Poll close: every 5 minutes.
   setInterval(() => void safe("pollClose", pollCloseTick), 5 * 60_000);
   // Presence automations: hourly.

@@ -8,7 +8,7 @@ import { tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { ingestUpload } from "@/lib/media/ingest";
-import { transcribeTrack } from "@/lib/transcribe/run";
+import { enqueue } from "@/lib/jobs/queue";
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2GB (PLAN §7.2)
 
@@ -95,14 +95,14 @@ export async function setTrackVisibility(formData: FormData) {
   revalidatePath("/sanctum/library");
 }
 
-/** Kick off transcription (fire-and-forget; runs on the persistent server). */
+/** Kick off transcription by enqueuing a durable job (ROADMAP C1.1). */
 export async function requestTranscription(formData: FormData) {
   const session = await requireGoddess();
   const trackId = String(formData.get("trackId"));
   if (!trackId) throw new Error("No track");
   await logAudit(session.user.id, "transcript.requested", { trackId });
-  // Not awaited: the UI returns immediately and shows "processing".
-  void transcribeTrack(trackId).catch(() => {});
+  // The worker picks this up within ~3s and marks the transcript processing.
+  await enqueue("transcribe", { trackId }, { dedupeKey: `transcribe:${trackId}` });
   revalidatePath("/sanctum/library");
 }
 

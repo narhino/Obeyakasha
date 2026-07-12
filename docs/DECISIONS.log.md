@@ -245,3 +245,22 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   visually. Note: fixed grain overlay stitches oddly in full-page screenshot
   tools; live rendering is uniform.
 - 124 tests, typecheck, lint, prod build (incl. build-time font fetch) green.
+
+## 2026-07-12 — v1.5 C1.1: durable job queue (deviation from pg-boss)
+
+- PLAN §18 named pg-boss for background jobs; the M0 worker shipped as an
+  interval scheduler instead. C1.1 keeps that process but adds a lightweight
+  durable queue in our own Postgres rather than adopting pg-boss — one `jobs`
+  table + `FOR UPDATE SKIP LOCKED` claim, per-kind in-process concurrency, and
+  backoff retries (1m/5m/15m, 3 attempts). Rationale: zero new deps, one
+  connection pool, full visibility in the same DB the Sanctum already reads,
+  and it is exactly enough at single-worker scale. If we ever run multiple
+  worker replicas, the per-kind concurrency cap must move from in-process
+  counters to a DB-derived running count (documented here as the upgrade path).
+- The web process now only *enqueues*; `requestTranscription` enqueues a
+  `transcribe` job (dedupeKey `transcribe:<trackId>`) instead of a
+  fire-and-forget promise, so transcription survives a web restart.
+- `transcribeTrack` now re-throws after recording the failed status, so the
+  queue can retry; its one legacy caller already guarded with `.catch()`.
+- Idempotency: a partial unique index (`jobs_dedupe_active_uq`) allows at most
+  one active job per dedupeKey; `enqueue` uses `ON CONFLICT DO NOTHING`.

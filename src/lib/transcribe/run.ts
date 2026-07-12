@@ -57,5 +57,8 @@ export async function transcribeTrack(trackId: string): Promise<void> {
       trackId,
       message: err instanceof Error ? err.message : String(err),
     });
+    // Re-throw so the job queue can retry with backoff (ROADMAP C1.1). The
+    // legacy fire-and-forget caller guards with `.catch(() => {})`.
+    throw err;
   }
 }
