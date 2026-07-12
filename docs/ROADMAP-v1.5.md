@@ -14,8 +14,18 @@
 2. She wants **import-everything, organize-everything automatically** — drop
    the whole catalog in and walk away.
 3. The player should feel **like Spotify** — advanced, personal.
+4. **Nothing lost.** Every transcribed track gets its own **page** showing the
+   transcript, the keywords found, and the triggers detected — so she can
+   *approve* each into real tags and *place* the track into a training or
+   series. She wants a **full data-management system with a great agent doing
+   the heavy work**, heavy analysis handed to **Opus 4.8**, inspired by
+   shibbydex.com's per-file pages — but better, because we own the player.
+5. **Import from Patreon, not YouTube.** Pull her posts (titles + descriptions
+   + audio attachments) straight from her Patreon page, with the option to
+   rewrite descriptions in her voice.
 
-Priority: content first (C1), then player (P1→P3).
+Priority: content foundation first (C1) → data management (D) → Patreon
+import (I) → Whispers (W) → player (P1→P3).
 
 ---
 
@@ -87,6 +97,187 @@ with statuses updating live the whole time. No page refreshes anywhere.
   normal pipeline with title from YouTube. Flagged behind setting
   `yt_import_enabled` (default off). Note: fetching your own uploads via
   yt-dlp technically brushes YouTube ToS — her call to enable; content is hers.
+
+---
+
+## Phase D — Track Data Management ("nothing lost")
+
+The heart of this request. Today a track is a row and an audio file; after
+transcription the words, the keywords, and the triggers exist only long enough
+to become review-queue proposals, then evaporate. Phase D makes every track a
+**durable dossier** — a page that keeps everything the agent ever found, lets
+her approve findings into canonical tags/triggers/placements one tap at a time,
+and never throws a discovery away. Model: shibbydex.com's per-file pages
+(description · intended effects · categorised tags · length · versions ·
+recommendations), plus the one thing shibbydex can't do — **we own the player**,
+so every trigger and keyword links straight to the exact second it's spoken.
+
+**DoD:** open any track → read its full transcript, see every keyword and
+trigger the agent found (each with play-from-timestamp), approve the good ones
+into tags/triggers with one tap, drop the track into a training or series,
+rewrite its description in her voice — and know that nothing the agent ever
+surfaced was lost, even the parts she didn't approve.
+
+### D1 Durable analysis store (nothing is thrown away)
+
+- New table `track_analysis` (one row per track, upserted by the agent):
+  `track_id uuid pk→tracks, model text, keywords jsonb, triggers jsonb,
+  suggested_tags jsonb, suggested_description text, intended_effects jsonb,
+  safety_notes text, summary text, raw jsonb, created_at, updated_at`.
+  - `keywords`: `{ phrase, category(fetish|descriptive|hypnosis_type|state),
+    salience(0..1), tagKind, evidence:[{start,end}] }[]` — category mirrors
+    shibbydex's grouping; `tagKind` pre-maps to our `tag_kind`
+    (theme/purpose/format/intensity/custom) so approval is one click.
+  - `triggers`: superset of the current `triggerProposalSchema` (name,
+    relation, evidence timestamps, confidence) + `phrase` and
+    `suggestedSafetyNotes`.
+  - This row is **permanent and admin-only**; it is the "nothing lost" ledger.
+    Approving a finding never deletes it here — it just flips a
+    `status: proposed|approved|dismissed` on that entry (kept in `raw`/jsonb),
+    so a dismissed keyword can be reconsidered later.
+- The existing `review_queue` still receives proposals (so the batch Organize
+  page keeps working), but `track_analysis` is now the source of truth the
+  dossier reads from. `applyReview` and dossier-approve share one apply core.
+
+### D2 The Track Dossier — `/sanctum/tracks/[id]` (goddess-gated)
+
+A single scroll, shibbydex-shaped, her-voiced, editorial-occult styled:
+
+1. **Header / identity.** Editable title, slug, artwork, `kind`, `minAccessLevel`,
+   `visibility`, `downloadable`; read-outs for duration, source
+   (upload/patreon_import), plays, devotions, pipeline status. Inline edits
+   save via fetch + optimistic update (no refresh), each `logAudit()`'d.
+2. **Description.** Rich editable field with an **"in her voice" rewrite**
+   button (agent draft → she edits → save). The pre-rewrite text is preserved
+   in `track_analysis.raw.originalDescription` — nothing lost.
+3. **Transcript** (admin-only, never shipped to subjects — CLAUDE.md privacy).
+   Full text + timestamped segments, in-page search, copy, and **re-run
+   transcription**. Each segment has a ▸ to play the track from that second.
+4. **Keywords.** Every phrase the agent found, grouped by category
+   (fetish · descriptive · hypnosis-type · state), each showing salience and a
+   ▸ play-from-evidence. One-tap **Approve → tag** creates/links the `tags`
+   row with the pre-mapped `tag_kind` and `source='agent'`; **Dismiss** keeps
+   it in the ledger, greyed. Manual "+ add tag" too.
+5. **Triggers.** Detected triggers with relation (installs/reinforces/requires),
+   confidence, and **evidence chips that play the exact passage** — her verify
+   loop. Approve → writes `track_triggers` (+ creates the `triggers` row if new)
+   with the evidence copied into `track_triggers.timestamps`. Safety-relevant,
+   so these **always** require her tap (never auto-applied, even under
+   `everything` mode from C1.3).
+6. **Placement.** Add to **training** (`programs` → `program_items`, with
+   day/sort) and **series/collection** (`playlists` → `playlist_items`);
+   shows current memberships with remove/reorder. This is her "add to a
+   training or a series" ask, made first-class.
+7. **Versions / variants** (shibbydex parity). Group related renders of one
+   work — binaural, music-bed, no-background, extended, SFW-teaser. New
+   `track_variants (group_id uuid, track_id uuid, variant_label text,
+   sort int)`; the dossier shows sibling variants and lets her link/label them.
+   The player later offers a variant switcher on one logical track.
+8. **Recommendations / chains** (shibbydex "file chains"). Ordered "listen
+   next" edges via new `track_relations (from_track, to_track, kind
+   enum(next|related|prerequisite), sort)`. Agent proposes; she curates. Feeds
+   Player v2's autoplay + the subject file page's "after this" rail.
+
+### D3 The heavy agent (Opus 4.8 does the thinking)
+
+- New job kind `analyze` (added to C1.1's queue), enqueued after `transcribe`
+  succeeds and before/with `organize`. Handler in `src/lib/analyze/run.ts`.
+- **Tiered model routing** so cost tracks difficulty ("think Fable, execute
+  lower, heavy → Opus"):
+  - Setting `analysis_model` (default `opus-4.8`) names the heavy model; a
+    `analysis_model_light` (default a haiku-class model) handles short tracks /
+    re-runs. Router picks by transcript length + whether triggers are suspected.
+  - The local `heuristicOrganize` stays as the **always-on floor** — if the LLM
+    is disabled or errors, the dossier still fills from heuristics. LLM output
+    is merged over heuristics, never replacing evidence-timestamps the
+    heuristic found by scanning segments.
+- One structured call returns the whole dossier (keywords + triggers +
+  description rewrite + intended effects + safety notes + suggested placements
+  + recommendations), validated by a single zod schema
+  (`src/lib/analyze/schema.ts`, superset of `organizeProposalSchema`). Invalid
+  → one repair retry → fall back to heuristic-only, and mark
+  `track_analysis.model='heuristic'` so she knows.
+- Prompt is built from `OrganizeInput` + known triggers + her tag vocabulary,
+  and instructed in Akasha's brand voice for any prose (description/effects).
+  Provider name never surfaces in UI (CLAUDE.md privacy).
+
+### D4 Subject-facing file page (the shibbydex payoff, safely)
+
+- Public per-track page `/library/track/[slug]` for subjects: artwork, her
+  **approved** description + intended effects, **approved** tags (as filters),
+  length, required/installed triggers *by name only*, variants switcher, and a
+  big **play/queue** CTA + an "after this" rail from `track_relations`.
+- Hard privacy line: **transcript, keywords, agent rationale, salience, and any
+  dismissed/unapproved finding never render here.** Only what she approved, and
+  never another subject's presence (D7). This is the shibbydex file page — but
+  with our player, "play" is one tap, not a link out.
+
+---
+
+## Phase I — Patreon Importer ("bring the catalog home")
+
+Her real catalog lives on Patreon. Import posts **with their titles and
+descriptions and audio**, dedupe against what's already here, and drop each into
+the C1 pipeline so it lands as a fully-analysed dossier. Not YouTube — Patreon.
+The schema already anticipated this: `tracks.source='patreon_import'` and
+`tracks.patreon_post_id` exist today.
+
+### I1 Client — read her posts
+
+- Extend `src/lib/patreon/client.ts` with `fetchCampaignPosts(accessToken,
+  cursor?)` → `GET /campaigns/{id}/posts?include=attachments_media` with
+  `fields[post]=title,content,url,published_at,is_public` and
+  `fields[media]=download_url,file_name,mimetype,size_bytes`. Cursor pagination;
+  tolerant JSON:API parsing like the existing helpers. Returns
+  `{ posts: {postId,title,contentHtml,url,publishedAt,audio:
+  {downloadUrl,fileName,mime,bytes}[] }[], nextCursor }`.
+- Uses the creator access token (same token infra as `fetchCampaignTiers`).
+  Token stays in gitignored env / settings, never in the repo; **rotate the
+  chat-exposed secret before launch** (open security item).
+
+### I2 Import surface (Sanctum → Content → Import from Patreon)
+
+- Lists her posts newest-first: title, published date, an **audio?** chip, and
+  an **imported?** chip (dedupe on `patreon_post_id`). Checkbox select + "select
+  all new" → enqueues `patreon-import` jobs (C1.1 queue). Posts with no audio
+  attachment are shown but not selectable for track import (could still seed a
+  Whisper later).
+
+### I3 Import job
+
+- `patreon-import` handler: for each selected post → download each
+  `attachments_media` audio via its `download_url` (streamed to temp, never
+  fully buffered — mirrors C1.2) → hand to `ingestUpload` (path variant) →
+  create `tracks` row with `source='patreon_import'`, `patreon_post_id` set,
+  `title` from the post, `description` = HTML→text of `content`, `visibility`
+  starts `draft`. Then enqueue the normal `transcribe → analyze → organize`
+  chain. Idempotent on `(patreon_post_id, file_name)`.
+- The **original** Patreon title + HTML description are preserved in
+  `track_analysis.raw` before any rewrite (nothing lost).
+
+### I4 Description rewriting
+
+- At import (bulk) and on the dossier (per-track): **"rewrite in her voice"**
+  runs the D3 agent on the imported description, producing a clean, in-brand
+  version she approves/edits. Original kept. Batch action: "rewrite all
+  imported descriptions" queues per-track `analyze` prose passes.
+
+### I5 Auto-import (optional, her dial)
+
+- Setting `patreon_auto_import` (default **off**): a nightly worker job polls
+  `fetchCampaignPosts`, imports any new post with audio automatically, and (if
+  `auto_pipeline` on) runs the whole chain — "drop it on Patreon, find it here
+  organised." New tracks land `draft` so nothing publishes without her.
+
+### New settings (Phase D + I)
+
+```
+analysis_model         default "opus-4.8"     # heavy dossier analysis
+analysis_model_light   default "haiku-class"  # short tracks / re-runs
+analysis_enabled       default true           # LLM pass on/off (heuristic floor stays)
+patreon_import_enabled default true
+patreon_auto_import    default false
+```
 
 ---
 
@@ -175,14 +366,23 @@ view (her IP, never shown), social/collaborative queues (D7).
 
 ---
 
-## Execution model ("think Fable, execute lower")
+## Execution model ("think Fable, execute lower, heavy → Opus")
 
-- This document is the thinking artifact. Each C1/P module above is a
-  delegation unit: a sonnet-class agent implements from its spec in an
-  isolated worktree; haiku-class agents do mechanical sweeps (fixtures, docs,
-  emoji/color audits). The planner writes interface stubs first (queue API,
-  store signatures), reviews diffs, integrates, and runs the full gate
-  (typecheck · lint · vitest · build) before every commit.
-- Order: C1.1 → C1.2+C1.4 (parallel) → C1.3 → ship. Then **W** (reuses C1.2
-  uploads), then P1 → P2 → P3 — each phase shippable alone. C1.5 only on
-  Akasha's yes.
+- This document is the thinking artifact. Each module above is a delegation
+  unit: a sonnet-class agent implements from its spec in an isolated worktree;
+  haiku-class agents do mechanical sweeps (fixtures, docs, emoji/color audits).
+  The planner writes interface stubs first (queue API, store signatures,
+  `track_analysis`/analyze schemas), reviews diffs, integrates, and runs the
+  full gate (typecheck · lint · vitest · build) before every commit.
+- **Two model axes, kept separate.** *Build-time* delegation = who writes the
+  code (sonnet/haiku, under the planner). *Run-time* delegation = who does the
+  heavy work in production: the **`analyze` job routes to Opus 4.8** for real
+  dossier analysis (D3), with a haiku-class light model for short tracks and a
+  local heuristic floor that always runs. The planner never hardcodes the
+  provider — it's the `analysis_model` setting, and its name never reaches the
+  UI (privacy).
+- Order: **C1** (foundation: C1.1 → C1.2+C1.4 parallel → C1.3 → ship) →
+  **D** (D1 store → D3 agent → D2 dossier → D4 subject page) →
+  **I** (Patreon import; reuses C1.2 streaming + D3 rewrite) →
+  **W** (reuses C1.2 uploads) → **P1 → P2 → P3**. Each phase ships alone.
+  C1.5 (YouTube) only on Akasha's yes; D/I assume C1's durable queue exists.
