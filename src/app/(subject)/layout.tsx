@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
 import { requireSubject } from "@/lib/auth-helpers";
 import { hasCoreConsent } from "@/lib/consent";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
 import { PlayerRoot } from "@/components/player/PlayerRoot";
 import { SubjectGate } from "@/components/gate/SubjectGate";
+import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
 import { copy } from "@/copy/copy";
 
 const nav = [
   { href: "/library", label: copy.library.title },
   { href: "/programs", label: "Trainings" },
+  { href: "/me", label: "You" },
 ];
 
 export default async function SubjectLayout({
@@ -18,9 +23,16 @@ export default async function SubjectLayout({
 }) {
   const session = await requireSubject();
   const consented = await hasCoreConsent(session.user.id);
+  const [me] = await db
+    .select({ chosenName: users.chosenName })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+  const intakeDone = Boolean(me?.chosenName);
 
   return (
     <SubjectGate alreadyConsented={consented}>
+      <IntakeGuard done={intakeDone}>
       <div className="min-h-dvh pb-24">
         <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
           <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
@@ -47,6 +59,7 @@ export default async function SubjectLayout({
         {children}
         <PlayerRoot />
       </div>
+      </IntakeGuard>
     </SubjectGate>
   );
 }

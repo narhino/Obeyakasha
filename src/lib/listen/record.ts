@@ -8,6 +8,8 @@ import {
   tracks,
   userTriggers,
 } from "@/lib/db/schema";
+import { getSetting } from "@/lib/settings";
+import { keepChain } from "@/lib/chain/keep";
 import { isComplete } from "./completion";
 
 /** On a completed listen, add any triggers this track INSTALLS to the vault (A5). */
@@ -104,8 +106,19 @@ export async function recordEnd(params: {
     .where(eq(listenSessions.id, sessionId))
     .limit(1);
 
+  const [sessionRow] = await db
+    .select({ secondsListened: listenSessions.secondsListened })
+    .from(listenSessions)
+    .where(eq(listenSessions.id, sessionId))
+    .limit(1);
   const maxPos = Math.max(existing?.maxPositionS ?? 0, Math.round(positionS));
   const completed = isComplete(maxPos, track?.durationS);
+
+  // Keep the Chain of Obedience if they listened enough today (A7).
+  const chainMin = await getSetting("chain_min_seconds");
+  if ((sessionRow?.secondsListened ?? 0) >= chainMin) {
+    await keepChain(userId, "listen").catch(() => {});
+  }
 
   await db
     .update(listenSessions)
