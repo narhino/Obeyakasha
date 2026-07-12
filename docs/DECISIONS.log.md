@@ -95,3 +95,47 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   itself runs on Akasha's server, where registry access is normal.
 - **Runbook:** `docs/DEPLOY.md` — non-technical, step-by-step (domain → Hetzner
   server → DNS → Patreon app → one-command launch → first upload/listen test).
+
+## 2026-07-11 — Deploy troubleshooting (live with Akasha)
+
+- **Pinned pnpm@10.33.0** (`packageManager` field) — the Docker build let
+  corepack fetch pnpm 11, whose minimum-release-age policy rejected two
+  just-published transitive deps. Pin matches the committed lockfile.
+- **Docker build placeholder envs** — `next build` imports route modules (env
+  validation runs at import) but `DATABASE_URL` only exists at runtime, so the
+  build failed. Set throwaway `DATABASE_URL`/`AUTH_SECRET` in the build stage;
+  verified the build never connects (`next build` passes with an unreachable
+  host). Added `.dockerignore` (no secrets/bulk in the image) and `public/.gitkeep`.
+- **AUTH_URL from APP_ORIGIN** — behind Caddy, Auth.js resolved its URL to
+  localhost and OAuth callbacks broke (`error=Configuration`). Set
+  `AUTH_URL=${APP_ORIGIN}` + `AUTH_TRUST_HOST=true` on the web service.
+- **bootstrap adds swap** on <3GB servers so the first `next build` can't OOM.
+
+## 2026-07-11 — M2 build (PWA + push)
+
+- **Hand-authored service worker** (`public/sw.js`) rather than a generated one:
+  push + notificationclick + network-first navigations + minimal shell cache.
+  Kept legible/stable; no build step. API and audio-stream paths are never
+  intercepted.
+- **Gate enforcement is server+client.** Age + hypnosis-terms consent is stored
+  in `consents` and checked server-side in the subject layout; install +
+  notification steps are checked/handled client-side in `SubjectGate`.
+- **Install/permission steps are guided but SOFT.** A browser tab cannot reliably
+  detect "added to home screen" (the installed PWA is a separate context), and
+  push permission can be denied — forcing either would lock subjects out. So the
+  Gate instructs and lets them proceed, recording device state. Consent is the
+  only hard gate. Hard install-enforcement is not worth the lock-out risk.
+- **Push requirement is conditional on configuration.** If VAPID keys aren't set
+  yet, the notification step is skipped (the app is fully usable pre-VAPID); once
+  keys are added, the Gate asks for permission and `broadcast()` delivers.
+- **Quiet hours enforced by skipping, not deferring.** Non-system notifications
+  to subjects currently inside their quiet window are held back (delivery row
+  marked `queued`, not sent). True deferred re-send belongs to the pg-boss
+  worker (a later milestone); skipping is the honest MVP that avoids 3am pings.
+- **Inbox "unseen" is client-side** (localStorage timestamp vs newest
+  notification) — no schema change for M2; a server-side read model can come
+  later if needed.
+- **Push send/audience/quiet-hours verified** (`broadcast.test.ts`,
+  `quiet.test.ts`) with `web-push` mocked: audience expansion (all/level/users),
+  personalization, delivery recording, no-device + quiet-hours skip paths.
+  Real device delivery is verified on a phone after deploy.

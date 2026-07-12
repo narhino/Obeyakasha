@@ -7,6 +7,7 @@ const nav = [
   { href: "/sanctum", label: "Today" },
   { href: "/sanctum/library", label: "Library" },
   { href: "/sanctum/programs", label: "Programs" },
+  { href: "/sanctum/broadcast", label: "Broadcast" },
   { href: "/sanctum/access", label: "Access" },
   { href: "/sanctum/audit", label: "Audit" },
 ];

@@ -38,6 +38,7 @@ export const authConfig = {
       if (
         pathname.startsWith("/library") ||
         pathname.startsWith("/programs") ||
+        pathname.startsWith("/inbox") ||
         pathname.startsWith("/me")
       ) {
         return isLoggedIn;

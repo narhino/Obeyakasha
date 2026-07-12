@@ -14,14 +14,21 @@ commissions, and an admin cockpit ("the Sanctum").
 
 ## Status
 
-Milestones **M0 (Foundations)** and **M1 (Media core) — built.**
-M0: Patreon auth, entitlement engine, full data model, Sanctum tier-mapping +
-audit, design tokens/styleguide, Docker + CI.
-M1: pluggable media provider (local/Bunny) with signed Range streaming,
-ffmpeg-optional ingest + Sanctum upload/publish, entitlement-filtered library,
-the audio player (queue, end-modes, spirals, grounding, sleep timer, Media
-Session), programs with sequential/daily gating, and listen telemetry + drop
-reports. 64 tests. Next: **M2 (PWA + push)** — see PLAN §23.
+Milestones **M0**, **M1**, and **M2 — built** and **deployed to production**.
+- **M0 Foundations:** Patreon auth, entitlement engine, full data model,
+  Sanctum tier-mapping + audit, design tokens/styleguide, Docker + CI.
+- **M1 Media core:** pluggable media (local/Bunny) with signed Range streaming,
+  ffmpeg-optional ingest + Sanctum upload/publish, entitlement-filtered library,
+  the audio player (queue, end-modes, spirals, grounding, sleep timer, Media
+  Session), programs with sequential/daily gating, listen telemetry + drop reports.
+- **M2 PWA + push:** service worker, the install+consent+notifications Gate
+  (iOS/Android/desktop), device + consent recording, VAPID web push with a
+  Sanctum broadcast composer (all/tier/individual, `{name}` personalization,
+  quiet hours), and an in-app Whispers inbox.
+- **Deploy:** turnkey `compose.prod.yml` (Caddy auto-HTTPS) + `deploy/bootstrap.sh`
+  + [`docs/DEPLOY.md`](docs/DEPLOY.md). Live on a VPS.
+
+85 tests. Next: **M3 (transcription + organize agent)** — see PLAN §23.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

@@ -13,6 +13,9 @@ export default defineConfig({
         "postgres://postgres:postgres@localhost:5432/obeyakasha_test",
       AUTH_SECRET: "test-secret-0000000000000000000000000000",
       MEDIA_LOCAL_DIR: "./media-test",
+      VAPID_PUBLIC_KEY: "test-vapid-public",
+      VAPID_PRIVATE_KEY: "test-vapid-private",
+      VAPID_SUBJECT: "mailto:test@example.com",
     },
     // DB integration tests share one Postgres; run serially to avoid clashes.
     fileParallelism: false,

@@ -185,8 +185,56 @@ docker compose -f compose.prod.yml up -d
   `BUNNY_*` values into `.env`, then `up -d --build`. No other change.
 - **Backups:** once you're past testing, we'll turn on nightly database backups
   (PLAN §20).
-- **Notifications & install-to-homescreen:** that's milestone **M2** — I build it
-  next; it needs two extra keys (`npx web-push generate-vapid-keys`) which we add
-  to `.env` when it's ready.
+- **Notifications & install-to-homescreen (M2 — now built):** see the section
+  just below to switch it on.
 - **Something wrong?** Copy the output of
   `docker compose -f compose.prod.yml logs --tail=50 web` and send it to me.
+
+---
+
+## Turn on notifications (M2)
+
+Push notifications need one pair of keys. Generate them **inside the running
+app** (no extra software on the server), then add them to `.env`:
+
+```bash
+cd ~/Obeyakasha
+docker compose -f compose.prod.yml exec web npx web-push generate-vapid-keys
+```
+
+It prints a **Public Key** and a **Private Key**. Open `.env`:
+
+```bash
+nano .env
+```
+
+and set these three lines (uncomment them if needed):
+
+```
+VAPID_PUBLIC_KEY=<the Public Key>
+VAPID_PRIVATE_KEY=<the Private Key>
+VAPID_SUBJECT=mailto:you@yourdomain.com
+```
+
+Save (Ctrl+O, Enter, Ctrl+X), then apply:
+
+```bash
+docker compose -f compose.prod.yml up -d
+```
+
+Now:
+
+- **Subjects** who open the app go through **the Gate**: confirm they're 18+,
+  agree to the hypnosis terms, install to their home screen (on phones), and
+  turn on notifications — all in Akasha's voice. Until they do, the Library
+  stays behind the Gate.
+- **You** get a **Broadcast** page in the Sanctum: send a push to everyone, to
+  an access tier, or to one subject, with `{name}` / `{honorific}` personalizing
+  each message. It respects quiet hours so you don't wake anyone at 3am.
+- Subjects also see every message in an in-app **Whispers** inbox (the ✦ in the
+  header), since phone push isn't 100% guaranteed to arrive.
+
+**Note on iPhones:** Apple only allows web-app notifications when the app is
+added to the Home Screen (iOS 16.4+), which is exactly why the Gate requires it.
+The install/permission steps are guided but not forced (a browser can't reliably
+confirm "added to home screen"), so no one gets locked out.
