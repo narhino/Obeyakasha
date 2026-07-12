@@ -15,6 +15,7 @@ export const SETTINGS_DEFAULTS = {
   msg_daily_limit: 5 as number,
   normalize_loudness: false as boolean,
   downloads_enabled: true as boolean,
+  automations_enabled: false as boolean,
   vault_gating: "soft" as "soft" | "hard",
   threshold_track_ids: [] as string[],
   quiet_hours_default: [22, 9] as [number, number],

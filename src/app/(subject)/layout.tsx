@@ -16,6 +16,7 @@ const nav = [
   { href: "/programs", label: "Trainings" },
   { href: "/whispers", label: "Whispers" },
   { href: "/asks", label: "Asks" },
+  { href: "/orders", label: "Orders" },
   { href: "/messages", label: "Speak" },
   { href: "/commissions", label: "Commission" },
   { href: "/me", label: "You" },

@@ -45,3 +45,17 @@ export async function saveTierMapping(formData: FormData) {
   });
   revalidatePath("/sanctum/access");
 }
+
+/** Toggle a boolean feature setting (automations, downloads). */
+export async function toggleSetting(formData: FormData) {
+  const session = await requireGoddess();
+  const key = String(formData.get("key"));
+  const allowed = ["automations_enabled", "downloads_enabled"] as const;
+  if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
+  const { getSetting, setSetting } = await import("@/lib/settings");
+  const k = key as (typeof allowed)[number];
+  const current = await getSetting(k);
+  await setSetting(k, !current);
+  await logAudit(session.user.id, "setting.toggled", { key, value: !current });
+  revalidatePath("/sanctum/access");
+}

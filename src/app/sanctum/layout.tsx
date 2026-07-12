@@ -16,6 +16,7 @@ const nav = [
   { href: "/sanctum/whispers", label: "Whispers" },
   { href: "/sanctum/polls", label: "Polls" },
   { href: "/sanctum/questions", label: "Questions" },
+  { href: "/sanctum/orders", label: "Orders" },
   { href: "/sanctum/access", label: "Access" },
   { href: "/sanctum/audit", label: "Audit" },
 ];

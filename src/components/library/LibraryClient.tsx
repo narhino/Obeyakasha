@@ -137,6 +137,11 @@ export function LibraryClient({
                     ? " · " + t.tags.slice(0, 2).map((tag) => tag.value).join(", ")
                     : ""}
                 </p>
+                {t.unlocked && t.prereqMissing.length > 0 ? (
+                  <p className="text-xs text-accent">
+                    requires: {t.prereqMissing.join(", ")} — earn it first
+                  </p>
+                ) : null}
               </div>
               {t.unlocked ? (
                 <div className="flex shrink-0 items-center gap-3">

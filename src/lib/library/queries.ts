@@ -7,7 +7,10 @@ import {
   resumePoints,
   tags,
   trackTags,
+  trackTriggers,
   tracks,
+  triggers,
+  userTriggers,
 } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
 
@@ -34,6 +37,8 @@ export interface LibraryTrack {
   unlocked: boolean;
   /** Privately delivered to this subject (commission). */
   madeForYou: boolean;
+  /** Required triggers the subject hasn't earned yet (soft gate, A5). */
+  prereqMissing: string[];
   tags: { kind: string; value: string }[];
 }
 
@@ -76,8 +81,48 @@ export async function listLibraryTracks(
     tagsByTrack.set(t.trackId, list);
   }
 
+  // Prerequisite triggers (relation 'requires') vs the subject's vault (A5).
+  const [reqRows, held] = await Promise.all([
+    db
+      .select({ trackId: trackTriggers.trackId, name: triggers.name })
+      .from(trackTriggers)
+      .innerJoin(triggers, eq(triggers.id, trackTriggers.triggerId))
+      .where(
+        and(
+          inArray(trackTriggers.trackId, trackIds),
+          eq(trackTriggers.relation, "requires"),
+        ),
+      ),
+    db
+      .select({ triggerId: userTriggers.triggerId })
+      .from(userTriggers)
+      .where(eq(userTriggers.userId, userId)),
+  ]);
+  const heldNames = new Set<string>();
+  // Map held trigger ids → names via reqRows is insufficient; fetch names.
+  if (held.length > 0) {
+    const heldRows = await db
+      .select({ name: triggers.name })
+      .from(triggers)
+      .where(
+        inArray(
+          triggers.id,
+          held.map((h) => h.triggerId),
+        ),
+      );
+    for (const h of heldRows) heldNames.add(h.name);
+  }
+  const requiredByTrack = new Map<string, string[]>();
+  for (const r of reqRows) {
+    const list = requiredByTrack.get(r.trackId) ?? [];
+    list.push(r.name);
+    requiredByTrack.set(r.trackId, list);
+  }
+
   return rows.map((r) => {
     const isGranted = granted.has(r.id);
+    const required = requiredByTrack.get(r.id) ?? [];
+    const prereqMissing = required.filter((n) => !heldNames.has(n));
     return {
       id: r.id,
       title: r.title,
@@ -90,6 +135,7 @@ export async function listLibraryTracks(
       kind: r.kind,
       unlocked: isGranted || canAccess(accessLevel, r.minAccessLevel),
       madeForYou: isGranted,
+      prereqMissing,
       tags: tagsByTrack.get(r.id) ?? [],
     };
   });
@@ -151,6 +197,7 @@ export async function continueListening(
       kind: r.track.kind,
       unlocked: canAccess(accessLevel, r.track.minAccessLevel),
       madeForYou: false,
+      prereqMissing: [],
       tags: [],
     },
   }));

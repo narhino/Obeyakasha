@@ -1,6 +1,7 @@
 import { requireSubject } from "@/lib/auth-helpers";
 import { collarCard } from "@/lib/profile/collar";
 import { getSetting } from "@/lib/settings";
+import { rankFor } from "@/lib/ranks/logic";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { MantraButton } from "@/components/chain/MantraButton";
 import { copy, fill } from "@/copy/copy";
@@ -16,15 +17,22 @@ export default async function MePage() {
     getSetting("chain_mantra"),
   ]);
   if (!card) return null;
+  const rank = rankFor(card.filesCompleted, card.chain.currentLen);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <Display className="text-3xl">
-        {card.honorific ? `${card.honorific}'s ` : ""}
-        {card.chosenName ?? "subject"}
-      </Display>
+      <div className="flex items-center justify-between gap-3">
+        <Display className="text-3xl">
+          {card.honorific ? `${card.honorific}'s ` : ""}
+          {card.chosenName ?? "subject"}
+        </Display>
+        <Badge tone="gold">{rank.name}</Badge>
+      </div>
       <Whisper className="mt-1">
         Claimed {daysSince(card.claimedAt)} days ago.
+        {rank.next
+          ? ` ${rank.next.minScore - rank.score} more to ${rank.next.name}.`
+          : " You've reached the bottom. 888."}
       </Whisper>
 
       <Card raised className="mt-6">

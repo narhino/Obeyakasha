@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pollVotes, polls } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
@@ -71,10 +71,10 @@ export async function closePoll(pollId: string): Promise<void> {
   await db.update(polls).set({ status: "closed" }).where(eq(polls.id, pollId));
 }
 
-/** Polls past their closesAt that are still open (for the close job / manual sweep). */
+/** Open polls whose closesAt has passed (for the close job). */
 export async function expiredOpenPolls() {
   return db
     .select({ id: polls.id })
     .from(polls)
-    .where(and(eq(polls.status, "open"), isNull(polls.closesAt)));
+    .where(and(eq(polls.status, "open"), lt(polls.closesAt, new Date())));
 }

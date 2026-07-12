@@ -1,14 +1,16 @@
 import { db } from "@/lib/db";
 import { tierMappings } from "@/lib/db/schema";
-import { getRawSetting } from "@/lib/settings";
+import { getRawSetting, getSetting } from "@/lib/settings";
 import type { PatreonTier } from "@/lib/patreon/client";
 import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
-import { saveTierMapping } from "./actions";
+import { saveTierMapping, toggleSetting } from "./actions";
 
 export default async function AccessPage() {
-  const [existing, discoveredTiers] = await Promise.all([
+  const [existing, discoveredTiers, automations, downloads] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
+    getSetting("automations_enabled"),
+    getSetting("downloads_enabled"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -106,6 +108,29 @@ export default async function AccessPage() {
           </Card>
         ))}
       </div>
+
+      {/* Feature toggles */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">Features</Whisper>
+        <div className="flex flex-wrap gap-3">
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="automations_enabled" />
+            <Button type="submit" size="sm" variant={automations ? "gold" : "ghost"}>
+              Automations: {automations ? "on" : "off"}
+            </Button>
+          </form>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="downloads_enabled" />
+            <Button type="submit" size="sm" variant={downloads ? "gold" : "ghost"}>
+              Offline downloads: {downloads ? "on" : "off"}
+            </Button>
+          </form>
+        </div>
+        <Whisper className="mt-2 text-xs">
+          Automations send reclaim nudges to inactive subjects and broken chains
+          (respects quiet hours). Off by default.
+        </Whisper>
+      </Card>
 
       {/* Manual add (fallback when tiers weren't auto-discovered). */}
       <Card className="mt-6">
