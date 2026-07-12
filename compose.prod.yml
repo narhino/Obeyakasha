@@ -17,6 +17,9 @@ services:
       APP_DOMAIN: ${APP_DOMAIN}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Origin certs for the Cloudflare-proxied setup; empty (harmless) unless
+      # you switch to deploy/Caddyfile.cloudflare. See docs/DEPLOY.md → Error 525.
+      - ./deploy/tls:/etc/caddy/tls:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

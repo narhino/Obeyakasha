@@ -82,12 +82,12 @@ below is pasted into this window (right-click or Ctrl+Shift+V to paste).
 
 > **If your domain is on Cloudflare — read this or the site breaks.**
 > Cloudflare shows an **orange cloud** next to each DNS record, meaning it
-> proxies your traffic. Your server (Caddy) gets its own HTTPS certificate
-> automatically, and the orange-cloud proxy *blocks* that from happening — the
-> result is a **"SSL handshake failed — Error code 525"** page for your visitors.
-> **Click the orange cloud so it turns grey ("DNS only")** on both the `@` and
-> `www` records. That's the setup this stack is built for. (See the 525 fix in
-> **Troubleshooting** below if you've already hit it.)
+> proxies your traffic. Caddy provisions its own HTTPS certificate, and the
+> orange-cloud proxy blocks that, giving visitors a **"SSL handshake failed —
+> Error code 525"** page. Two fixes, both in **Troubleshooting → Error 525**
+> below: keep the proxy on and install a Cloudflare Origin Certificate
+> (recommended — hides your server IP), or grey-cloud the records for the quick
+> path. Set this up now and you'll never see the 525.
 
 ---
 
@@ -289,36 +289,49 @@ it — say the word and I'll wire your `ELEVENLABS_API_KEY` in.
 
 This exact error only ever comes from **Cloudflare**. It means Cloudflare is
 proxying your domain (the **orange cloud**), and it can't complete a secure
-handshake with your server — because your server's Caddy hasn't been allowed to
-get its own HTTPS certificate. That "works on one browser, fails on another"
-flicker is the same cause: different Cloudflare edges, some retrying the failed
-handshake.
+handshake with your server — because, behind the proxy, your server's Caddy
+can't obtain its own Let's Encrypt certificate. That "works on one browser,
+fails on another" flicker is the same cause: different Cloudflare edges, some
+retrying the failed handshake.
 
-**The fix (2 minutes) — turn the proxy off:**
+There are two good fixes. **Keeping the proxy on (Option A) is recommended** —
+it hides your server's IP (dismissing Cloudflare's "this record exposes the IP
+address" warning) and adds a DDoS shield.
 
-1. Go to the **Cloudflare dashboard → your domain → DNS → Records**.
-2. On the `@` record (and `www` if present), click the **orange cloud** so it
-   turns **grey** — it now says **"DNS only."**
-3. Save. Wait ~2 minutes, then reload **https://YOURDOMAIN** in a fresh tab.
-   Caddy fetches its certificate and the 525 is gone.
+#### Option A — keep the proxy on, give Caddy a Cloudflare Origin Certificate (recommended)
 
-This is the right setup for this platform anyway: Caddy already gives you free,
-auto-renewing HTTPS, and going direct avoids Cloudflare's upload-size limit and
-buffering — which matter for long audio files and large uploads.
+This resolves both the 525 **and** the exposed-IP warning.
 
-**If you specifically want to keep Cloudflare's proxy on** (orange cloud, for
-its CDN/DDoS shield), you must give the origin a certificate Cloudflare trusts:
+1. **Create the origin certificate.** Cloudflare → **SSL/TLS → Origin Server →
+   Create Certificate**. Accept the defaults (15-year cert). You'll get two
+   blocks of text: the **Origin Certificate** and the **Private Key**.
+2. **Put them on the server**, in the project's `deploy/tls/` folder, as exactly
+   these two filenames:
+   ```bash
+   nano deploy/tls/origin.pem   # paste the Origin Certificate, save
+   nano deploy/tls/origin.key   # paste the Private Key, save
+   ```
+   (Both are gitignored, so they're never committed.)
+3. **Switch Caddy to the proxied config** and redeploy:
+   ```bash
+   cp deploy/Caddyfile.cloudflare deploy/Caddyfile
+   docker compose -f compose.prod.yml up -d --build
+   ```
+4. **Set Cloudflare to Full (strict).** Cloudflare → **SSL/TLS → Overview →**
+   set the encryption mode to **"Full (strict)."**
+5. Keep the DNS records **orange-clouded (proxied)**. Reload your site — the 525
+   is gone and your origin IP is hidden.
 
-1. Cloudflare → **SSL/TLS → Origin Server → Create Certificate** (accept the
-   defaults; it's a 15-year cert). Copy the **certificate** and **private key**.
-2. On the server, save them (e.g. `deploy/origin.pem` and `deploy/origin.key`),
-   and in `deploy/Caddyfile` replace the site line's automatic TLS by adding
-   inside the block: `tls /etc/caddy/origin.pem /etc/caddy/origin.key` (mount
-   the two files into the Caddy container), then redeploy.
-3. Cloudflare → **SSL/TLS → Overview → set the mode to "Full (strict)."**
+#### Option B — turn the proxy off (fastest, but exposes your IP)
 
-Grey-cloud (the first option) is what I recommend unless you have a specific
-reason to keep Cloudflare in front.
+1. Cloudflare → **DNS → Records**. On the `@` and `www` records, click the
+   **orange cloud** so it turns **grey** ("DNS only").
+2. Save, wait ~2 minutes, reload. Caddy fetches its own Let's Encrypt cert and
+   the 525 is gone.
+
+Cloudflare will warn that DNS-only "exposes the IP address" — true, but for a
+small site with the server's own firewall it's a low risk, and Caddy still gives
+you full HTTPS. Choose Option A if you'd rather keep the IP hidden.
 
 ### Site won't load at all / "took too long"
 

@@ -1,0 +1,5 @@
+# Cloudflare Origin Certificate goes here when running behind the Cloudflare
+# proxy (orange cloud). Drop two files into this folder:
+#   origin.pem   — the Origin Certificate from Cloudflare
+#   origin.key   — its private key
+# Both are gitignored (*.pem / *.key). See docs/DEPLOY.md → 525 troubleshooting.

@@ -1,0 +1,28 @@
+# Caddy for the Cloudflare-PROXIED setup (orange cloud + SSL mode "Full (strict)").
+#
+# Use this instead of the default Caddyfile when you keep Cloudflare's proxy on
+# (which hides your server's IP and adds its DDoS shield). Behind the proxy,
+# Caddy can't obtain a Let's Encrypt certificate — that's what causes Error 525 —
+# so it serves a Cloudflare Origin Certificate you install into deploy/tls/.
+#
+# To switch:  cp deploy/Caddyfile.cloudflare deploy/Caddyfile  → redeploy.
+# See docs/DEPLOY.md → Troubleshooting → Error 525 for the full walkthrough.
+
+{$APP_DOMAIN} {
+	# Cloudflare Origin Certificate (mounted from ./deploy/tls). No ACME here.
+	tls /etc/caddy/tls/origin.pem /etc/caddy/tls/origin.key
+
+	encode zstd gzip
+
+	# Long-lived audio streams: allow big range responses, no buffering.
+	reverse_proxy web:3000 {
+		flush_interval -1
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
