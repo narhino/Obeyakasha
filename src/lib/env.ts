@@ -34,6 +34,9 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   LLM_ORGANIZE_MODEL: z.string().optional(),
+  // Heavy dossier analysis model (ROADMAP Phase D). Set in .env to a top-tier
+  // model id; falls back to the organize model when unset.
+  LLM_ANALYZE_MODEL: z.string().optional(),
   LLM_TASK_ORGANIZE: z.string().default("anthropic"),
   LLM_TASK_TRIAGE: z.string().default("anthropic"),
   LLM_TASK_CLUSTER: z.string().default("anthropic"),

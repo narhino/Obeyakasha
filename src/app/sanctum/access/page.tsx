@@ -17,6 +17,7 @@ export default async function AccessPage() {
     downloads,
     autoPipeline,
     autoApply,
+    analysisEnabled,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -24,6 +25,7 @@ export default async function AccessPage() {
     getSetting("downloads_enabled"),
     getSetting("auto_pipeline"),
     getSetting("organize_auto_apply"),
+    getSetting("analysis_enabled"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -157,6 +159,16 @@ export default async function AccessPage() {
               variant={autoPipeline ? "gold" : "ghost"}
             >
               Auto-pipeline: {autoPipeline ? "on" : "off"}
+            </Button>
+          </form>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="analysis_enabled" />
+            <Button
+              type="submit"
+              size="sm"
+              variant={analysisEnabled ? "gold" : "ghost"}
+            >
+              Deep analysis: {analysisEnabled ? "on" : "off"}
             </Button>
           </form>
         </div>

@@ -157,7 +157,7 @@ export function DossierClient({
       <Whisper className="mt-1 text-xs">
         {track.durationS != null ? `${fmt(track.durationS)} · ` : ""}level{" "}
         {track.minAccessLevel} · pipeline: {track.pipeline}
-        {dossier?.model ? ` · analysed by ${dossier.model}` : ""}
+        {dossier?.model === "assisted" ? " · deep analysis" : ""}
       </Whisper>
 
       {/* Description */}

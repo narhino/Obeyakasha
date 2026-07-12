@@ -54,6 +54,7 @@ export async function toggleSetting(formData: FormData) {
     "automations_enabled",
     "downloads_enabled",
     "auto_pipeline",
+    "analysis_enabled",
   ] as const;
   if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
   const { getSetting, setSetting } = await import("@/lib/settings");

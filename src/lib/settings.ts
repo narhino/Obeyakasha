@@ -24,6 +24,9 @@ export const SETTINGS_DEFAULTS = {
   // the organize proposal lands without review.
   auto_pipeline: true as boolean,
   organize_auto_apply: "tags_only" as "review_all" | "tags_only" | "everything",
+  // Heavy dossier analysis (ROADMAP Phase D). When on and an API key is set,
+  // the analyze job layers an LLM pass over the always-on heuristic floor.
+  analysis_enabled: true as boolean,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

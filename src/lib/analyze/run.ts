@@ -2,11 +2,15 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { trackAnalysis, tracks, transcripts, triggers } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
+import { getSetting } from "@/lib/settings";
 import { heuristicOrganize } from "@/lib/organize/heuristic";
 import type { OrganizeInput } from "@/lib/organize/types";
+import { llmAnalyze } from "./llm";
 import {
   analysisDossierSchema,
   type AnalysisDossier,
+  type AnalysisKeyword,
+  type AnalysisTrigger,
   type KeywordCategory,
 } from "./schema";
 
@@ -56,10 +60,69 @@ export function heuristicDossier(input: OrganizeInput): AnalysisDossier {
   });
 }
 
+/** Scan transcript segments for a phrase → up to 3 evidence spans (timestamps). */
+function evidenceFor(
+  phrase: string,
+  segments: OrganizeInput["segments"],
+): { start: number; end: number; phrase: string }[] {
+  const p = phrase.toLowerCase().trim();
+  if (p.length < 3) return [];
+  return segments
+    .filter((s) => s.text.toLowerCase().includes(p))
+    .slice(0, 3)
+    .map((s) => ({ start: s.start, end: s.end, phrase: s.text.trim() }));
+}
+
 /**
- * Analyze one track → upsert its durable dossier (ROADMAP-v1.5 Phase D). D1
- * ships the heuristic floor; D3 adds the Opus 4.8 pass merged over it. Runs as
- * the `analyze` job between transcribe and organize.
+ * Merge the LLM dossier over the heuristic floor. The LLM owns the prose
+ * (summary/description/effects/safety) and adds richer keywords/triggers; the
+ * heuristic contributes anything the LLM missed. Evidence timestamps are
+ * (re)attached by scanning segments so every finding is playable.
+ */
+function mergeDossiers(
+  heuristic: AnalysisDossier,
+  llm: AnalysisDossier,
+  segments: OrganizeInput["segments"],
+): AnalysisDossier {
+  const keywords: AnalysisKeyword[] = [];
+  const seenK = new Set<string>();
+  for (const k of [...llm.keywords, ...heuristic.keywords]) {
+    const key = `${k.tagKind}:${k.phrase.toLowerCase()}`;
+    if (seenK.has(key)) continue;
+    seenK.add(key);
+    keywords.push({
+      ...k,
+      evidence: k.evidence.length ? k.evidence : evidenceFor(k.phrase, segments),
+    });
+  }
+  const trigs: AnalysisTrigger[] = [];
+  const seenT = new Set<string>();
+  for (const t of [...llm.triggers, ...heuristic.triggers]) {
+    const key = t.name.toLowerCase();
+    if (seenT.has(key)) continue;
+    seenT.add(key);
+    trigs.push({
+      ...t,
+      evidence: t.evidence.length ? t.evidence : evidenceFor(t.name, segments),
+    });
+  }
+  return analysisDossierSchema.parse({
+    summary: llm.summary || heuristic.summary,
+    keywords,
+    triggers: trigs,
+    suggestedTags: llm.suggestedTags.length
+      ? llm.suggestedTags
+      : heuristic.suggestedTags,
+    suggestedDescription: llm.suggestedDescription,
+    intendedEffects: llm.intendedEffects,
+    safetyNotes: llm.safetyNotes,
+  });
+}
+
+/**
+ * Analyze one track → upsert its durable dossier (ROADMAP-v1.5 Phase D). The
+ * heuristic floor always runs; when analysis is enabled and configured, the LLM
+ * pass is merged over it. Runs as the `analyze` job after transcribe.
  */
 export async function analyzeTrack(trackId: string): Promise<void> {
   const [track] = await db
@@ -85,8 +148,17 @@ export async function analyzeTrack(trackId: string): Promise<void> {
     knownTriggers,
   };
 
-  const dossier = heuristicDossier(input);
-  const model = "heuristic";
+  const heuristic = heuristicDossier(input);
+  let dossier = heuristic;
+  let model = "heuristic";
+  if (await getSetting("analysis_enabled")) {
+    const llm = await llmAnalyze(input).catch(() => null);
+    if (llm) {
+      dossier = mergeDossiers(heuristic, llm, input.segments);
+      // Generic label — the provider name never reaches the UI (privacy).
+      model = "assisted";
+    }
+  }
 
   await db
     .insert(trackAnalysis)
@@ -100,7 +172,7 @@ export async function analyzeTrack(trackId: string): Promise<void> {
       suggestedDescription: dossier.suggestedDescription,
       intendedEffects: dossier.intendedEffects,
       safetyNotes: dossier.safetyNotes,
-      raw: { source: model },
+      raw: { source: model, originalDescription: track.description },
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
