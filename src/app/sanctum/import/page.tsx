@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { listImportablePosts } from "@/lib/patreon/import";
+import { diagnoseImport } from "@/lib/patreon/diagnose";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { importAllNewAction, importPostAction } from "./actions";
@@ -19,8 +21,37 @@ function fmtDate(iso: string | null): string {
   }
 }
 
-export default async function ImportPage() {
+export default async function ImportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ diag?: string }>;
+}) {
   await requireGoddess();
+  const { diag } = await searchParams;
+
+  if (diag) {
+    const d = await diagnoseImport();
+    return (
+      <div className="max-w-2xl">
+        <Display className="text-3xl">Import — diagnose</Display>
+        <Whisper className="mt-1">
+          The exact Patreon responses + worker state. Copy this to Claude.
+        </Whisper>
+        <Card className="mt-4">
+          <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words text-xs text-text-dim">
+            {JSON.stringify(d, null, 2)}
+          </pre>
+        </Card>
+        <Link
+          href="/sanctum/import"
+          className="mt-3 inline-block text-xs uppercase tracking-[0.14em] text-text-dim hover:text-text"
+        >
+          ← back
+        </Link>
+      </div>
+    );
+  }
+
   const { ready, posts, error } = await listImportablePosts();
   // "new" = never imported and not currently queued/running/done.
   const fresh = posts.filter(
@@ -33,7 +64,10 @@ export default async function ImportPage() {
       <Display className="text-3xl">Import from Patreon</Display>
       <Whisper className="mt-1">
         Pull your posts and their audio straight in. Everything lands as a draft
-        and runs through the pipeline — transcribed, analysed, tagged.
+        and runs through the pipeline — transcribed, analysed, tagged.{" "}
+        <Link href="/sanctum/import?diag=1" className="text-gold hover:underline">
+          Diagnose
+        </Link>
       </Whisper>
 
       {error ? (
