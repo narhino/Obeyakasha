@@ -29,6 +29,10 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/obeyakasha
+      # Canonical public URL for Auth.js behind the Caddy reverse proxy — derived
+      # from APP_ORIGIN so sign-in callbacks use https://your-domain, not localhost.
+      AUTH_URL: ${APP_ORIGIN}
+      AUTH_TRUST_HOST: "true"
       TRANSCRIBER_URL: http://transcriber:8000
       MEDIA_LOCAL_DIR: /media
     volumes:
