@@ -1,9 +1,10 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { commissions, grants } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
 import { broadcast, notifyGoddess } from "@/lib/push/broadcast";
 import { copy } from "@/copy/copy";
+import { stageInfo, type CommissionStage } from "./stages";
 
 export type CommissionStatus =
   | "new"
@@ -38,10 +39,65 @@ export async function setCommissionStatus(
   commissionId: string,
   status: CommissionStatus,
 ): Promise<void> {
+  // Accepting starts the turnaround clock (buyer's ETA) once.
+  const startsClock = status === "accepted" || status === "in_progress";
+  const [c] = await db
+    .select({ acceptedAt: commissions.acceptedAt })
+    .from(commissions)
+    .where(eq(commissions.id, commissionId))
+    .limit(1);
   await db
     .update(commissions)
-    .set({ status, updatedAt: new Date() })
+    .set({
+      status,
+      acceptedAt:
+        startsClock && !c?.acceptedAt ? new Date() : (c?.acceptedAt ?? undefined),
+      updatedAt: new Date(),
+    })
     .where(eq(commissions.id, commissionId));
+}
+
+/** Advance the production stage and tell the buyer, in her voice. */
+export async function setCommissionStage(
+  commissionId: string,
+  stage: CommissionStage,
+  actorId: string,
+): Promise<void> {
+  const [c] = await db
+    .select({ userId: commissions.userId })
+    .from(commissions)
+    .where(eq(commissions.id, commissionId))
+    .limit(1);
+  if (!c) throw new Error("No commission");
+  await db
+    .update(commissions)
+    .set({ stage, updatedAt: new Date() })
+    .where(eq(commissions.id, commissionId));
+  await broadcast({
+    title: stageInfo(stage).buyer,
+    deepLink: "/commissions",
+    audience: { type: "users", userIds: [c.userId] },
+    kind: "manual",
+    createdBy: actorId,
+    respectQuietHours: false,
+  });
+}
+
+/** A subject's own commissions (for the progress view). */
+export async function getUserCommissions(userId: string) {
+  return db
+    .select({
+      id: commissions.id,
+      status: commissions.status,
+      stage: commissions.stage,
+      acceptedAt: commissions.acceptedAt,
+      createdAt: commissions.createdAt,
+      waitlist: commissions.waitlist,
+      deliveredTrackId: commissions.deliveredTrackId,
+    })
+    .from(commissions)
+    .where(eq(commissions.userId, userId))
+    .orderBy(desc(commissions.createdAt));
 }
 
 /** Deliver a finished track privately to the commissioner (D2/§14.1). */

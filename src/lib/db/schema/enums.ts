@@ -130,6 +130,15 @@ export const commissionStatus = pgEnum("commission_status", [
   "declined",
   "closed",
 ]);
+// Production stage shown to the buyer as a progress bar (ROADMAP-v1.5)
+export const commissionStage = pgEnum("commission_stage", [
+  "queued",
+  "script",
+  "voice",
+  "editing",
+  "mastering",
+  "delivered",
+]);
 export const notificationKind = pgEnum("notification_kind", [
   "manual",
   "automation",

@@ -7,9 +7,11 @@ import { getSetting, setSetting } from "@/lib/settings";
 import {
   deliverCommission,
   notifyWaitlistReopened,
+  setCommissionStage,
   setCommissionStatus,
   type CommissionStatus,
 } from "@/lib/commissions/ops";
+import type { CommissionStage } from "@/lib/commissions/stages";
 
 export async function toggleCommissions() {
   const session = await requireGoddess();
@@ -26,6 +28,15 @@ export async function updateCommissionStatus(formData: FormData) {
   const status = String(formData.get("status")) as CommissionStatus;
   await setCommissionStatus(id, status);
   await logAudit(session.user.id, "commission.status", { id, status });
+  revalidatePath("/sanctum/commissions");
+}
+
+export async function updateCommissionStage(formData: FormData) {
+  const session = await requireGoddess();
+  const id = String(formData.get("commissionId"));
+  const stage = String(formData.get("stage")) as CommissionStage;
+  await setCommissionStage(id, stage, session.user.id);
+  await logAudit(session.user.id, "commission.stage", { id, stage });
   revalidatePath("/sanctum/commissions");
 }
 

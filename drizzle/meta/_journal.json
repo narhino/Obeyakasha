@@ -29,6 +29,13 @@
       "when": 1783862429325,
       "tag": "0003_track_analysis",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783872174788,
+      "tag": "0004_commission_stage",
+      "breakpoints": true
     }
   ]
 }

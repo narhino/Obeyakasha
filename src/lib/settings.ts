@@ -27,6 +27,8 @@ export const SETTINGS_DEFAULTS = {
   // Heavy dossier analysis (ROADMAP Phase D). When on and an API key is set,
   // the analyze job layers an LLM pass over the always-on heuristic floor.
   analysis_enabled: true as boolean,
+  // Typical turnaround shown to commission buyers (ROADMAP-v1.5).
+  commission_eta_days: 30 as number,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

@@ -3,9 +3,11 @@ import { db } from "@/lib/db";
 import { commissions, tracks, users } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
 import { Badge, Button, Card, Display, Select, Whisper } from "@/components/ui";
+import { COMMISSION_STAGES, stageInfo } from "@/lib/commissions/stages";
 import {
   deliverCommissionAction,
   toggleCommissions,
+  updateCommissionStage,
   updateCommissionStatus,
 } from "./actions";
 
@@ -81,6 +83,36 @@ export default async function SanctumCommissions() {
                   ),
                 )}
               </dl>
+
+              {/* Production stage the buyer sees as a progress bar */}
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-text-dim">
+                  <span>Stage: {stageInfo(c.stage).admin}</span>
+                  <span>{stageInfo(c.stage).pct}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface-raised">
+                  <div
+                    className="h-full rounded-full bg-gold"
+                    style={{ width: `${stageInfo(c.stage).pct}%` }}
+                  />
+                </div>
+                <form
+                  action={updateCommissionStage}
+                  className="mt-2 flex items-center gap-1"
+                >
+                  <input type="hidden" name="commissionId" value={c.id} />
+                  <Select name="stage" defaultValue={c.stage}>
+                    {COMMISSION_STAGES.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.admin}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button type="submit" size="sm" variant="ghost">
+                    Update stage
+                  </Button>
+                </form>
+              </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <form action={updateCommissionStatus} className="flex items-center gap-1">

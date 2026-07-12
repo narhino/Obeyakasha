@@ -14,6 +14,7 @@ import { tracks } from "./content";
 import {
   aiDraftStatus,
   automationTrigger,
+  commissionStage,
   commissionStatus,
   deliveryStatus,
   messageSender,
@@ -241,6 +242,8 @@ export const commissions = pgTable("commissions", {
     .references(() => users.id, { onDelete: "cascade" }),
   answers: jsonb("answers").$type<Record<string, unknown>>().notNull(),
   status: commissionStatus("status").notNull().default("new"),
+  stage: commissionStage("stage").notNull().default("queued"),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   waitlist: boolean("waitlist").notNull().default(false),
   adminNotes: text("admin_notes"),
   deliveredTrackId: uuid("delivered_track_id").references(() => tracks.id),
