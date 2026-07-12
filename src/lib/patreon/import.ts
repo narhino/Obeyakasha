@@ -8,11 +8,16 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tracks } from "@/lib/db/schema";
 import { env } from "@/lib/env";
-import { getRawSetting, getSetting } from "@/lib/settings";
+import { getRawSetting, getSetting, setRawSetting } from "@/lib/settings";
 import { ingestUploadFromPath } from "@/lib/media/ingest";
 import { enqueue } from "@/lib/jobs/queue";
 import { logAudit } from "@/lib/audit";
-import { fetchCampaignPosts, fetchPost, type CampaignPost } from "./client";
+import {
+  fetchCampaignPosts,
+  fetchCampaignTiers,
+  fetchPost,
+  type CampaignPost,
+} from "./client";
 
 /**
  * Patreon post importer (ROADMAP-v1.5 Phase I). Reads your own posts via the
@@ -61,29 +66,57 @@ export async function listImportablePosts(
   ready: boolean;
   posts: ImportablePost[];
   nextCursor: string | null;
+  error?: string;
 }> {
   const token = creatorToken();
-  const cid = await creatorCampaignId();
-  if (!token || !cid) return { ready: false, posts: [], nextCursor: null };
+  if (!token) return { ready: false, posts: [], nextCursor: null };
 
-  const { posts, nextCursor } = await fetchCampaignPosts(token, cid, cursor);
-  const ids = posts.map((p) => p.postId);
-  const existing = ids.length
-    ? await db
-        .select({ pid: tracks.patreonPostId })
-        .from(tracks)
-        .where(inArray(tracks.patreonPostId, ids))
-    : [];
-  const importedSet = new Set(existing.map((e) => e.pid));
-  return {
-    ready: true,
-    nextCursor,
-    posts: posts.map((p) => ({
-      ...p,
-      imported: importedSet.has(p.postId),
-      hasAudio: p.audio.length > 0,
-    })),
-  };
+  try {
+    let cid = await creatorCampaignId();
+    if (!cid) {
+      // Discover the campaign from the creator token if not stored yet.
+      const { campaignId } = await fetchCampaignTiers(token);
+      if (campaignId) {
+        await setRawSetting("patreon_campaign_id", campaignId);
+        cid = campaignId;
+      }
+    }
+    if (!cid) {
+      return {
+        ready: true,
+        posts: [],
+        nextCursor: null,
+        error: "No campaign found for this access token.",
+      };
+    }
+
+    const { posts, nextCursor } = await fetchCampaignPosts(token, cid, cursor);
+    const ids = posts.map((p) => p.postId);
+    const existing = ids.length
+      ? await db
+          .select({ pid: tracks.patreonPostId })
+          .from(tracks)
+          .where(inArray(tracks.patreonPostId, ids))
+      : [];
+    const importedSet = new Set(existing.map((e) => e.pid));
+    return {
+      ready: true,
+      nextCursor,
+      posts: posts.map((p) => ({
+        ...p,
+        imported: importedSet.has(p.postId),
+        hasAudio: p.audio.length > 0,
+      })),
+    };
+  } catch (err) {
+    // Surface the Patreon error on the page instead of crashing it.
+    return {
+      ready: true,
+      posts: [],
+      nextCursor: null,
+      error: err instanceof Error ? err.message : "Patreon request failed",
+    };
+  }
 }
 
 async function downloadTo(url: string, dest: string): Promise<void> {

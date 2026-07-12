@@ -20,7 +20,7 @@ function fmtDate(iso: string | null): string {
 
 export default async function ImportPage() {
   await requireGoddess();
-  const { ready, posts } = await listImportablePosts();
+  const { ready, posts, error } = await listImportablePosts();
   const newWithAudio = posts.filter((p) => p.hasAudio && !p.imported);
 
   return (
@@ -31,7 +31,17 @@ export default async function ImportPage() {
         and runs through the pipeline — transcribed, analysed, tagged.
       </Whisper>
 
-      {!ready ? (
+      {error ? (
+        <Card className="mt-6">
+          <Whisper className="text-danger">Patreon said: {error}</Whisper>
+          <Whisper className="mt-2 text-xs">
+            Usually a scope: your Creator&apos;s Access Token needs the
+            <code> campaigns</code> and <code>campaigns.posts</code> scopes.
+            Re-create the token with those ticked, update{" "}
+            <code>PATREON_CREATOR_ACCESS_TOKEN</code>, and redeploy.
+          </Whisper>
+        </Card>
+      ) : !ready ? (
         <Card className="mt-6">
           <Whisper>
             Not connected yet. Add your <b>Creator&apos;s Access Token</b> from
