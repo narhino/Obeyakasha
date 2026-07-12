@@ -18,6 +18,11 @@ import type {
   AnalysisTrigger,
   KeywordCategory,
 } from "@/lib/analyze/schema";
+import { VOCABULARY } from "@/lib/tags/vocabulary";
+
+const ALL_VOCAB = Array.from(
+  new Set(Object.values(VOCABULARY).flat()),
+).sort();
 import {
   addToPlaylistAction,
   addToProgramAction,
@@ -346,7 +351,17 @@ export function DossierClient({
             <input type="hidden" name="trackId" value={track.id} />
             <label className="flex flex-col gap-1 text-xs text-text-dim">
               Add a tag
-              <Input name="value" placeholder="value" className="w-40" />
+              <Input
+                name="value"
+                placeholder="value"
+                className="w-40"
+                list="tag-vocab"
+              />
+              <datalist id="tag-vocab">
+                {ALL_VOCAB.map((v) => (
+                  <option key={v} value={v} />
+                ))}
+              </datalist>
             </label>
             <Select name="kind" defaultValue="theme" className="text-sm">
               <option value="theme">theme</option>

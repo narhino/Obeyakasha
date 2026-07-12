@@ -8,6 +8,7 @@ import { broadcast } from "@/lib/push/broadcast";
 import { logAudit } from "@/lib/audit";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
+import { ensureVocabulary } from "@/lib/tags/seed";
 
 /**
  * Worker process (PLAN §18). Interval-based rather than pg-boss for v1 — simple
@@ -88,6 +89,7 @@ async function safe(name: string, fn: () => Promise<void>) {
 async function main() {
   console.log("[worker] started (interval scheduler + job queue).");
   registerCoreJobHandlers();
+  void safe("vocabulary", ensureVocabulary); // seed field tags (idempotent)
   // Durable job queue: drain every 3s (transcribe/organize/…).
   setInterval(() => void safe("jobs", jobsTick), 3_000);
   // Poll close: every 5 minutes.
