@@ -13,6 +13,7 @@ import {
 import { users } from "./identity";
 import {
   pipelineStatus,
+  programCadence,
   programGating,
   playlistKind,
   reviewKind,
@@ -158,6 +159,7 @@ export const programs = pgTable("programs", {
   artworkKey: text("artwork_key"),
   minAccessLevel: integer("min_access_level").notNull().default(1),
   gating: programGating("gating").notNull().default("sequential"),
+  cadence: programCadence("cadence").notNull().default("ongoing"),
   visibility: trackVisibility("visibility").notNull().default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

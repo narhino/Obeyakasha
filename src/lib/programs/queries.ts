@@ -27,6 +27,7 @@ export interface ProgramView {
   slug: string;
   description: string | null;
   gating: Gating;
+  cadence: "ongoing" | "weekly" | "ended";
   minAccessLevel: number;
   accessAllowed: boolean;
   items: ProgramItemView[];
@@ -134,6 +135,7 @@ export async function listProgramsForSubject(
       slug: p.slug,
       description: p.description,
       gating: p.gating,
+      cadence: p.cadence,
       minAccessLevel: p.minAccessLevel,
       accessAllowed: canAccess(accessLevel, p.minAccessLevel),
       items: itemViews,

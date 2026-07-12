@@ -27,9 +27,26 @@ export function ProgramsClient({ programs }: { programs: ProgramView[] }) {
           className="rounded-[var(--radius-lg)] border border-line bg-surface p-4"
         >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl text-text">
-              {p.title}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-[family-name:var(--font-display)] text-xl text-text">
+                {p.title}
+              </h2>
+              <span
+                className={`rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.6875rem] uppercase tracking-[0.08em] ${
+                  p.cadence === "ended"
+                    ? "border-line text-text-dim"
+                    : p.cadence === "weekly"
+                      ? "border-gold/30 text-gold"
+                      : "border-accent/30 text-text-dim"
+                }`}
+              >
+                {p.cadence === "weekly"
+                  ? "weekly"
+                  : p.cadence === "ended"
+                    ? "complete"
+                    : "ongoing"}
+              </span>
+            </div>
             <span className="text-xs text-text-dim">
               {p.completedCount}/{p.items.length}
             </span>

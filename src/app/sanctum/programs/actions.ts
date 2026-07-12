@@ -15,9 +15,12 @@ function slugify(s: string): string {
   );
 }
 
+const CADENCES = ["ongoing", "weekly", "ended"] as const;
+
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   gating: z.enum(["open", "sequential", "daily"]),
+  cadence: z.enum(CADENCES),
   minAccessLevel: z.coerce.number().int().min(0).max(99),
   description: z.string().max(2000).optional(),
 });
@@ -27,6 +30,7 @@ export async function createProgram(formData: FormData) {
   const parsed = createSchema.safeParse({
     title: formData.get("title"),
     gating: formData.get("gating"),
+    cadence: formData.get("cadence") ?? "ongoing",
     minAccessLevel: formData.get("minAccessLevel"),
     description: formData.get("description") ?? undefined,
   });
@@ -36,10 +40,26 @@ export async function createProgram(formData: FormData) {
     title: parsed.data.title,
     slug: slugify(parsed.data.title),
     gating: parsed.data.gating,
+    cadence: parsed.data.cadence,
     minAccessLevel: parsed.data.minAccessLevel,
     description: parsed.data.description,
   });
   await logAudit(session.user.id, "program.created", { title: parsed.data.title });
+  revalidatePath("/sanctum/programs");
+}
+
+export async function setProgramCadence(formData: FormData) {
+  const session = await requireGoddess();
+  const programId = String(formData.get("programId"));
+  const cadence = String(formData.get("cadence"));
+  if (!(CADENCES as readonly string[]).includes(cadence)) {
+    throw new Error("Invalid cadence");
+  }
+  await db
+    .update(programs)
+    .set({ cadence: cadence as (typeof CADENCES)[number], updatedAt: new Date() })
+    .where(eq(programs.id, programId));
+  await logAudit(session.user.id, "program.cadence", { programId, cadence });
   revalidatePath("/sanctum/programs");
 }
 

@@ -61,6 +61,12 @@ export const programGating = pgEnum("program_gating", [
   "daily",
   "open",
 ]);
+// Cadence shown to subjects on a training/series (ROADMAP-v1.5)
+export const programCadence = pgEnum("program_cadence", [
+  "ongoing",
+  "weekly",
+  "ended",
+]);
 export const playlistKind = pgEnum("playlist_kind", ["curated", "system"]);
 export const reviewKind = pgEnum("review_kind", [
   "tags",

@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { programItems, programs, tracks } from "@/lib/db/schema";
 import { Badge, Button, Card, Display, Input, Select, Whisper } from "@/components/ui";
@@ -6,8 +6,11 @@ import {
   addProgramItem,
   createProgram,
   removeProgramItem,
+  setProgramCadence,
   setProgramVisibility,
 } from "./actions";
+
+const CADENCES = ["ongoing", "weekly", "ended"] as const;
 
 export default async function SanctumPrograms() {
   const [progs, publishedTracks] = await Promise.all([
@@ -15,7 +18,8 @@ export default async function SanctumPrograms() {
     db
       .select({ id: tracks.id, title: tracks.title })
       .from(tracks)
-      .where(eq(tracks.visibility, "published")),
+      .where(ne(tracks.visibility, "archived"))
+      .orderBy(asc(tracks.title)),
   ]);
 
   const items = progs.length
@@ -56,6 +60,16 @@ export default async function SanctumPrograms() {
             </Select>
           </label>
           <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Cadence
+            <Select name="cadence" defaultValue="ongoing">
+              {CADENCES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
             Min level
             <Input
               name="minAccessLevel"
@@ -85,7 +99,8 @@ export default async function SanctumPrograms() {
                     {p.title}
                   </p>
                   <Whisper className="text-xs">
-                    {p.gating} · level {p.minAccessLevel} · {own.length} items
+                    {p.gating} · {p.cadence} · level {p.minAccessLevel} ·{" "}
+                    {own.length} items
                   </Whisper>
                 </div>
                 <Badge tone={p.visibility === "published" ? "gold" : "sealed"}>
@@ -138,7 +153,7 @@ export default async function SanctumPrograms() {
                 </Button>
               </form>
 
-              <div className="mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <form action={setProgramVisibility}>
                   <input type="hidden" name="programId" value={p.id} />
                   <input
@@ -153,6 +168,22 @@ export default async function SanctumPrograms() {
                     disabled={own.length === 0}
                   >
                     {p.visibility === "published" ? "Unpublish" : "Publish"}
+                  </Button>
+                </form>
+                <form
+                  action={setProgramCadence}
+                  className="flex items-center gap-1"
+                >
+                  <input type="hidden" name="programId" value={p.id} />
+                  <Select name="cadence" defaultValue={p.cadence}>
+                    {CADENCES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button type="submit" size="sm" variant="ghost">
+                    Set cadence
                   </Button>
                 </form>
               </div>
