@@ -30,10 +30,15 @@ Milestones **M0**, **M1**, and **M2 — built** and **deployed to production**.
   and the organize agent that proposes tags/triggers/playlists from your title
   conventions + transcripts (no AI key needed; optional Anthropic pass) into a
   Sanctum review queue you approve; trigger-vault population on completion.
+- **M4 relationship core:** initiation intake; Collar Card + rename ritual;
+  Chain of Obedience (listen/mantra); Whispers feed + kneel; Polls (vote/tally/
+  share); ritual questions; subject↔goddess messaging with safety triage +
+  AI-drafted replies (voice-corpus trained, draft-first) + CRM profiles with
+  timeline, rename, and one-tap personal push; live Sanctum Today.
 - **Deploy:** turnkey `compose.prod.yml` (Caddy auto-HTTPS) + `deploy/bootstrap.sh`
   + [`docs/DEPLOY.md`](docs/DEPLOY.md). Live on a VPS.
 
-93 tests. Next: **M4 (relationship core)** — see PLAN §23.
+116 tests. Next: **M5 (commissions + offline + lapse)** — see PLAN §23.
 
 **Builder:** read `docs/BRAND.md` → `docs/FEATURES.md` → `docs/PLAN.md`, then
 execute milestones **M0 → M7** (PLAN §23). Follow the conventions in PLAN

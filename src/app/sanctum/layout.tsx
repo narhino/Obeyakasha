@@ -5,6 +5,8 @@ import { Display } from "@/components/ui";
 
 const nav = [
   { href: "/sanctum", label: "Today" },
+  { href: "/sanctum/messages", label: "Messages" },
+  { href: "/sanctum/subjects", label: "Subjects" },
   { href: "/sanctum/library", label: "Library" },
   { href: "/sanctum/organize", label: "Organize" },
   { href: "/sanctum/programs", label: "Programs" },
