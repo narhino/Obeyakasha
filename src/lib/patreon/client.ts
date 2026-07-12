@@ -212,9 +212,12 @@ export async function fetchCampaignPosts(
   campaignId: string,
   cursor?: string,
 ): Promise<{ posts: CampaignPost[]; nextCursor: string | null }> {
+  // NOTE: the campaign posts-LIST endpoint does NOT accept
+  // include=attachments_media (400 ParameterInvalidOnType). Media is resolved
+  // per-post via fetchPost() at import time instead.
   const query =
-    `/campaigns/${campaignId}/posts?include=attachments_media` +
-    POST_QUERY_FIELDS +
+    `/campaigns/${campaignId}/posts?` +
+    "fields%5Bpost%5D=title,content,url,published_at,is_public" +
     "&page%5Bcount%5D=20&sort=-published_at" +
     (cursor ? `&page%5Bcursor%5D=${encodeURIComponent(cursor)}` : "");
   const doc = await patreonGet(query, accessToken);

@@ -21,7 +21,7 @@ function fmtDate(iso: string | null): string {
 export default async function ImportPage() {
   await requireGoddess();
   const { ready, posts, error } = await listImportablePosts();
-  const newWithAudio = posts.filter((p) => p.hasAudio && !p.imported);
+  const notImported = posts.filter((p) => !p.imported);
 
   return (
     <div className="max-w-2xl">
@@ -56,18 +56,22 @@ export default async function ImportPage() {
         </Card>
       ) : (
         <>
-          {newWithAudio.length > 0 ? (
+          {notImported.length > 0 ? (
             <form action={importAllNewAction} className="mt-6">
               <input
                 type="hidden"
                 name="postIds"
-                value={newWithAudio.map((p) => p.postId).join(",")}
+                value={notImported.map((p) => p.postId).join(",")}
               />
               <Button type="submit" size="sm" variant="gold">
-                Import all new ({newWithAudio.length})
+                Import all new ({notImported.length})
               </Button>
             </form>
           ) : null}
+          <Whisper className="mt-2 text-xs">
+            Posts with audio become tracks; text-only posts are skipped
+            automatically.
+          </Whisper>
 
           <div className="mt-4 space-y-2">
             {posts.map((p) => (
@@ -79,14 +83,11 @@ export default async function ImportPage() {
                     </p>
                     <Whisper className="text-xs">
                       {fmtDate(p.publishedAt)}
-                      {p.audio.length > 0 ? ` · ${p.audio.length} audio` : ""}
                       {p.isPublic ? " · public" : ""}
                     </Whisper>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {!p.hasAudio ? (
-                      <Badge tone="neutral">no audio</Badge>
-                    ) : p.imported ? (
+                    {p.imported ? (
                       <Badge tone="gold">imported</Badge>
                     ) : (
                       <form action={importPostAction}>
