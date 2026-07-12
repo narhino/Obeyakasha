@@ -184,6 +184,12 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                 >
                   Organize
                 </Button>
+                <a
+                  href={`/sanctum/tracks/${t.id}`}
+                  className="inline-flex items-center rounded-[var(--radius)] border border-line px-3.5 py-1.5 text-[0.8125rem] uppercase tracking-[0.08em] text-text-dim transition-colors hover:border-text-dim/60 hover:text-text"
+                >
+                  Open
+                </a>
               </div>
 
               <details className="mt-3">

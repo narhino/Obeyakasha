@@ -20,7 +20,7 @@ function slugify(s: string): string {
 }
 
 /** Tags → canonical tags + track_tags. Idempotent. */
-async function applyTags(
+export async function applyTags(
   trackId: string,
   tagsProp: OrganizeProposal["tags"],
 ): Promise<void> {
@@ -49,7 +49,7 @@ async function applyTags(
 }
 
 /** Triggers → canonical triggers + track_triggers (with evidence). Idempotent. */
-async function applyTriggers(
+export async function applyTriggers(
   trackId: string,
   trigsProp: OrganizeProposal["triggers"],
 ): Promise<void> {
