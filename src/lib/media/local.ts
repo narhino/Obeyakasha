@@ -72,6 +72,11 @@ export class LocalMediaProvider implements MediaProvider {
   putArtwork(trackId: string, bytes: Uint8Array) {
     return write(`art/${trackId}.webp`, bytes);
   }
+  putBlob(key: string, bytes: Uint8Array) {
+    // Content type is derived from the key's extension on read (contentTypeFor),
+    // mirroring putArtwork; the caller keeps the extension meaningful.
+    return write(key, bytes);
+  }
 
   async signStreamUrl(streamKey: string, ttlSeconds: number): Promise<string> {
     const { token, exp } = makeStreamToken(streamKey, ttlSeconds);

@@ -315,3 +315,35 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   (`POST /api/sanctum/series-art`, ≤5MB, webp/jpeg/png, keyed `art/<playlistId>.webp`),
   details edit, add/remove tracks, and Up/Down reorder (sequential-sort rewrite —
   no drag dependency). The series-segment cards now surface the real cadence.
+
+## 2026-07-17 — R5 (Tasks/Orders v2 + the 5-tab IA)
+
+- **`order_assignments` gained `proof_at timestamptz`** beyond the spec's
+  `proof_key` + `praised_at`. The Sanctum proof-review strip must show proofs
+  "newest first", but nothing else recorded *when* a proof was attached
+  (`done_at` is completion, not upload; a required-proof order is uploaded
+  before it can be done). `proof_at` is set alongside `proof_key` in the proof
+  route and orders the review strip (`desc(proof_at)`). All three columns land
+  in one migration, `0009_orders_v2.sql`.
+- **Home tab labelled "Whispers", not "Home".** The v2 IA line reads
+  "Home(Whispers)"; `/` is the whispers feed merged in R1 (`copy.whispers.title`
+  is already "Whispers"). Keeping the in-voice label avoids generic app-speak
+  while honouring the approved five-tab set (Whispers · Library · Tasks ·
+  Messages · You). All five labels now come from `copy.nav.*`.
+- **"non-expired order" in the pending-badge spec is a no-op today.** `orders`
+  has no `expiresAt` column (only `dueAt`, a deadline). `pendingTaskCount`
+  therefore counts assignments with status in (`sent`,`seen`); an overdue task
+  is *more* pending, not expired, so it keeps the tab pulsing and shows danger
+  styling on its card. If order-expiry is introduced later, add the filter here.
+- **DesktopNav reduced to the five tabs.** It previously carried Asks + Orders
+  as extra links; both are reachable from the You page (R6), so the desktop row
+  now matches BottomNav exactly.
+- **Sanctum order/proof-review strings stay inline English.** Consistent with
+  every existing Sanctum page (admin-facing, not subject-facing). Only the
+  subject Tasks page and the two pushes (order received / proof praised) are
+  routed through `copy.ts` — `copy.tasks.*`, including the moved
+  `receivedPush.title` ("An order.").
+- **`MediaProvider.putBlob(key, bytes, contentType)`** added to the interface
+  and both providers (local writes under the key; Bunny uses the same PUT path).
+  Proofs are stored at `proofs/<orderId>/<userId>.{webp,jpg,png}` and served
+  only through the existing signed-URL pattern — raw keys never leave the server.

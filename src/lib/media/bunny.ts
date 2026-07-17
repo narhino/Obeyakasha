@@ -48,6 +48,10 @@ export class BunnyMediaProvider implements MediaProvider {
   putArtwork(trackId: string, bytes: Uint8Array, contentType: string) {
     return this.put(`art/${trackId}.webp`, bytes, contentType);
   }
+  putBlob(key: string, bytes: Uint8Array, contentType: string) {
+    // Same upload path as every other put — storage zone, AccessKey header.
+    return this.put(key, bytes, contentType);
+  }
 
   /** Bunny CDN Token Authentication (SHA256 of token key + path + expiry). */
   async signStreamUrl(streamKey: string, ttlSeconds: number): Promise<string> {

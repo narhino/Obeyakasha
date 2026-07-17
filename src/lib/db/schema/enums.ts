@@ -105,6 +105,8 @@ export const orderStatus = pgEnum("order_status", [
   "done",
   "lapsed",
 ]);
+// Photo-proof requirement per order (R5): off by default, her per-order dial.
+export const proofMode = pgEnum("proof_mode", ["none", "optional", "required"]);
 export const pollStatus = pgEnum("poll_status", ["open", "closed"]);
 export const questionKind = pgEnum("question_kind", ["intake", "ritual"]);
 export const messageSender = pgEnum("message_sender", ["subject", "goddess"]);

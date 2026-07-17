@@ -22,6 +22,12 @@ export interface MediaProvider {
   /** ext includes the dot, e.g. ".m4a" / ".mp3"; preserves the real container. */
   putStream(trackId: string, bytes: Uint8Array, ext: string): Promise<string>;
   putArtwork(trackId: string, bytes: Uint8Array, contentType: string): Promise<string>;
+  /**
+   * Store arbitrary bytes at a caller-chosen logical key (e.g.
+   * "proofs/<orderId>/<userId>.webp"). The key is never exposed raw — reads go
+   * through signStreamUrl like every other object. Used for R5 photo proofs.
+   */
+  putBlob(key: string, bytes: Uint8Array, contentType: string): Promise<string>;
   /** Short-lived URL the client can fetch to play the track. */
   signStreamUrl(streamKey: string, ttlSeconds: number): Promise<string>;
   /** Local-only: serve bytes (optionally a Range). Bunny serves via CDN directly. */

@@ -22,6 +22,7 @@ import {
   orderRequires,
   orderStatus,
   pollStatus,
+  proofMode,
   questionKind,
   voiceCorpusSource,
   wishSource,
@@ -84,6 +85,8 @@ export const orders = pgTable("orders", {
   audience: jsonb("audience").$type<Audience>().notNull(),
   dueAt: timestamp("due_at", { withTimezone: true }),
   requires: orderRequires("requires").notNull().default("ack"),
+  // R5: whether a photo proof is asked for on completion (her per-order dial).
+  proofMode: proofMode("proof_mode").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -101,6 +104,13 @@ export const orderAssignments = pgTable(
     status: orderStatus("status").notNull().default("sent"),
     response: text("response"),
     doneAt: timestamp("done_at", { withTimezone: true }),
+    // R5: photo proof lives in media storage; the key is never exposed raw —
+    // it's served through the signed-URL pattern like artwork.
+    proofKey: text("proof_key"),
+    // When the proof was attached — orders the Sanctum review strip newest-first.
+    proofAt: timestamp("proof_at", { withTimezone: true }),
+    // Set when the goddess praises the proof (gold seal + a push to that subject).
+    praisedAt: timestamp("praised_at", { withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.orderId, t.userId] })],
 );

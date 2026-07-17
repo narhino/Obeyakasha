@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { hasCoreConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { pendingTaskCount } from "@/lib/orders/ops";
 import { PlayerRoot } from "@/components/player/PlayerRoot";
 import { SubjectGate } from "@/components/gate/SubjectGate";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
@@ -61,6 +62,8 @@ export default async function SubjectLayout({
     .where(eq(users.id, session.user.id))
     .limit(1);
   const intakeDone = Boolean(me?.chosenName);
+  // Drives the danger pulse on the Tasks tab; non-critical, so failures are 0.
+  const pendingCount = await pendingTaskCount(session.user.id).catch(() => 0);
 
   return (
     <SubjectGate alreadyConsented={consented}>
@@ -76,7 +79,7 @@ export default async function SubjectLayout({
                 {copy.brand.name}
               </Link>
               <div className="flex items-center gap-6">
-                <DesktopNav />
+                <DesktopNav pendingCount={pendingCount} />
                 <InboxBell />
               </div>
             </div>
@@ -84,7 +87,7 @@ export default async function SubjectLayout({
           {children}
           <PlayerRoot />
           <OfflineSync />
-          <BottomNav />
+          <BottomNav pendingCount={pendingCount} />
         </div>
       </IntakeGuard>
     </SubjectGate>

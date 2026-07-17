@@ -4,31 +4,44 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconCollar,
-  IconDescend,
   IconLibrary,
   IconSpark,
   IconSpeak,
+  IconTask,
 } from "@/components/ui/icons";
+import { copy } from "@/copy/copy";
 
 /**
- * Subject navigation. Mobile: a fixed bottom tab bar (thumb-reachable,
- * safe-area aware). Desktop: a quiet letterspaced row in the header.
- * Secondary rooms (Asks, Orders, Commission, Settings) live on the You page.
+ * Subject navigation — the v2 IA's five tabs (ROADMAP-v1.5): Home (whispers),
+ * Library, Tasks, Messages, You. Mobile: a fixed bottom tab bar (thumb-
+ * reachable, safe-area aware). Desktop: a quiet letterspaced row in the header.
+ * The Tasks tab carries a danger pulse while the subject owes anything.
+ * Secondary rooms (Asks, Commission, Settings) live on the You page.
  */
 const TABS = [
-  { href: "/library", label: "Library", icon: IconLibrary },
-  { href: "/programs", label: "Trainings", icon: IconDescend },
-  { href: "/", label: "Whispers", icon: IconSpark },
-  { href: "/messages", label: "Speak", icon: IconSpeak },
-  { href: "/me", label: "You", icon: IconCollar },
-];
+  { href: "/", label: copy.nav.home, icon: IconSpark },
+  { href: "/library", label: copy.nav.library, icon: IconLibrary },
+  { href: "/orders", label: copy.nav.tasks, icon: IconTask, alert: true },
+  { href: "/messages", label: copy.nav.messages, icon: IconSpeak },
+  { href: "/me", label: copy.nav.you, icon: IconCollar },
+] as const;
 
 /** Home (`/`) matches exactly; other tabs match by prefix. */
 function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-export function BottomNav() {
+/** Danger dot for the Tasks tab: pulses (steady when reduced-motion). */
+function AlertDot({ className = "" }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`pulse-alert pointer-events-none block h-2 w-2 rounded-full bg-danger ${className}`}
+    />
+  );
+}
+
+export function BottomNav({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
   return (
     <nav
@@ -40,6 +53,7 @@ export function BottomNav() {
         {TABS.map((t) => {
           const active = isActive(pathname, t.href);
           const Icon = t.icon;
+          const showAlert = "alert" in t && t.alert && pendingCount > 0;
           return (
             <Link
               key={t.href}
@@ -48,10 +62,14 @@ export function BottomNav() {
                 active ? "text-gold" : "text-text-dim/70 hover:text-text-dim"
               }`}
             >
-              <Icon size={21} />
+              <span className="relative">
+                <Icon size={21} />
+                {showAlert ? <AlertDot className="absolute -top-1 -right-2" /> : null}
+              </span>
               <span className="text-[0.5625rem] tracking-[0.14em] uppercase">
                 {t.label}
               </span>
+              {showAlert ? <span className="sr-only">{copy.nav.pending}</span> : null}
             </Link>
           );
         })}
@@ -60,31 +78,28 @@ export function BottomNav() {
   );
 }
 
-const DESKTOP_LINKS = [
-  { href: "/library", label: "Library" },
-  { href: "/programs", label: "Trainings" },
-  { href: "/", label: "Whispers" },
-  { href: "/asks", label: "Asks" },
-  { href: "/orders", label: "Orders" },
-  { href: "/messages", label: "Speak" },
-  { href: "/me", label: "You" },
-];
-
-export function DesktopNav() {
+export function DesktopNav({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
   return (
     <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
-      {DESKTOP_LINKS.map((l) => {
-        const active = isActive(pathname, l.href);
+      {TABS.map((t) => {
+        const active = isActive(pathname, t.href);
+        const showAlert = "alert" in t && t.alert && pendingCount > 0;
         return (
           <Link
-            key={l.href}
-            href={l.href}
-            className={`text-[0.6875rem] tracking-[0.2em] uppercase transition-colors duration-[var(--dur-med)] ${
+            key={t.href}
+            href={t.href}
+            className={`relative text-[0.6875rem] tracking-[0.2em] uppercase transition-colors duration-[var(--dur-med)] ${
               active ? "text-gold" : "text-text-dim hover:text-text"
             }`}
           >
-            {l.label}
+            {t.label}
+            {showAlert ? (
+              <>
+                <AlertDot className="absolute -top-0.5 -right-2.5" />
+                <span className="sr-only">{copy.nav.pending}</span>
+              </>
+            ) : null}
           </Link>
         );
       })}

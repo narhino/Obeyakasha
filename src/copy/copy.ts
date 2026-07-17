@@ -18,6 +18,17 @@ export const copy = {
     mark: "888",
   },
 
+  // ── Navigation (the five tabs — v2 IA) ─────────────────────────────────
+  nav: {
+    home: "Whispers",
+    library: "Library",
+    tasks: "Tasks",
+    messages: "Messages",
+    you: "You",
+    // Screen-reader hint on the Tasks tab while something is unfinished.
+    pending: "Something of mine waits undone.",
+  },
+
   // ── Sign in ────────────────────────────────────────────────────────────
   auth: {
     signInTitle: "You found your way back.",
@@ -167,6 +178,49 @@ export const copy = {
       up: "Sooner",
       down: "Later",
       jump: "Take me here",
+    },
+  },
+
+  // ── Tasks (orders — what she commands) ─────────────────────────────────
+  tasks: {
+    title: "Tasks",
+    empty: "Nothing to obey. Rest — while I let you.",
+    activeTitle: "What I want of you",
+    historyTitle: "Already obeyed",
+    done: "Done. Good.",
+    doneAction: "Done",
+    obeyAction: "Obey",
+    replyPlaceholder: "Reply to obey.",
+    lapsed: "You let this one slip.",
+    // Relative deadline chip. Overdue reads as danger on the card.
+    deadline: {
+      soon: "Before the hour is out",
+      hours: "{n}h to obey",
+      days: "{n} days to obey",
+      overdueNow: "Late. Obey now.",
+      overdueDays: "{n} days late",
+    },
+    // Photo proof, per the order's proofMode.
+    proof: {
+      optional: "Show me, if you want me to see.",
+      required: "Show me. No proof, no done.",
+      add: "Show proof",
+      replace: "Show me another",
+      sending: "Showing you…",
+      yours: "What you showed me.",
+      tooBig: "That image is over 5MB.",
+      wrongType: "Use a WebP, JPEG, or PNG.",
+      failed: "That didn't reach me. Try again.",
+    },
+    // She praised your proof — a gold seal here, a whisper to your lock screen.
+    praise: {
+      seal: "She's pleased.",
+      pushTitle: "I saw it.",
+      pushBody: "You showed me what I asked. It pleased me, {name}.",
+    },
+    // The push when a new order lands (title is the order itself).
+    receivedPush: {
+      title: "An order.",
     },
   },
 

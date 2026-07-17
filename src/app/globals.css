@@ -127,9 +127,26 @@ body {
   animation: turn 240s linear infinite;
 }
 
+/* ── task alert — a danger dot that insists (Tasks tab, R5) ── */
+@keyframes pulse-alert {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.78);
+  }
+}
+.pulse-alert {
+  animation: pulse-alert 1.6s var(--ease-trance) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .breathe,
-  .turn-slow {
+  .turn-slow,
+  .pulse-alert {
     animation: none;
   }
   * {

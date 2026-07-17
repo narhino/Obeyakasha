@@ -32,6 +32,7 @@ import {
   IconSkipForward15,
   IconSpark,
   IconSpeak,
+  IconTask,
   IconWarn,
 } from "@/components/ui/icons";
 
@@ -67,6 +68,7 @@ const icons = [
   ["Speak", IconSpeak],
   ["Collar", IconCollar],
   ["Seal", IconSeal],
+  ["Task", IconTask],
   ["Warn", IconWarn],
 ] as const;
 

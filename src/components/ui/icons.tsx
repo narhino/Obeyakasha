@@ -205,6 +205,17 @@ export function IconSkipForward15({ size, ...p }: P) {
   );
 }
 
+export function IconTask({ size, ...p }: P) {
+  // A tablet of commands with a struck mark — "Tasks".
+  return (
+    <svg {...base(size)} {...p}>
+      <rect x="5" y="4" width="14" height="16" rx="1.6" />
+      <path d="m8.5 11 2 2 4-4.5" />
+      <path d="M9 16.5h6" />
+    </svg>
+  );
+}
+
 export function IconQueue({ size, ...p }: P) {
   // A tracklist with a small play glyph — "what's next / the queue".
   return (
