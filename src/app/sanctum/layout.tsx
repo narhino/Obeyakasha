@@ -1,28 +1,54 @@
-import Link from "next/link";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { signOut } from "@/auth";
+import { db } from "@/lib/db";
+import { messages, orderAssignments, reviewQueue, users } from "@/lib/db/schema";
+import { pendingPetitions } from "@/lib/oath/resolve";
+import { SanctumNav, type NavCounts } from "./SanctumNav";
 
-const nav = [
-  { href: "/sanctum", label: "Today" },
-  { href: "/sanctum/live", label: "Live" },
-  { href: "/sanctum/messages", label: "Messages" },
-  { href: "/sanctum/subjects", label: "Subjects" },
-  { href: "/sanctum/library", label: "Library" },
-  { href: "/sanctum/import", label: "Import" },
-  { href: "/sanctum/organize", label: "Organize" },
-  { href: "/sanctum/programs", label: "Programs" },
-  { href: "/sanctum/series", label: "Series" },
-  { href: "/sanctum/commissions", label: "Commissions" },
-  { href: "/sanctum/wishes", label: "Wishes" },
-  { href: "/sanctum/broadcast", label: "Broadcast" },
-  { href: "/sanctum/whispers", label: "Whispers" },
-  { href: "/sanctum/polls", label: "Polls" },
-  { href: "/sanctum/questions", label: "Questions" },
-  { href: "/sanctum/orders", label: "Orders" },
-  { href: "/sanctum/analytics", label: "Analytics" },
-  { href: "/sanctum/access", label: "Access" },
-  { href: "/sanctum/audit", label: "Audit" },
-];
+// The rail carries live counts, so never serve a stale shell.
+export const dynamic = "force-dynamic";
+
+/** One cheap COUNT, fail-soft to 0 so a slow/absent table never blanks the rail. */
+function count(where: Promise<{ n: number }[]>): Promise<number> {
+  return where.then((r) => r[0]?.n ?? 0).catch(() => 0);
+}
+
+async function navCounts(): Promise<NavCounts> {
+  const [today, review, unread, tasks] = await Promise.all([
+    // Open collar petitions awaiting her word.
+    pendingPetitions()
+      .then((p) => p.length)
+      .catch(() => 0),
+    // Review queue items still pending.
+    count(
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(reviewQueue)
+        .where(eq(reviewQueue.status, "pending")),
+    ),
+    // Unread messages from subjects.
+    count(
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(messages)
+        .where(and(eq(messages.sender, "subject"), isNull(messages.readAt))),
+    ),
+    // Proofs attached but not yet praised (awaiting review).
+    count(
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(orderAssignments)
+        .where(
+          and(
+            isNotNull(orderAssignments.proofKey),
+            isNull(orderAssignments.praisedAt),
+          ),
+        ),
+    ),
+  ]);
+  return { today, review, messages: unread, tasks };
+}
 
 export default async function SanctumLayout({
   children,
@@ -30,6 +56,7 @@ export default async function SanctumLayout({
   children: React.ReactNode;
 }) {
   await requireGoddess();
+  const counts = await navCounts();
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[230px_1fr]">
@@ -42,26 +69,7 @@ export default async function SanctumLayout({
             The Sanctum
           </p>
 
-          {/* Mobile: horizontally scrollable rail. Desktop: column.
-              A right-edge fade signals the rail scrolls past the ~4 visible
-              items (F22). */}
-          <div className="relative -mx-5 mt-5 md:mx-0 md:mt-7">
-            <nav className="flex gap-1 overflow-x-auto px-5 pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0">
-              {nav.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className="shrink-0 whitespace-nowrap rounded-[var(--radius)] px-3 py-1.5 text-[0.75rem] tracking-[0.1em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:bg-surface-raised hover:text-text md:py-2"
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-surface to-transparent md:hidden"
-            />
-          </div>
+          <SanctumNav counts={counts} />
 
           <form
             className="mt-6 hidden md:block"

@@ -73,7 +73,7 @@ export default async function AccessPage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Access</Display>
+      <Display className="text-3xl">Settings</Display>
       <Whisper className="mt-1">
         Map each Patreon tier to an access level. Level 0 is the free Threshold;
         higher levels unlock more of the Library.

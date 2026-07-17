@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   commissions,
-  messages,
+  orderAssignments,
   reviewQueue,
-  tierMappings,
-  users,
+  tracks,
   wishes,
 } from "@/lib/db/schema";
 import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
@@ -28,20 +27,20 @@ export default async function SanctumToday() {
     liveListeners(),
     pendingPetitions(),
   ]);
-  const [subjects, mappings, unread, pendingReviews, newComms, newWishes] =
-    await Promise.all([
+
+  // "Awaiting you" — the actionable backlog, each a count + one-line label + link.
+  const [proofs, pendingReviews, newComms, newWishes, shells] = await Promise.all(
+    [
       count(
         db
           .select({ n: sql<number>`count(*)::int` })
-          .from(users)
-          .where(eq(users.role, "subject")),
-      ),
-      count(db.select({ n: sql<number>`count(*)::int` }).from(tierMappings)),
-      count(
-        db
-          .select({ n: sql<number>`count(*)::int` })
-          .from(messages)
-          .where(and(eq(messages.sender, "subject"), isNull(messages.readAt))),
+          .from(orderAssignments)
+          .where(
+            and(
+              isNotNull(orderAssignments.proofKey),
+              isNull(orderAssignments.praisedAt),
+            ),
+          ),
       ),
       count(
         db
@@ -53,7 +52,7 @@ export default async function SanctumToday() {
         db
           .select({ n: sql<number>`count(*)::int` })
           .from(commissions)
-          .where(eq(commissions.status, "new")),
+          .where(inArray(commissions.status, ["new", "reviewing"])),
       ),
       count(
         db
@@ -61,33 +60,45 @@ export default async function SanctumToday() {
           .from(wishes)
           .where(eq(wishes.status, "new")),
       ),
-    ]);
+      count(
+        db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(tracks)
+          .where(and(eq(tracks.source, "patreon_import"), isNull(tracks.streamKey))),
+      ),
+    ],
+  );
 
-  const tiles = [
-    { label: "Unread messages", value: unread, href: "/sanctum/messages" },
-    { label: "Awaiting review", value: pendingReviews, href: "/sanctum/organize" },
+  const awaiting = [
+    { label: "Proofs to review", value: proofs, href: "/sanctum/orders" },
+    { label: "Waiting on your review", value: pendingReviews, href: "/sanctum/organize" },
     { label: "New commissions", value: newComms, href: "/sanctum/commissions" },
-    { label: "New wishes", value: newWishes, href: "/sanctum/wishes" },
-    { label: "Subjects", value: subjects, href: "/sanctum/subjects" },
-    { label: "Tier mappings", value: mappings, href: "/sanctum/access" },
+    { label: "New asks", value: newWishes, href: "/sanctum/wishes" },
+    { label: "Shells waiting for audio", value: shells, href: "/sanctum/import" },
   ];
+  const totalAwaiting = awaiting.reduce((s, a) => s + a.value, 0);
 
   return (
     <div>
       <Display className="text-3xl">Today</Display>
       <Whisper className="mt-1">Everything that wants you.</Whisper>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {tiles.map((t) => (
-          <Link key={t.label} href={t.href}>
-            <Card raised>
-              <Whisper>{t.label}</Whisper>
-              <p className="nums-lining mt-1 text-3xl font-[family-name:var(--font-display)]">
-                {t.value}
-              </p>
-            </Card>
+      {/* R9.1: who is under right now — one-tap touch, fuller room one click away. */}
+      <div className="mt-8">
+        <div className="flex items-baseline justify-between gap-3">
+          <Display as="h2" className="text-xl">
+            Now, under
+          </Display>
+          <Link
+            href="/sanctum/live"
+            className="text-xs uppercase tracking-[0.1em] text-text-dim transition-colors hover:text-gold"
+          >
+            The live room →
           </Link>
-        ))}
+        </div>
+        <div className="mt-3">
+          <LivePanel initial={live} compact />
+        </div>
       </div>
 
       {/* R9.5: collar petitions awaiting her word — accept (ritual + push) or
@@ -136,22 +147,42 @@ export default async function SanctumToday() {
         </div>
       ) : null}
 
-      {/* R9.1: who is under right now — one-tap touch, fuller room one click away. */}
+      {/* Awaiting you — the actionable backlog in one strip. */}
       <div className="mt-10">
-        <div className="flex items-baseline justify-between gap-3">
-          <Display as="h2" className="text-xl">
-            Now, under
-          </Display>
-          <Link
-            href="/sanctum/live"
-            className="text-xs uppercase tracking-[0.1em] text-text-dim transition-colors hover:text-gold"
-          >
-            The live room →
-          </Link>
-        </div>
-        <div className="mt-3">
-          <LivePanel initial={live} compact />
-        </div>
+        <Display as="h2" className="text-xl">
+          Awaiting you
+        </Display>
+        <Card className="mt-3 divide-y divide-line/60 p-0">
+          {totalAwaiting === 0 ? (
+            <Whisper className="p-4">Nothing waits for you. The room is quiet.</Whisper>
+          ) : (
+            awaiting.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="group flex items-center gap-4 px-4 py-3 transition-colors duration-[var(--dur-med)] hover:bg-surface-raised"
+              >
+                <span
+                  className={`nums-lining w-8 shrink-0 text-right font-[family-name:var(--font-display)] text-xl ${
+                    a.value > 0 ? "text-gold" : "text-text-dim/40"
+                  }`}
+                >
+                  {a.value}
+                </span>
+                <span
+                  className={`flex-1 text-sm ${
+                    a.value > 0 ? "text-text" : "text-text-dim"
+                  }`}
+                >
+                  {a.label}
+                </span>
+                <span className="shrink-0 text-text-dim transition-colors group-hover:text-gold">
+                  →
+                </span>
+              </Link>
+            ))
+          )}
+        </Card>
       </div>
     </div>
   );

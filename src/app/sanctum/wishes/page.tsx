@@ -19,7 +19,7 @@ export default async function SanctumWishes() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Wishes</Display>
+      <Display className="text-3xl">Asks</Display>
       <Whisper className="mt-1">
         What they crave — a demand-ranked roadmap. Answer one and only that
         subject hears back.

@@ -145,6 +145,11 @@ export const copy = {
     queue: "Queue it",
     seriesCount: "{n} files",
     seriesEmpty: "No series yet. Soon.",
+    // R-organize: the Series segment splits into two labelled groups, and a
+    // training is named as one before you ever click it.
+    groupTrainings: "Trainings",
+    groupSeries: "Series",
+    trainingChip: "Training",
     backToLibrary: "Back to the Library",
     tagKinds: {
       purpose: "Purpose",

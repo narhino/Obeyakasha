@@ -20,7 +20,7 @@ export default async function OrganizePage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Organize</Display>
+      <Display className="text-3xl">Review</Display>
       <Whisper className="mt-1">
         The agent reads each transcript and proposes tags, triggers, and
         playlists. Nothing applies until you approve it.

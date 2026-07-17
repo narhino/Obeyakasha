@@ -54,7 +54,7 @@ export default async function SanctumOrders() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Orders</Display>
+      <Display className="text-3xl">Tasks</Display>
       <Whisper className="mt-1">
         Tell them to do something. Completion feeds their chain.
       </Whisper>

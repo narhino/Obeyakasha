@@ -282,42 +282,77 @@ function FilesSegment({
   );
 }
 
-/** Series segment: trainings + curated series as cover cards. */
+/** One cover card for a training or a series. */
+function SeriesCardTile({ c }: { c: SeriesCard }) {
+  return (
+    <Link
+      href={c.href}
+      className="flex flex-col rounded-[var(--radius-lg)] border border-line bg-surface p-4 transition-colors duration-[var(--dur-med)] hover:border-gold/40"
+    >
+      <p className="font-[family-name:var(--font-display)] text-lg leading-tight text-text">
+        {c.title}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {c.kind === "training" ? (
+          <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-text-dim">
+            {copy.library.trainingChip}
+          </span>
+        ) : null}
+        {c.cadence ? (
+          <span
+            className={`rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] ${
+              c.cadence === "ended"
+                ? "border-line text-text-dim"
+                : c.cadence === "weekly"
+                  ? "border-gold/30 text-gold"
+                  : "border-accent/30 text-text-dim"
+            }`}
+          >
+            {copy.library.cadence[c.cadence]}
+          </span>
+        ) : null}
+        <span className="text-xs text-text-dim">
+          {fill(copy.library.seriesCount, { n: c.count })}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * Series segment: two labelled groups so a Training is named before the click
+ * (R-organize). Trainings (programs) link to /programs; Series (curated
+ * playlists) link to their own page.
+ */
 function SeriesGrid({ cards }: { cards: SeriesCard[] }) {
   if (cards.length === 0) {
     return <p className="text-sm text-text-dim">{copy.library.seriesEmpty}</p>;
   }
+  const trainings = cards.filter((c) => c.kind === "training");
+  const series = cards.filter((c) => c.kind === "series");
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {cards.map((c) => (
-        <Link
-          key={`${c.kind}-${c.id}`}
-          href={c.href}
-          className="flex flex-col rounded-[var(--radius-lg)] border border-line bg-surface p-4 transition-colors duration-[var(--dur-med)] hover:border-gold/40"
-        >
-          <p className="font-[family-name:var(--font-display)] text-lg leading-tight text-text">
-            {c.title}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {c.cadence ? (
-              <span
-                className={`rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] ${
-                  c.cadence === "ended"
-                    ? "border-line text-text-dim"
-                    : c.cadence === "weekly"
-                      ? "border-gold/30 text-gold"
-                      : "border-accent/30 text-text-dim"
-                }`}
-              >
-                {copy.library.cadence[c.cadence]}
-              </span>
-            ) : null}
-            <span className="text-xs text-text-dim">
-              {fill(copy.library.seriesCount, { n: c.count })}
-            </span>
+    <div className="space-y-8">
+      {trainings.length > 0 ? (
+        <section>
+          <p className="label-caps mb-3">{copy.library.groupTrainings}</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {trainings.map((c) => (
+              <SeriesCardTile key={`${c.kind}-${c.id}`} c={c} />
+            ))}
           </div>
-        </Link>
-      ))}
+        </section>
+      ) : null}
+      {series.length > 0 ? (
+        <section>
+          <p className="label-caps mb-3">{copy.library.groupSeries}</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {series.map((c) => (
+              <SeriesCardTile key={`${c.kind}-${c.id}`} c={c} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

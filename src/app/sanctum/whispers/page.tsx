@@ -3,8 +3,9 @@ import { db } from "@/lib/db";
 import { users, whispers } from "@/lib/db/schema";
 import { whisperStats } from "@/lib/feed/whispers";
 import { listOpenPolls } from "@/lib/polls/ops";
-import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Button, Card, Display, Label, Whisper } from "@/components/ui";
 import { WhisperComposer } from "./WhisperComposer";
+import { PollsPanel } from "./PollsPanel";
 import { cancelScheduledWhisper, setWhisperPinned } from "./actions";
 
 /** Admin-facing when-label for a scheduled whisper (server-rendered only). */
@@ -51,7 +52,8 @@ export default async function SanctumWhispers() {
         />
       </Card>
 
-      <div className="mt-8 space-y-2">
+      <Label className="mt-8 block">Recent</Label>
+      <div className="mt-3 space-y-2">
         {recent.map((w, i) => {
           const scheduled = !w.publishedAt && w.scheduledFor;
           return (
@@ -103,6 +105,8 @@ export default async function SanctumWhispers() {
           );
         })}
       </div>
+
+      <PollsPanel />
     </div>
   );
 }
