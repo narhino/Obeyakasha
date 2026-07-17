@@ -366,6 +366,112 @@ view (her IP, never shown), social/collaborative queues (D7).
 
 ---
 
+## v2 RESHAPE (approved 2026-07-17) — supersedes tab/IA parts above
+
+Approved by Akasha after research (Shibbydex v2 file pages/playlists/player;
+Mistress Calia free-funnel catalog; Shelle Rivers contract + monthly gifts).
+**Build order is R1→R8 (her spec) first, then R9 (creative additions).**
+Execution: Fable plans/reviews; Opus 4.8 agents implement phase by phase.
+
+**IA: 5 tabs** — Home(Whispers) · Library · Tasks · Messages · You.
+Series lives as a Library segment (Files | Series | Playlists). Commission
+stays reachable from You.
+
+### R1 — Home = Whispers feed (public front door)
+- `/` becomes the whisper feed. Logged-out: whispers with audience `public`
+  only + prominent "Connect with Patreon" CTA. Signed-in: feed for their level.
+- Whisper `pinned` boolean — pinned posts stay on top (her toggle in Sanctum
+  + inline on her own feed view).
+- **Polls in whispers**: whisper kind `poll` linking the existing polls system;
+  vote inline in the feed; respects audience levels.
+- Old marketing landing content moves to `/about` (linked from feed header).
+
+### R2 — Library v2 (public catalog + smart search)
+- Catalog visible to everyone (logged-out included) — shibby/Calia funnel.
+  Entitled files: normal card + Play. Locked files: dimmed/sealed variant with
+  **Upgrade** (→ Patreon) instead of Play. Never hide titles.
+- Filter bar: tag chips (by kind) + free-text smart search:
+  title/description/tags via Postgres FTS + pg_trgm fuzzy ("similar words"),
+  PLUS transcript full-text match (indicator only — never quote transcript
+  text to subjects). Progressive fallback so results are never empty:
+  exact → fuzzy → related tags → popular.
+- Per-file actions: Play / File page / Add to queue / Add to playlist.
+- **Subject playlists** (shibbydex parity): create/rename/delete, drag-drop
+  reorder, play-all → feeds queue.
+- Segments: Files | Series | Playlists.
+- **Subject uploads**: private tracks (`ownerUserId`, visibility `private`) —
+  upload → auto transcribe+analyze → prompted for author/title/description →
+  appears ONLY in their library; their agent-tags land in Akasha's review
+  queue for validation. Per-user quota setting; her kill-switch setting.
+
+### R3 — File pages (subject-facing, shibby-style)
+- `/library/track/[slug]`: artwork, description, [F4M]-style tag chips,
+  **triggers mentioned** (names only), length, series/training membership,
+  big Play (or Upgrade when locked). Approved data only; transcripts never.
+- "After this" rail (same series / shared tags).
+
+### R4 — Series as collections + Spotify queue
+- Series get artwork + description + status (ongoing/weekly/ended — exists).
+- Series page plays as a playlist; **player queue sheet** shows current +
+  next tracks (Spotify pattern), drag-reorder, remove, jump-play; add-to-queue
+  from anywhere. (Pulls forward the P1 queue + seek work: scrub bar, ±15s.)
+- She reorders series items in Sanctum (drag).
+
+### R5 — Tasks/Orders v2
+- Orders: individual or collective (audience exists), **deadlines**,
+  mark-done, **photo proof** — optional by default, her per-order toggle
+  makes it required; proof review in Sanctum (approve → praise push).
+- Tasks tab **flashes red** (badge + pulse) while anything is pending.
+
+### R6 — You v2 (+ Ask + Secret mode)
+- Stats: tasks completed, hours listened, current rank + progress, chain.
+- Collar name, preferences, commission entry, settings.
+- **Ask button** — "Petition her" form → wishes system; she answers from
+  Sanctum; answer notifies the sub.
+- **Secret mode (disguise)** — very visible toggle at top of You:
+  1. ON → all push notifications are rewritten server-side to innocuous
+     family-safe messages from a rotating pool ("Reminder: drink water",
+     weather, generic news) with neutral icon; tapping still opens the app.
+  2. Dynamic manifest: while ON, the PWA manifest serves a neutral name +
+     icon ("Daily") so fresh installs look mundane; in-app hint that full
+     disguise needs reinstall.
+  3. The notification-permission step in The Gate offers the choice UP FRONT
+     with a live example of both styles (normal vs disguised).
+- In-app experience stays full — disguise affects only what the lock screen
+  shows.
+
+### R7 — Notifications everywhere
+- Every sub-relevant event pushes (respecting quiet hours + disguise):
+  order received / graded / deadline near, message received, rank up, new
+  file at their level, series updated, commission stage change, ask answered,
+  poll opened, whisper posted (exists), premiere unlock (R9).
+- In-app "moments" queue: rank-ups and praise ALSO show as a ritual pop-up at
+  next session start (deduped with push).
+
+### R8 — Manual Patreon import, professional
+- Patreon API cannot deliver post audio (verified 400 on attachments_media;
+  known platform limitation). Import therefore pulls **all posts as shells**
+  (title, description, date, patreonPostId; status `needs_audio`; hidden from
+  subjects).
+- **Bulk-attach screen**: drop N audio files → fuzzy filename↔title matching
+  proposes pairs → she confirms/fixes via dropdown → attach streams file to
+  shell → full pipeline runs. Per-shell single attach too.
+
+### R9 — Creative additions (approved; build AFTER R1–R8)
+1. "She sees you" — Sanctum live now-under view; one-tap line drops into the
+   listener's session as an overlay.
+2. Trigger Vault (sub-facing) — acquired triggers + locked mystery slots.
+3. Rank ceremony — full-screen ritual pop-up on next session after rank-up.
+4. Obedience percentile — anonymous "you obey more than N%".
+5. The Oath — streak-gated collaring petition; inner whisper level + monthly
+   gift file.
+6. Premieres — scheduled unlock + countdown + push.
+7. Surrender button — "she chooses" autoplay from recommendations.
+8. Free-sample files — publicly playable picks for logged-out visitors.
+9. Scheduled whispers + auto-welcome DM on first connect.
+
+---
+
 ## Execution model ("think Fable, execute lower, heavy → Opus")
 
 - This document is the thinking artifact. Each module above is a delegation
