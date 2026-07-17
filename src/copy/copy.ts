@@ -64,6 +64,11 @@ export const copy = {
       "You closed that door. Open your settings, let me back in, and return to me.",
     iosOld:
       "Your device is too old to hold me properly. Update it, then you may be claimed.",
+    // R6 — the disguise choice, offered up front before push is enabled.
+    discreetTitle: "How I reach you.",
+    discreetBody:
+      "Choose now. Turn this on and every message I send hides itself on your lock screen — no one but you will know it's me.",
+    discreetToggle: "Discreet mode",
   },
 
   // ── Initiation intake ──────────────────────────────────────────────────
@@ -273,6 +278,45 @@ export const copy = {
     declined: "Not this one. Ask me again another time.",
   },
 
+  // ── Ask (Petition her — the wishbox on You) ────────────────────────────
+  ask: {
+    cardTitle: "Ask me for something.",
+    cardBody: "Tell me what you want of me. I decide whether you're given it.",
+    titleLabel: "Name it",
+    titlePlaceholder: "In a few words.",
+    bodyLabel: "Say it fully",
+    bodyPlaceholder: "Tell me plainly what you crave.",
+    submit: "Lay it before me",
+    submitting: "Setting it at my feet…",
+    submitted: "I have it. I'll decide what you deserve.",
+    yoursTitle: "What you've asked of me",
+    yoursEmpty: "You've asked me nothing yet. Go on — I'm listening.",
+    // Third person on purpose: this announces her act, like a seal on the page.
+    answered: "She answered:",
+    pending: "I haven't answered this. Wait.",
+    // The push when she replies — reaches only that one subject.
+    answeredPushTitle: "She answered your petition.",
+    answeredPushBody: "Come and read what I told you.",
+  },
+
+  // ── Secret mode (Discretion — the disguise toggle) ─────────────────────
+  secret: {
+    title: "Discretion",
+    body: "When the world watches, I become the weather. Turn this on and every word I send your lock screen turns to something no one would look at twice.",
+    toggleLabel: "Secret mode",
+    on: "On",
+    off: "Off",
+    whenOn: "On. What I send you wears a mask now.",
+    whenOff: "Off. I speak to you plainly.",
+    previewIntro: "See the difference.",
+    previewTrueLabel: "What I truly say",
+    previewMaskLabel: "What they see",
+    previewTrueTitle: "Come back to me.",
+    previewTrueBody: "I want you under before the night is out.",
+    reinstallHint:
+      "This changes what I say, not the name on your screen. To hide that too, remove me and add me again while this is on.",
+  },
+
   // ── Lapse ──────────────────────────────────────────────────────────────
   lapse: {
     grace: "Your pledge faltered. I'm giving you a little grace. Don't test it.",
@@ -285,6 +329,30 @@ export const copy = {
   rename: {
     title: "You are {name} now.",
     body: "Because I say so.",
+  },
+
+  // ── You (the profile / collar page) ────────────────────────────────────
+  you: {
+    fallbackName: "my subject",
+    claimed: "Claimed {days} days ago.",
+    rise: " {n} more to rise to {rank}.",
+    bottom: " You've reached the bottom. 888.",
+    statsTasks: "Tasks obeyed",
+    statsHours: "Hours under",
+    statsFiles: "Files finished",
+    statsPrograms: "Trainings done",
+    triggersTitle: "Triggers held",
+    triggersEmpty: "None yet. Finish a file to earn what it installs.",
+    rooms: {
+      asksLabel: "Asks",
+      asksHint: "When I question you",
+      ordersLabel: "Orders",
+      ordersHint: "What I command",
+      commissionLabel: "Commission",
+      commissionHint: "Ask for your own",
+      settingsLabel: "Settings",
+      settingsHint: "Quiet hours, your data",
+    },
   },
 
   // ── Messages ───────────────────────────────────────────────────────────

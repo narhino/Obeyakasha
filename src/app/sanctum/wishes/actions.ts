@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { wishes } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
+import { broadcast } from "@/lib/push/broadcast";
+import { copy } from "@/copy/copy";
 
 export async function setWishStatus(formData: FormData) {
   const session = await requireGoddess();
@@ -18,5 +21,43 @@ export async function setWishStatus(formData: FormData) {
     | "declined";
   await db.update(wishes).set({ status }).where(eq(wishes.id, id));
   await logAudit(session.user.id, "wish.status", { id, status });
+  revalidatePath("/sanctum/wishes");
+}
+
+const replySchema = z.object({
+  wishId: z.string().uuid(),
+  reply: z.string().min(1).max(1000),
+});
+
+/**
+ * She answers a petition (R6). Sets reply + repliedAt (status stays her call
+ * via the existing control), audits it, and pushes the answer to that one
+ * subject in her voice ("She answered your petition."). Deep-links to their You
+ * page, where the reply shows beneath the ask.
+ */
+export async function replyToWish(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = replySchema.safeParse({
+    wishId: String(formData.get("wishId")),
+    reply: String(formData.get("reply") ?? "").trim(),
+  });
+  if (!parsed.success) return;
+
+  const [wish] = await db
+    .update(wishes)
+    .set({ reply: parsed.data.reply, repliedAt: new Date() })
+    .where(eq(wishes.id, parsed.data.wishId))
+    .returning({ userId: wishes.userId });
+
+  await logAudit(session.user.id, "wish.reply", { id: parsed.data.wishId });
+
+  if (wish) {
+    await broadcast({
+      title: copy.ask.answeredPushTitle,
+      body: copy.ask.answeredPushBody,
+      deepLink: "/me",
+      audience: { type: "users", userIds: [wish.userId] },
+    });
+  }
   revalidatePath("/sanctum/wishes");
 }

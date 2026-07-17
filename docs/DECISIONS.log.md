@@ -347,3 +347,50 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   and both providers (local writes under the key; Bunny uses the same PUT path).
   Proofs are stored at `proofs/<orderId>/<userId>.{webp,jpg,png}` and served
   only through the existing signed-URL pattern — raw keys never leave the server.
+
+## 2026-07-17 — R6 (You v2 + Ask + Secret mode)
+
+- **The disguise pool bypasses the copy.ts voice rule ON PURPOSE.**
+  `src/lib/push/disguise.ts` holds the Secret-mode messages ("Reminder — Drink
+  some water today", weather, generic "Daily" reads). CLAUDE.md's golden rule is
+  that every subject-facing string lives in `copy.ts` in Akasha's voice — this
+  is the single deliberate exception, and it must be. The whole point of Secret
+  mode is that what reaches the lock screen looks like nothing; in her voice it
+  would defeat itself. The file carries a header explaining this, and it never
+  imports or touches `copy.ts`. The *normal* preview shown beside it (her voice)
+  does come from `copy.secret.*`.
+- **Single push choke point = `sendToDevice`.** Every notification the platform
+  sends funnels broadcast → `targetsForUsers` → `sendToDevice`, which is the
+  only caller of `webpush.sendNotification`. Secret mode is enforced there, once:
+  if the recipient's `disguise` flag is set the payload's title/body/icon are
+  rewritten (deep link + tag preserved) before it leaves the server. The flag is
+  resolved in one batched query in `targetsForUsers` and is a **required** field
+  on `DeviceTarget`, so the type system forces every target to carry a disguise
+  decision — a future sender can't accidentally skip it. Stored `notifications`
+  rows and in-app rendering keep her real words; only the wire payload changes.
+- **Manifest became a dynamic route handler.** Replaced the static
+  `app/manifest.ts` metadata convention with `app/manifest.webmanifest/route.ts`
+  (force-dynamic, no-store) so the PWA identity can vary per session: Secret mode
+  on → neutral name/short_name "Daily" + a plain grey SVG icon
+  (`public/icons/disguise.svg`, deliberately non-brand); off → the normal AKASHA
+  manifest. `metadata.manifest` in the root layout still points at
+  `/manifest.webmanifest`, so nothing else changed. In-app hint under the toggle
+  notes that a fresh install is needed to also disguise the installed app name.
+- **Secret-mode toggle is an own-user server action.** `setDisguiseMode` in
+  `src/lib/profile/secret.ts` (zod, `logAudit` with the subject as actor) is
+  shared verbatim by the You-page card and the Gate's notification step, so both
+  write `users.disguiseMode` identically. Auditing a subject's own action (actor
+  = their id) is intentional; it is not a Sanctum mutation but the phase asks for
+  it explicitly.
+- **No subject-facing self-rename ritual exists, so the collar name is shown as
+  identity only.** Renaming remains the goddess's act (Sanctum → subject → rename,
+  via `copy.rename`); there is no subject route that lets someone rename
+  themselves, and inventing one is out of R6 scope. The You page surfaces the
+  collar name prominently (honorific + chosen name) without a fabricated
+  self-rename link.
+- **`wishes` gained `title`, `reply`, `repliedAt` (migration `0010_you_v2.sql`).**
+  `title` is nullable so every pre-R6 wish (intake + old wishbox) keeps working.
+  The Ask form posts `{title?, body}` to the existing `/api/wishes`, which now
+  also `notifyGoddess`-es (admin-facing inline English, per the R5 convention)
+  and audits the create. Her Sanctum reply pushes only to that one subject in
+  voice ("She answered your petition."), respecting quiet hours.

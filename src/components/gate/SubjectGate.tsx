@@ -14,6 +14,10 @@ import {
   type Platform,
 } from "@/lib/pwa/client";
 import { Button, Display, Whisper } from "@/components/ui";
+import { Switch } from "@/components/me/Switch";
+import { NotificationPreview } from "@/components/me/NotificationPreview";
+import { setDisguiseMode } from "@/lib/profile/secret";
+import { DISGUISE_MESSAGES } from "@/lib/push/disguise";
 import { copy } from "@/copy/copy";
 
 /**
@@ -44,6 +48,9 @@ export function SubjectGate({
   const [step, setStep] = useState<Step>("age");
   const [consented, setConsented] = useState(alreadyConsented);
   const [notifDenied, setNotifDenied] = useState(false);
+  // R6: the disguise choice, offered up front before push is enabled. Default
+  // off; persisted to users.disguiseMode via the same action the You page uses.
+  const [disguise, setDisguise] = useState(false);
   const ctxRef = useRef<Ctx | null>(null);
   const androidPrompt = useRef<{ prompt: () => Promise<void> } | null>(null);
 
@@ -157,6 +164,10 @@ export function SubjectGate({
     setStep("done");
     setSatisfied(true);
   }
+  function chooseDisguise(next: boolean) {
+    setDisguise(next); // optimistic; persist via the shared server action
+    void setDisguiseMode(next).catch(() => {});
+  }
 
   if (satisfied) return <>{children}</>;
   if (!ready) {
@@ -218,6 +229,35 @@ export function SubjectGate({
 
       {step === "notifications" && (
         <Panel title={copy.gate.notifTitle} body={copy.gate.notifBody}>
+          {/* Disguise choice, up front, before push is enabled. */}
+          <div className="w-full rounded-[var(--radius-lg)] border border-line/80 bg-surface/60 p-3 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="label-caps text-gold">{copy.gate.discreetTitle}</p>
+                <Whisper className="mt-1 text-xs">{copy.gate.discreetBody}</Whisper>
+              </div>
+              <Switch
+                checked={disguise}
+                onChange={chooseDisguise}
+                label={copy.gate.discreetToggle}
+              />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <NotificationPreview
+                variant="true"
+                label={copy.secret.previewTrueLabel}
+                title={copy.secret.previewTrueTitle}
+                body={copy.secret.previewTrueBody}
+              />
+              <NotificationPreview
+                variant="mask"
+                label={copy.secret.previewMaskLabel}
+                title={DISGUISE_MESSAGES[0]!.title}
+                body={DISGUISE_MESSAGES[0]!.body}
+              />
+            </div>
+          </div>
+
           <Button variant="gold" size="lg" onClick={enableNotifications}>
             {copy.gate.notifButton}
           </Button>

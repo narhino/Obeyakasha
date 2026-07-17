@@ -233,9 +233,16 @@ export const wishes = pgTable("wishes", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  // R6 Ask ("Petition her"): a short headline for the petition. Nullable so
+  // pre-R6 wishes (intake / wishbox) keep working untouched.
+  title: text("title"),
   body: text("body").notNull(),
   source: wishSource("source").notNull().default("wishbox"),
   status: wishStatus("status").notNull().default("new"),
+  // R6: her answer to the petition. Set from the Sanctum wishes board; when it
+  // lands, the subject is pushed ("She answered your petition.").
+  reply: text("reply"),
+  repliedAt: timestamp("replied_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

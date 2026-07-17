@@ -71,6 +71,13 @@
       "when": 1784298639588,
       "tag": "0009_orders_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784299966498,
+      "tag": "0010_you_v2",
+      "breakpoints": true
     }
   ]
 }

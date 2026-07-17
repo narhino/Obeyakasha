@@ -35,6 +35,10 @@ export const users = pgTable("users", {
   timezone: text("timezone").notNull().default("UTC"),
   quietHoursStart: integer("quiet_hours_start").notNull().default(22),
   quietHoursEnd: integer("quiet_hours_end").notNull().default(9),
+  // Secret mode (R6): when on, every push to this subject is rewritten to an
+  // innocuous family-safe message at the send choke point and the PWA manifest
+  // serves a neutral identity. The in-app experience is unchanged.
+  disguiseMode: boolean("disguise_mode").notNull().default(false),
   status: userStatus("status").notNull().default("active"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
