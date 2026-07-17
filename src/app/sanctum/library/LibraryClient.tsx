@@ -40,13 +40,14 @@ function PipelineBadge({ row }: { row: LibraryRow }) {
     case "failed_organize":
       return <Badge tone="danger">organize failed</Badge>;
     case "ready":
+      // Positive states read calm/gold; wine is reserved for failures (F29).
       return row.transcriptStatus === "done" ? (
         <Badge tone="gold">script ready</Badge>
       ) : (
-        <Badge tone="sealed">ready</Badge>
+        <Badge tone="neutral">ready</Badge>
       );
     default:
-      return <Badge tone="sealed">uploaded</Badge>;
+      return <Badge tone="neutral">uploaded</Badge>;
   }
 }
 
@@ -139,7 +140,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                         ? "gold"
                         : t.visibility === "archived"
                           ? "danger"
-                          : "sealed"
+                          : "neutral"
                     }
                   >
                     {t.visibility}

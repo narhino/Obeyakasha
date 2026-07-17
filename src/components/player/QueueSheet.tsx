@@ -52,31 +52,32 @@ function Row({
         </span>
       </button>
 
-      <div className="flex shrink-0 items-center gap-1">
+      {/* Comfortable ≥44px-tall tap targets, not the old 28px squares (F25). */}
+      <div className="flex shrink-0 items-center gap-0.5">
         {which === "manual" ? (
           <>
             <button
               onClick={() => reorderManual(index, index - 1)}
               disabled={index === 0}
               aria-label={copy.player.queue.up}
-              className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-text-dim transition-colors hover:text-gold disabled:opacity-25"
+              className="flex h-11 w-9 items-center justify-center rounded-[var(--radius-sm)] text-text-dim transition-colors hover:text-gold disabled:opacity-25"
             >
-              <IconChevronDown size={15} className="rotate-180" />
+              <IconChevronDown size={16} className="rotate-180" />
             </button>
             <button
               onClick={() => reorderManual(index, index + 1)}
               disabled={index === count - 1}
               aria-label={copy.player.queue.down}
-              className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-text-dim transition-colors hover:text-gold disabled:opacity-25"
+              className="flex h-11 w-9 items-center justify-center rounded-[var(--radius-sm)] text-text-dim transition-colors hover:text-gold disabled:opacity-25"
             >
-              <IconChevronDown size={15} />
+              <IconChevronDown size={16} />
             </button>
           </>
         ) : null}
         <button
           onClick={() => removeFromQueue(track.id, which)}
           aria-label={copy.player.queue.remove}
-          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-lg leading-none text-text-dim transition-colors hover:text-danger"
+          className="flex h-11 w-9 items-center justify-center rounded-[var(--radius-sm)] text-lg leading-none text-text-dim transition-colors hover:text-danger"
         >
           &times;
         </button>

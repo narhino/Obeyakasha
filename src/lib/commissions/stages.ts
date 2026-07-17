@@ -33,6 +33,21 @@ export const COMMISSION_STAGES = [
 
 export type CommissionStage = (typeof COMMISSION_STAGES)[number]["key"];
 
+/** Human labels for the raw status enum (F19) — no "IN_PROGRESS" in the UI. */
+const COMMISSION_STATUS_LABELS: Record<string, string> = {
+  new: "New",
+  reviewing: "Reviewing",
+  accepted: "Accepted",
+  in_progress: "In progress",
+  delivered: "Delivered",
+  declined: "Declined",
+  closed: "Closed",
+};
+
+export function commissionStatusLabel(status: string): string {
+  return COMMISSION_STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+}
+
 export function stageInfo(key: string): (typeof COMMISSION_STAGES)[number] {
   return COMMISSION_STAGES.find((s) => s.key === key) ?? COMMISSION_STAGES[0];
 }

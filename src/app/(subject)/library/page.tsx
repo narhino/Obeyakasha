@@ -101,7 +101,7 @@ export default async function LibraryPage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-2xl px-4 py-8 lg:max-w-5xl">
       <div className="mb-2 flex items-center justify-between">
         <Display className="text-3xl">{copy.library.title}</Display>
         {signedIn ? (
@@ -201,7 +201,7 @@ function FilesSegment({
       <form
         method="get"
         action="/library"
-        className="mb-4 flex flex-wrap items-center gap-2"
+        className="mb-4 flex max-w-2xl flex-wrap items-center gap-2"
       >
         <input type="hidden" name="segment" value="files" />
         {activeTags.map((id) => (

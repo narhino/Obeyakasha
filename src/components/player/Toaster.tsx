@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useToasts } from "@/lib/player/toast";
+import { usePlayer } from "@/lib/player/store";
 
 /**
  * Transient toasts (R4) — "Queued: <title>" acknowledgements. Mounted once in
@@ -12,6 +13,10 @@ const LIFETIME_MS = 2600;
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
   const dismiss = useToasts((s) => s.dismiss);
+  // The queue sheet owns the lower screen; a toast there would cover its header
+  // ("NEXT, BY YOUR HAND"). Suppress toasts while it's open (F28). Timers below
+  // still run, so queued toasts expire rather than pile up behind the sheet.
+  const queueOpen = usePlayer((s) => s.queueOpen);
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export function Toaster() {
     };
   }, []);
 
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0 || queueOpen) return null;
 
   return (
     <div

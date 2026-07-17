@@ -133,11 +133,14 @@ export function IconSpeak({ size, ...p }: P) {
 }
 
 export function IconCollar({ size, ...p }: P) {
-  // A collar with its ring — "You".
+  // A collar BAND with its hanging O-ring — "You". Drawn as a horizontal band
+  // (two meeting arcs) so it reads as a collar, not a lightbulb (F35).
   return (
     <svg {...base(size)} {...p}>
-      <circle cx="12" cy="10.5" r="6.5" />
-      <circle cx="12" cy="18.5" r="2" />
+      <path d="M4.8 9.4C7 11.6 9.4 12.7 12 12.7s5-1.1 7.2-3.3" />
+      <path d="M4.8 9.4C7 7.2 9.4 6.1 12 6.1s5 1.1 7.2 3.3" />
+      <path d="M12 12.7v1.6" />
+      <circle cx="12" cy="16.6" r="2.1" />
     </svg>
   );
 }

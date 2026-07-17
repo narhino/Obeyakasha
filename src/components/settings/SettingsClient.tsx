@@ -11,15 +11,17 @@ export function SettingsClient({
   timezone,
   quietStart,
   quietEnd,
+  initialOptouts = [],
 }: {
   timezone: string;
   quietStart: number;
   quietEnd: number;
+  initialOptouts?: string[];
 }) {
   const [tz, setTz] = useState(timezone);
   const [qs, setQs] = useState(quietStart);
   const [qe, setQe] = useState(quietEnd);
-  const [optouts, setOptouts] = useState<string[]>([]);
+  const [optouts, setOptouts] = useState<string[]>(initialOptouts);
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -78,24 +80,33 @@ export function SettingsClient({
         <Whisper className="text-xs uppercase tracking-wide">
           What she must never touch
         </Whisper>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {THEMES.map((t) => (
-            <button
-              key={t}
-              onClick={() =>
-                setOptouts((o) =>
-                  o.includes(t) ? o.filter((x) => x !== t) : [...o, t],
-                )
-              }
-              className={`rounded-[var(--radius-full)] border px-3 py-1 text-xs ${
-                optouts.includes(t)
-                  ? "border-danger text-danger"
-                  : "border-line text-text-dim"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <Whisper className="mt-1 text-xs">
+          Tap to mark a theme off-limits. Marked ones glow red — she&apos;ll never
+          send you there.
+        </Whisper>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {THEMES.map((t) => {
+            const off = optouts.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={off}
+                onClick={() =>
+                  setOptouts((o) =>
+                    o.includes(t) ? o.filter((x) => x !== t) : [...o, t],
+                  )
+                }
+                className={`rounded-[var(--radius-full)] border px-3 py-1.5 text-xs transition-colors duration-[var(--dur-med)] ${
+                  off
+                    ? "border-danger bg-danger/10 text-danger"
+                    : "border-line text-text-dim hover:border-danger/50 hover:text-text"
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
         </div>
       </Card>
 

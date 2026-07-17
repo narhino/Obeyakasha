@@ -5,22 +5,10 @@ import { diagnoseImport } from "@/lib/patreon/diagnose";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { AttachButton } from "./AttachButton";
+import { formatDay } from "@/lib/format/when";
 import { importAllNewAction, importPostAction } from "./actions";
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return "";
-  }
-}
 
 export default async function ImportPage({
   searchParams,
@@ -145,7 +133,7 @@ export default async function ImportPage({
                       {p.title}
                     </p>
                     <Whisper className="text-xs">
-                      {fmtDate(p.publishedAt)}
+                      {formatDay(p.publishedAt)}
                       {p.isPublic ? " · public" : ""}
                       {p.jobStatus === "failed" && p.jobError
                         ? ` · ${p.jobError.slice(0, 80)}`

@@ -3,7 +3,11 @@ import { db } from "@/lib/db";
 import { commissions, tracks, users } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
 import { Badge, Button, Card, Display, Select, Whisper } from "@/components/ui";
-import { COMMISSION_STAGES, stageInfo } from "@/lib/commissions/stages";
+import {
+  COMMISSION_STAGES,
+  commissionStatusLabel,
+  stageInfo,
+} from "@/lib/commissions/stages";
 import {
   deliverCommissionAction,
   toggleCommissions,
@@ -68,7 +72,7 @@ export default async function SanctumCommissions() {
                 <div className="flex items-center gap-2">
                   {c.waitlist ? <Badge tone="sealed">waitlist</Badge> : null}
                   <Badge tone={c.status === "delivered" ? "gold" : "neutral"}>
-                    {c.status}
+                    {commissionStatusLabel(c.status)}
                   </Badge>
                 </div>
               </div>
@@ -120,7 +124,7 @@ export default async function SanctumCommissions() {
                   <Select name="status" defaultValue={c.status}>
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {commissionStatusLabel(s)}
                       </option>
                     ))}
                   </Select>

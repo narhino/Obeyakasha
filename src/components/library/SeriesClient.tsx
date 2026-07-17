@@ -126,19 +126,19 @@ export function SeriesClient({
               {state === "entitled" ? (
                 <button
                   onClick={() => queueTrack(t)}
-                  className="shrink-0 text-xs text-text-dim transition-colors hover:text-gold"
+                  className="shrink-0 px-1 py-2 text-xs text-text-dim transition-colors hover:text-gold"
                 >
                   {copy.library.queue}
                 </button>
               ) : state === "locked" ? (
                 <a href={patreonPageUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                  <Button size="sm" variant="gold">
+                  <Button size="sm" variant="primary">
                     {copy.library.unlockCta}
                   </Button>
                 </a>
               ) : (
                 <Link href="/signin" className="shrink-0">
-                  <Button size="sm" variant="gold">
+                  <Button size="sm" variant="primary">
                     {copy.auth.signInButton}
                   </Button>
                 </Link>

@@ -6,7 +6,11 @@ import {
   ACTIVE_COMMISSION_STATUSES,
   getUserCommissions,
 } from "@/lib/commissions/ops";
-import { daysLeft, stageInfo } from "@/lib/commissions/stages";
+import {
+  COMMISSION_STAGES,
+  daysLeft,
+  stageInfo,
+} from "@/lib/commissions/stages";
 import { CommissionForm } from "@/components/commissions/CommissionForm";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
@@ -49,6 +53,9 @@ export default async function CommissionsPage() {
             const left = daysLeft(c.acceptedAt, etaDays);
             const delivered = c.status === "delivered";
             const waiting = c.status === "new" || c.status === "reviewing";
+            const stepIndex = COMMISSION_STAGES.findIndex(
+              (s) => s.key === c.stage,
+            );
             return (
               <Card key={c.id} raised>
                 <div className="flex items-center justify-between gap-2">
@@ -62,12 +69,36 @@ export default async function CommissionsPage() {
                   ) : null}
                 </div>
 
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-raised">
-                  <div
-                    className="h-full rounded-full bg-gold transition-[width] duration-700"
-                    style={{ width: `${info.pct}%` }}
-                  />
-                </div>
+                {/* Labelled milestone stepper, not a bare bar (F32). */}
+                <ol className="mt-4 flex items-start gap-1.5">
+                  {COMMISSION_STAGES.map((s, idx) => {
+                    const reached = stepIndex >= 0 && idx <= stepIndex;
+                    const current = idx === stepIndex;
+                    return (
+                      <li
+                        key={s.key}
+                        className="flex flex-1 flex-col items-center gap-1.5 text-center"
+                      >
+                        <span
+                          className={`h-1.5 w-full rounded-full transition-colors duration-700 ${
+                            reached ? "bg-gold" : "bg-surface-raised"
+                          }`}
+                        />
+                        <span
+                          className={`text-[0.5625rem] tracking-[0.1em] uppercase ${
+                            current
+                              ? "text-gold"
+                              : reached
+                                ? "text-text-dim"
+                                : "text-text-dim/40"
+                          }`}
+                        >
+                          {copy.comm.stageSteps[s.key]}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
 
                 <Whisper className="mt-2 text-xs">
                   {delivered ? (

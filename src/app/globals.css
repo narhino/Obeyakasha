@@ -211,6 +211,15 @@ body {
   color: var(--color-text-dim);
 }
 
+/* ── lining, tabular figures — the Display serif defaults to oldstyle figures,
+   where 0 reads as "o" and 1 as a roman "I" (the audit's "oh" for 0h, and the
+   Sanctum's "I" counts). Force lining + tabular on metric numerals so digits
+   are unambiguous and columns align (F18, F26). ── */
+.nums-lining {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+}
+
 /* ── focus — a thin gold thread ── */
 :focus-visible {
   outline: 1px solid var(--color-gold);

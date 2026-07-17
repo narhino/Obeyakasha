@@ -41,7 +41,7 @@ export function NotificationPreview({
             </span>
           )}
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-text">{title}</p>
+            <p className="line-clamp-2 text-xs font-medium text-text">{title}</p>
             <p className="mt-0.5 line-clamp-2 text-[0.6875rem] leading-snug text-text-dim">
               {body}
             </p>

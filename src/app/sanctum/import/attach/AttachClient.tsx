@@ -12,6 +12,7 @@ import {
   proposeMatches,
   type MatchConfidence,
 } from "@/lib/patreon/match";
+import { formatDay } from "@/lib/format/when";
 
 interface Shell {
   id: string;
@@ -31,18 +32,6 @@ interface Row {
 }
 
 const CONCURRENCY = 2;
-
-function fmtDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return "";
-  }
-}
 
 export function AttachClient({ shells: initialShells }: { shells: Shell[] }) {
   const [shells, setShells] = useState<Shell[]>(initialShells);
@@ -182,7 +171,7 @@ export function AttachClient({ shells: initialShells }: { shells: Shell[] }) {
                 >
                   <p className="truncate text-sm text-text">{s.title}</p>
                   <Whisper className="text-[0.7rem]">
-                    {fmtDate(s.createdAt)}
+                    {formatDay(s.createdAt)}
                     {claimed ? " · matched" : ""}
                   </Whisper>
                 </div>

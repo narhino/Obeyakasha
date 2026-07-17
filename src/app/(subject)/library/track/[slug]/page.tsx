@@ -9,6 +9,7 @@ import { FilePlayAction } from "@/components/library/FilePlayAction";
 import { Badge, Display, Ornament } from "@/components/ui";
 import { IconSpark } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format/duration";
+import { formatDate } from "@/lib/format/when";
 import { copy, fill } from "@/copy/copy";
 
 // Public per-viewer file page (R3). Reads the session + DB per request.
@@ -16,15 +17,6 @@ export const dynamic = "force-dynamic";
 
 const KIND_LABELS = copy.library.tagKinds as Record<string, string>;
 const RELATION_LABELS = copy.library.filePage.relation as Record<string, string>;
-
-function publishedLabel(d: Date | null): string {
-  if (!d) return "";
-  return new Date(d).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 export async function generateMetadata({
   params,
@@ -125,7 +117,7 @@ export default async function TrackFilePage({
             {track.durationS != null && page.publishedAt ? (
               <span aria-hidden>·</span>
             ) : null}
-            {page.publishedAt ? <span>{publishedLabel(page.publishedAt)}</span> : null}
+            {page.publishedAt ? <span>{formatDate(page.publishedAt)}</span> : null}
           </p>
 
           <div className="mt-5">
@@ -231,7 +223,7 @@ export default async function TrackFilePage({
                   <IconSpark size={18} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm text-text">
+                  <span className="block line-clamp-2 text-sm text-text">
                     {c.title}
                   </span>
                   <span className="label-caps block text-text-dim/70">

@@ -55,30 +55,41 @@ export function WhisperComposer({
         placeholder="Say it… (optional if you attach a poll)"
         className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
       />
+      {/* Labelled like the Orders form, so the level/subject fields aren't
+          cryptic bare inputs (F24). */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <Select
-          name="audienceType"
-          value={audienceType}
-          onChange={(e) => setAudienceType(e.target.value)}
-        >
-          <option value="public">Public (logged-out too)</option>
-          <option value="all">Everyone signed in</option>
-          <option value="level">Access level ≥</option>
-          <option value="user">One subject</option>
-        </Select>
-        <Input name="level" type="number" min={0} max={99} defaultValue={1} />
-        <Select
-          name="userId"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        >
-          <option value="">—</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name ?? s.email ?? s.id.slice(0, 8)}
-            </option>
-          ))}
-        </Select>
+        <label className="flex flex-col gap-1 text-xs text-text-dim">
+          Audience
+          <Select
+            name="audienceType"
+            value={audienceType}
+            onChange={(e) => setAudienceType(e.target.value)}
+          >
+            <option value="public">Public (logged-out too)</option>
+            <option value="all">Everyone signed in</option>
+            <option value="level">Access level ≥</option>
+            <option value="user">One subject</option>
+          </Select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-text-dim">
+          Level
+          <Input name="level" type="number" min={0} max={99} defaultValue={1} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-text-dim">
+          Subject
+          <Select
+            name="userId"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+          >
+            <option value="">—</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name ?? s.email ?? s.id.slice(0, 8)}
+              </option>
+            ))}
+          </Select>
+        </label>
       </div>
 
       {/* Poll attach — none · an existing open poll · a fresh inline poll. */}

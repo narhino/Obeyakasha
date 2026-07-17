@@ -48,11 +48,19 @@ export function Button({
   size?: Size;
   loading?: boolean;
 }) {
+  // One disabled token everywhere (F31): a genuinely disabled button drops to a
+  // calm neutral rather than a washed-out variant ("muddy gold"). Mid-submit
+  // (loading) keeps its variant colour so the spinner still reads as intent.
+  const disabledLook = Boolean(disabled) && !loading;
   return (
     <button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius)] tracking-[0.08em] uppercase transition-all duration-[var(--dur-med)] disabled:cursor-not-allowed disabled:opacity-35 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius)] tracking-[0.08em] uppercase transition-all duration-[var(--dur-med)] disabled:cursor-not-allowed ${
+        disabledLook
+          ? "border border-line bg-surface-raised text-text-dim/45"
+          : variants[variant]
+      } ${loading ? "opacity-90" : ""} ${sizes[size]} ${className}`}
       {...props}
     >
       {loading ? <Spinner /> : null}

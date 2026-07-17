@@ -165,7 +165,7 @@ export function Fullscreen() {
           <button
             onClick={prev}
             className="text-text-dim transition-colors hover:text-text"
-            aria-label="Previous"
+            aria-label={copy.player.controls.prev}
           >
             <IconPrev size={22} />
           </button>
@@ -195,7 +195,7 @@ export function Fullscreen() {
           <button
             onClick={next}
             className="text-text-dim transition-colors hover:text-text"
-            aria-label="Next"
+            aria-label={copy.player.controls.next}
           >
             <IconNext size={22} />
           </button>

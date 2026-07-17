@@ -70,7 +70,7 @@ export default async function SanctumToday() {
           <Link key={t.label} href={t.href}>
             <Card raised>
               <Whisper>{t.label}</Whisper>
-              <p className="mt-1 text-3xl font-[family-name:var(--font-display)]">
+              <p className="nums-lining mt-1 text-3xl font-[family-name:var(--font-display)]">
                 {t.value}
               </p>
             </Card>

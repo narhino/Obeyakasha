@@ -14,7 +14,8 @@ import {
   Spinner,
   Whisper,
 } from "@/components/ui";
-import { IconPlay } from "@/components/ui/icons";
+import { IconPause, IconPlay } from "@/components/ui/icons";
+import { formatClock } from "@/lib/format/duration";
 import { usePolling } from "@/app/sanctum/library/usePolling";
 import type {
   AnalysisKeyword,
@@ -123,6 +124,10 @@ export function DossierClient({
   playlists: Placement[];
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  // Compact in-house verify player state (F17) — no native <audio controls>.
+  const [verifyPlaying, setVerifyPlaying] = useState(false);
+  const [verifyPos, setVerifyPos] = useState(0);
+  const [verifyDur, setVerifyDur] = useState(0);
   const [query, setQuery] = useState("");
   const router = useRouter();
 
@@ -603,9 +608,10 @@ export function DossierClient({
         </Card>
       ) : null}
 
-      {/* Sticky verification player */}
+      {/* Sticky verification player — in-house token controls, not the raw
+          native widget (F17). Keeps the same audioRef the transcript seeks. */}
       {streamUrl ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 px-4 py-2 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 px-4 py-2.5 backdrop-blur">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <span className="shrink-0 text-xs uppercase tracking-[0.14em] text-text-dim">
               Verify
@@ -613,10 +619,65 @@ export function DossierClient({
             <audio
               ref={audioRef}
               src={streamUrl}
-              controls
               preload="metadata"
-              className="h-9 w-full"
+              className="hidden"
+              onPlay={() => setVerifyPlaying(true)}
+              onPause={() => setVerifyPlaying(false)}
+              onEnded={() => setVerifyPlaying(false)}
+              onTimeUpdate={(e) => setVerifyPos(e.currentTarget.currentTime)}
+              onLoadedMetadata={(e) =>
+                setVerifyDur(
+                  Number.isFinite(e.currentTarget.duration)
+                    ? e.currentTarget.duration
+                    : 0,
+                )
+              }
             />
+            <button
+              type="button"
+              onClick={() => {
+                const a = audioRef.current;
+                if (!a) return;
+                if (a.paused) void a.play().catch(() => {});
+                else a.pause();
+              }}
+              aria-label={verifyPlaying ? "Pause" : "Play"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep active:scale-95"
+            >
+              {verifyPlaying ? (
+                <IconPause size={15} />
+              ) : (
+                <IconPlay size={15} className="translate-x-[1px]" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                const a = audioRef.current;
+                if (!a || !verifyDur) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const frac = Math.min(
+                  Math.max((e.clientX - rect.left) / rect.width, 0),
+                  1,
+                );
+                a.currentTime = frac * verifyDur;
+              }}
+              aria-label="Move through it"
+              className="group relative h-3 flex-1"
+            >
+              <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-line" />
+              <span
+                className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-gold transition-[width] duration-200 group-hover:h-[4px]"
+                style={{
+                  width: verifyDur
+                    ? `${Math.min((verifyPos / verifyDur) * 100, 100)}%`
+                    : "0%",
+                }}
+              />
+            </button>
+            <span className="shrink-0 tabular-nums text-xs text-text-dim">
+              {formatClock(verifyPos)} / {formatClock(verifyDur)}
+            </span>
           </div>
         </div>
       ) : null}

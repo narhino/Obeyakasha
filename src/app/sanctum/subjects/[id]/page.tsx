@@ -8,6 +8,7 @@ import { profileTimeline } from "@/lib/profile/timeline";
 import { getOrCreateThread } from "@/lib/messages/ops";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
+import { countOf } from "@/lib/format/plural";
 import { personalPush, renameSubject } from "../actions";
 
 export default async function SubjectProfile({
@@ -38,9 +39,9 @@ export default async function SubjectProfile({
       {card ? (
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
           <Badge tone="gold">chain {card.chain.currentLen}d</Badge>
-          <Badge tone="neutral">{card.filesCompleted} files</Badge>
+          <Badge tone="neutral">{countOf(card.filesCompleted, "file")}</Badge>
           <Badge tone="neutral">{card.listeningHours}h</Badge>
-          <Badge tone="neutral">{card.triggersHeld.length} triggers</Badge>
+          <Badge tone="neutral">{countOf(card.triggersHeld.length, "trigger")}</Badge>
         </div>
       ) : null}
 

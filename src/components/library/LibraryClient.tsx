@@ -70,7 +70,8 @@ export function LibraryClient({
       {tracks.length === 0 ? (
         <p className="text-sm text-text-dim">{copy.library.empty}</p>
       ) : (
-        <ul className="space-y-2">
+        // Two-up on wide screens so the catalog fills the gutters (F34).
+        <ul className="grid gap-2 lg:grid-cols-2">
           {tracks.map((t, i) => {
             const state: "entitled" | "locked" | "anon" = !signedIn
               ? "anon"
@@ -146,7 +147,7 @@ export function LibraryClient({
                   ) : null}
                   <Link
                     href={`/library/track/${t.slug}`}
-                    className="mt-1 inline-block text-xs text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold"
+                    className="mt-0.5 inline-block py-1 text-xs text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold"
                   >
                     {copy.library.filePage.cardLink}
                   </Link>
@@ -157,7 +158,7 @@ export function LibraryClient({
                     {t.downloadable ? <KeepButton trackId={t.id} /> : null}
                     <button
                       onClick={() => queueTrack(t)}
-                      className="text-xs text-text-dim hover:text-gold"
+                      className="px-1 py-2 text-xs text-text-dim hover:text-gold"
                     >
                       {copy.library.queue}
                     </button>
@@ -169,13 +170,15 @@ export function LibraryClient({
                     rel="noreferrer"
                     className="shrink-0"
                   >
-                    <Button size="sm" variant="gold">
+                    {/* Wine, not gold — a locked row is a secondary CTA; the
+                        page keeps a single gold (the header Enter) (F16). */}
+                    <Button size="sm" variant="primary">
                       {copy.library.unlockCta}
                     </Button>
                   </a>
                 ) : (
                   <Link href="/signin" className="shrink-0">
-                    <Button size="sm" variant="gold">
+                    <Button size="sm" variant="primary">
                       {copy.auth.signInButton}
                     </Button>
                   </Link>

@@ -223,19 +223,50 @@ async function transcriptMatchIds(
   return new Set(rows.map((r) => r.trackId));
 }
 
-/** Track ids fuzzily matching title/description, best similarity first. */
-async function fuzzyMatchOrderedIds(
-  ids: string[],
-  q: string,
-): Promise<string[]> {
-  if (ids.length === 0) return [];
-  const score = sql<number>`GREATEST(similarity(${tracks.title}, ${q}), similarity(COALESCE(${tracks.description}, ''), ${q}))`;
-  const rows = await db
-    .select({ id: tracks.id, score })
-    .from(tracks)
-    .where(and(inArray(tracks.id, ids), sql`${score} > ${SIMILARITY_THRESHOLD}`))
-    .orderBy(desc(score));
-  return rows.map((r) => r.id);
+/** pg_trgm-style trigrams: lowercased, split on non-alphanumerics, each word
+ *  padded (two leading, one trailing space) — mirrors Postgres closely. */
+function trigrams(s: string): Set<string> {
+  const out = new Set<string>();
+  for (const word of s.toLowerCase().split(/[^a-z0-9]+/)) {
+    if (!word) continue;
+    const padded = `  ${word} `;
+    for (let i = 0; i < padded.length - 2; i++) out.add(padded.slice(i, i + 3));
+  }
+  return out;
+}
+
+/** Jaccard trigram similarity in [0,1] — the same shape pg_trgm's similarity()
+ *  returns, so SIMILARITY_THRESHOLD stays meaningful. */
+function trigramSimilarity(a: string, b: string): number {
+  const A = trigrams(a);
+  const B = trigrams(b);
+  if (A.size === 0 || B.size === 0) return 0;
+  let inter = 0;
+  for (const t of B) if (A.has(t)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+
+/**
+ * The fuzzy tier (F05): typo-tolerant match over title, description AND tag
+ * values, best score first. Runs in memory over the already-loaded pool so a
+ * one-character typo ("chastty") still reaches a track's "chastity" TAG — the
+ * old DB tier only looked at title/description, so tag typos fell through to
+ * the "popular" shelf and dumped unrelated files.
+ */
+function fuzzyMatches(pool: LibraryTrack[], q: string): LibraryTrack[] {
+  return pool
+    .map((t) => {
+      const fields = [
+        t.title,
+        t.description ?? "",
+        ...t.tags.map((tag) => tag.value),
+      ];
+      const score = Math.max(...fields.map((f) => trigramSimilarity(f, q)));
+      return { t, score };
+    })
+    .filter((x) => x.score > SIMILARITY_THRESHOLD)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.t);
 }
 
 /** Play counts for a set of tracks (drives the most-played fallback shelf). */
@@ -344,13 +375,9 @@ export async function listCatalogTracks(
     return { tracks: augmentTranscriptOnly(exact), fallback: null };
   }
 
-  // (b) pg_trgm fuzzy on title + description.
-  const fuzzyIds = await fuzzyMatchOrderedIds(poolIds, q);
-  if (fuzzyIds.length > 0) {
-    const byId = new Map(pool.map((t) => [t.id, t]));
-    const fuzzy = fuzzyIds
-      .map((id) => byId.get(id))
-      .filter((t): t is LibraryTrack => !!t);
+  // (b) typo-tolerant fuzzy on title + description + tag values (F05).
+  const fuzzy = fuzzyMatches(pool, q);
+  if (fuzzy.length > 0) {
     return { tracks: augmentTranscriptOnly(fuzzy), fallback: null };
   }
 

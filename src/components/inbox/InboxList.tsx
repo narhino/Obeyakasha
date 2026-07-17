@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { copy } from "@/copy/copy";
+import { formatWhen } from "@/lib/format/when";
 
 interface Item {
   id: string;
@@ -48,8 +49,8 @@ export function InboxList() {
               <p className="mt-1 text-sm text-text-dim">{n.body}</p>
             ) : null}
             {n.sentAt ? (
-              <p className="mt-1 text-xs text-text-dim/70">
-                {new Date(n.sentAt).toLocaleString()}
+              <p className="mt-1 text-xs text-text-dim/70" suppressHydrationWarning>
+                {formatWhen(n.sentAt)}
               </p>
             ) : null}
           </div>

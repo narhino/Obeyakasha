@@ -50,11 +50,11 @@ export default async function SanctumAnalytics() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Card raised>
           <Whisper>Active today</Whisper>
-          <p className="mt-1 text-3xl font-[family-name:var(--font-display)]">{dau}</p>
+          <p className="nums-lining mt-1 text-3xl font-[family-name:var(--font-display)]">{dau}</p>
         </Card>
         <Card raised>
           <Whisper>Active this week</Whisper>
-          <p className="mt-1 text-3xl font-[family-name:var(--font-display)]">{wau}</p>
+          <p className="nums-lining mt-1 text-3xl font-[family-name:var(--font-display)]">{wau}</p>
         </Card>
       </div>
 

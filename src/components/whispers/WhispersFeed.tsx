@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { WhisperCard } from "@/lib/feed/whispers";
 import { copy } from "@/copy/copy";
+import { formatWhen } from "@/lib/format/when";
 import { FeedPoll } from "./FeedPoll";
 
 /**
@@ -69,10 +70,8 @@ function WhisperItem({
       ) : null}
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-text-dim/70">
-          {whisper.publishedAt
-            ? new Date(whisper.publishedAt).toLocaleString()
-            : ""}
+        <span className="text-xs text-text-dim/70" suppressHydrationWarning>
+          {whisper.publishedAt ? formatWhen(whisper.publishedAt) : ""}
         </span>
         {signedIn ? (
           <button

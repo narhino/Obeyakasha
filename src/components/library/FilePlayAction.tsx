@@ -49,10 +49,12 @@ export function FilePlayAction({
     );
   }
 
+  // Locked / anon: wine (secondary) so gold stays rationed to one primary per
+  // screen — the header Enter for anon, the Play for the entitled (F16).
   if (state === "locked") {
     return (
       <a href={patreonPageUrl} target="_blank" rel="noreferrer">
-        <Button size="lg" variant="gold">
+        <Button size="lg" variant="primary">
           {copy.library.unlockCta}
         </Button>
       </a>
@@ -61,7 +63,7 @@ export function FilePlayAction({
 
   return (
     <Link href="/signin">
-      <Button size="lg" variant="gold">
+      <Button size="lg" variant="primary">
         {copy.auth.signInButton}
       </Button>
     </Link>

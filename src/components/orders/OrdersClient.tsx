@@ -73,6 +73,13 @@ function ActiveTask({ task }: { task: TaskItem }) {
 
   const wantsProof = task.proofMode !== "none";
   const needsProof = task.proofMode === "required" && !proofUrl;
+  const needsReply = task.requires === "text" && !text.trim();
+  // Why the Obey button is greyed, surfaced on the control itself (F09).
+  const blockedReason = needsProof
+    ? copy.tasks.proof.mustAttach
+    : needsReply
+      ? copy.tasks.replyPlaceholder
+      : null;
 
   async function uploadProof(file: File) {
     if (!ALLOWED.includes(file.type)) {
@@ -191,21 +198,24 @@ function ActiveTask({ task }: { task: TaskItem }) {
             />
           ) : null}
 
-          <Button
-            variant="gold"
-            size="sm"
-            loading={submitting}
-            disabled={
-              submitting ||
-              needsProof ||
-              (task.requires === "text" && !text.trim())
-            }
-            onClick={complete}
-          >
-            {task.requires === "text"
-              ? copy.tasks.obeyAction
-              : copy.tasks.doneAction}
-          </Button>
+          <div>
+            <Button
+              variant="gold"
+              size="sm"
+              loading={submitting}
+              disabled={submitting || needsProof || needsReply}
+              onClick={complete}
+            >
+              {task.requires === "text"
+                ? copy.tasks.obeyAction
+                : copy.tasks.doneAction}
+            </Button>
+            {blockedReason && !submitting ? (
+              <p className="mt-1.5 text-[0.6875rem] text-text-dim/70">
+                {blockedReason}
+              </p>
+            ) : null}
+          </div>
         </div>
       )}
     </Card>

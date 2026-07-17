@@ -6,6 +6,7 @@ import { orderAssignments, users, wishes } from "@/lib/db/schema";
 import { collarCard } from "@/lib/profile/collar";
 import { getSetting } from "@/lib/settings";
 import { rankFor } from "@/lib/ranks/logic";
+import { plural } from "@/lib/format/plural";
 import { Badge, Card, Display, Label, Whisper } from "@/components/ui";
 import { MantraButton } from "@/components/chain/MantraButton";
 import { SecretModeCard } from "@/components/me/SecretModeCard";
@@ -54,12 +55,21 @@ export default async function MePage() {
   const hoursUnder = Math.round(card.listeningHours);
   const disguiseOn = Boolean(meRow[0]?.disguiseMode);
 
-  const stats = [
+  const stats: { label: string; value: number; unit?: string }[] = [
     { label: copy.you.statsTasks, value: tasksDone },
-    { label: copy.you.statsHours, value: `${hoursUnder}h` },
+    { label: copy.you.statsHours, value: hoursUnder, unit: "h" },
     { label: copy.you.statsFiles, value: card.filesCompleted },
     { label: copy.you.statsPrograms, value: card.programsCompleted },
   ];
+
+  // Day 0 / day 1 read oddly as "0/1 days ago" (F33).
+  const claimedDays = daysSince(card.claimedAt);
+  const claimedLine =
+    claimedDays === 0
+      ? copy.you.claimedToday
+      : claimedDays === 1
+        ? copy.you.claimedYesterday
+        : fill(copy.you.claimed, { days: claimedDays });
 
   const rooms = [
     { href: "/asks", label: copy.you.rooms.asksLabel, hint: copy.you.rooms.asksHint },
@@ -91,7 +101,7 @@ export default async function MePage() {
         <Badge tone="gold">{rank.name}</Badge>
       </div>
       <Whisper className="mt-1">
-        {fill(copy.you.claimed, { days: daysSince(card.claimedAt) })}
+        {claimedLine}
         {rank.next
           ? fill(copy.you.rise, {
               n: rank.next.minScore - rank.score,
@@ -108,14 +118,17 @@ export default async function MePage() {
       {/* Chain */}
       <Card raised className="mt-6">
         <Label>{copy.chain.title}</Label>
-        <p className="mt-2 font-[family-name:var(--font-display)] text-5xl text-gold">
+        <p className="nums-lining mt-2 font-[family-name:var(--font-display)] text-5xl text-gold">
           {card.chain.currentLen}
           <span className="ml-3 align-middle font-[family-name:var(--font-body)] text-xs tracking-[0.14em] uppercase text-text-dim">
-            days · best {card.chain.bestLen}
+            {plural(card.chain.currentLen, "day")} · best {card.chain.bestLen}
           </span>
         </p>
         <Whisper className="mt-2">
-          {fill(copy.chain.kept, { chain: card.chain.currentLen })}
+          {fill(copy.chain.kept, {
+            chain: card.chain.currentLen,
+            unit: plural(card.chain.currentLen, "day"),
+          })}
         </Whisper>
         <div className="mt-4">
           <MantraButton mantra={mantra} />
@@ -127,8 +140,13 @@ export default async function MePage() {
         {stats.map((s) => (
           <Card key={s.label}>
             <Whisper className="text-xs">{s.label}</Whisper>
-            <p className="mt-1 text-2xl font-[family-name:var(--font-display)]">
+            <p className="nums-lining mt-1 text-2xl font-[family-name:var(--font-display)]">
               {s.value}
+              {s.unit ? (
+                <span className="ml-0.5 font-[family-name:var(--font-body)] text-sm text-text-dim">
+                  {s.unit}
+                </span>
+              ) : null}
             </p>
           </Card>
         ))}

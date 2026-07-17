@@ -26,9 +26,18 @@ const TABS = [
   { href: "/me", label: copy.nav.you, icon: IconCollar },
 ] as const;
 
-/** Home (`/`) matches exactly; other tabs match by prefix. */
+// Secondary rooms reached from the You page — they carry no tab of their own,
+// so the You tab stays lit while you're inside them, keeping the anchor (F21).
+const YOU_ROOMS = ["/me", "/settings", "/commissions", "/asks"];
+
+/** Home (`/`) matches exactly; the You tab also owns its secondary rooms. */
 function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  if (href === "/me")
+    return YOU_ROOMS.some(
+      (r) => pathname === r || pathname.startsWith(`${r}/`),
+    );
+  return pathname.startsWith(href);
 }
 
 /** Danger dot for the Tasks tab: pulses (steady when reduced-motion). */

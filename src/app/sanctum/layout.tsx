@@ -41,18 +41,26 @@ export default async function SanctumLayout({
             The Sanctum
           </p>
 
-          {/* Mobile: horizontally scrollable rail. Desktop: column. */}
-          <nav className="-mx-5 mt-5 flex gap-1 overflow-x-auto px-5 pb-1 md:mx-0 md:mt-7 md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0">
-            {nav.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="shrink-0 whitespace-nowrap rounded-[var(--radius)] px-3 py-1.5 text-[0.75rem] tracking-[0.1em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:bg-surface-raised hover:text-text md:py-2"
-              >
-                {n.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Mobile: horizontally scrollable rail. Desktop: column.
+              A right-edge fade signals the rail scrolls past the ~4 visible
+              items (F22). */}
+          <div className="relative -mx-5 mt-5 md:mx-0 md:mt-7">
+            <nav className="flex gap-1 overflow-x-auto px-5 pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:px-0 md:pb-0">
+              {nav.map((n) => (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className="shrink-0 whitespace-nowrap rounded-[var(--radius)] px-3 py-1.5 text-[0.75rem] tracking-[0.1em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:bg-surface-raised hover:text-text md:py-2"
+                >
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-surface to-transparent md:hidden"
+            />
+          </div>
 
           <form
             className="mt-6 hidden md:block"

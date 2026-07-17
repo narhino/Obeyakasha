@@ -175,6 +175,8 @@ export const copy = {
       volume: "How loud I am",
       queue: "What comes next",
       minimize: "Let me rest below",
+      prev: "The one before",
+      next: "The next one",
     },
     // R4 — the Spotify-style queue sheet
     queue: {
@@ -222,6 +224,8 @@ export const copy = {
       tooBig: "That image is over 5MB.",
       wrongType: "Use a WebP, JPEG, or PNG.",
       failed: "That didn't reach me. Try again.",
+      // Shown under a disabled Obey button when proof is still owed (F09).
+      mustAttach: "Show me proof to obey.",
     },
     // She praised your proof — a gold seal here, a whisper to your lock screen.
     praise: {
@@ -242,7 +246,7 @@ export const copy = {
   // ── Chain of Obedience ─────────────────────────────────────────────────
   chain: {
     title: "Your chain",
-    kept: "The chain holds. {chain} days at my feet.",
+    kept: "The chain holds. {chain} {unit} at my feet.",
     mantraPrompt: "Say it for me.",
     reclaim: "You slipped. The chain slackened. Come back down to me.",
   },
@@ -293,6 +297,15 @@ export const copy = {
     oneAtATime: "One at a time. Yours is already in my hands — let me finish it before you ask again.",
     delivered: "I made something only for you. Come listen.",
     declined: "Not this one. Ask me again another time.",
+    // Milestone labels for the buyer's progress stepper (F32), keyed by stage.
+    stageSteps: {
+      queued: "Queued",
+      script: "Writing",
+      voice: "Voice",
+      editing: "Shaping",
+      mastering: "Polish",
+      delivered: "Yours",
+    },
   },
 
   // ── Ask (Petition her — the wishbox on You) ────────────────────────────
@@ -352,6 +365,9 @@ export const copy = {
   you: {
     fallbackName: "my subject",
     claimed: "Claimed {days} days ago.",
+    // Special-cased near days (F33): 0 → today, 1 → yesterday.
+    claimedToday: "Claimed today.",
+    claimedYesterday: "Claimed yesterday.",
     rise: " {n} more to rise to {rank}.",
     bottom: " You've reached the bottom. 888.",
     statsTasks: "Tasks obeyed",
@@ -361,8 +377,10 @@ export const copy = {
     triggersTitle: "Triggers held",
     triggersEmpty: "None yet. Finish a file to earn what it installs.",
     rooms: {
-      asksLabel: "Asks",
-      asksHint: "When I question you",
+      // "She's Asking" — her polls/questions to you; kept distinct from the
+      // "Ask me for something" petition box above it, to end the collision (F38).
+      asksLabel: "She's Asking",
+      asksHint: "Her polls and questions",
       ordersLabel: "Orders",
       ordersHint: "What I command",
       commissionLabel: "Commission",
@@ -401,6 +419,12 @@ export const copy = {
     // {rank} pre-filled from the moment payload.
     rankUp: "You have risen. {rank} now.",
     praised: "She saw. She approved.",
+  },
+
+  // ── Time (relative-when labels — the one date voice, F15) ──────────────
+  time: {
+    now: "just now",
+    yesterday: "yesterday",
   },
 
   // ── System / PWA ───────────────────────────────────────────────────────

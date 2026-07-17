@@ -14,6 +14,7 @@ import {
   Whisper,
 } from "@/components/ui";
 import { IconSeal } from "@/components/ui/icons";
+import { formatDay } from "@/lib/format/when";
 import { createOrder, praiseProofAction } from "./actions";
 
 const PROOF_TTL_S = 6 * 60 * 60;
@@ -137,7 +138,7 @@ export default async function SanctumOrders() {
                 <p className="mt-2 truncate text-sm text-text">
                   {p.subjectName ?? "a subject"}
                 </p>
-                <p className="truncate text-xs text-text-dim">{p.orderTitle}</p>
+                <p className="line-clamp-2 text-xs text-text-dim">{p.orderTitle}</p>
                 {p.praisedAt ? (
                   <span className="mt-2 inline-flex items-center gap-1 text-[0.6875rem] tracking-[0.08em] uppercase text-gold">
                     <IconSeal size={13} />
@@ -172,7 +173,7 @@ export default async function SanctumOrders() {
                 ) : null}
                 {o.dueAt ? (
                   <span className="text-[0.6875rem] text-text-dim/70">
-                    due {o.dueAt.toLocaleDateString()}
+                    due {formatDay(o.dueAt)}
                   </span>
                 ) : null}
               </div>
