@@ -18,6 +18,8 @@ function lineFor(m: Moment): string | null {
       return fill(copy.moments.rankUp, { rank: String(m.payload.rank ?? "") });
     case "praised":
       return copy.moments.praised;
+    case "collared":
+      return copy.moments.collared;
     default:
       return null;
   }

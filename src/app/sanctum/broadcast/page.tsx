@@ -85,6 +85,7 @@ export default async function BroadcastPage() {
               <Select name="audienceType" defaultValue="all" className="mt-1 w-full">
                 <option value="all">Everyone</option>
                 <option value="level">Access level ≥</option>
+                <option value="oath">The Collared</option>
                 <option value="user">One subject</option>
               </Select>
             </label>

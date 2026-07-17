@@ -14,7 +14,7 @@ import type { PollOption } from "@/lib/polls/tally";
 
 const schema = z.object({
   body: z.string().max(500).optional(),
-  audienceType: z.enum(["public", "all", "level", "user"]),
+  audienceType: z.enum(["public", "all", "level", "oath", "user"]),
   level: z.coerce.number().int().min(0).max(99).optional(),
   userId: z.string().uuid().optional(),
   pollMode: z.enum(["none", "existing", "new"]).default("none"),
@@ -67,6 +67,7 @@ export async function publishWhisper(
   else if (d.audienceType === "all") audience = { type: "all" };
   else if (d.audienceType === "level")
     audience = { type: "level", level: d.level ?? 1 };
+  else if (d.audienceType === "oath") audience = { type: "oath" };
   else {
     if (!d.userId) return { error: "Choose the one subject this is for." };
     audience = { type: "users", userIds: [d.userId] };

@@ -6,13 +6,16 @@ import { orderAssignments, users, wishes } from "@/lib/db/schema";
 import { collarCard } from "@/lib/profile/collar";
 import { vaultFor } from "@/lib/profile/vault";
 import { obedienceStanding } from "@/lib/stats/standing";
+import { oathStatusFor } from "@/lib/oath/resolve";
 import { resolveAccess } from "@/lib/entitlements/resolve";
 import { getSetting } from "@/lib/settings";
 import { rankFor } from "@/lib/ranks/logic";
 import { plural } from "@/lib/format/plural";
+import { formatDate } from "@/lib/format/when";
 import { Badge, Card, Display, Label, Whisper } from "@/components/ui";
 import { MantraButton } from "@/components/chain/MantraButton";
 import { SecretModeCard } from "@/components/me/SecretModeCard";
+import { OathCard } from "@/components/me/OathCard";
 import { PetitionForm } from "@/components/me/PetitionForm";
 import { TriggerVault } from "@/components/me/TriggerVault";
 import { copy, fill } from "@/copy/copy";
@@ -26,7 +29,7 @@ export default async function MePage() {
   const uid = session.user.id;
 
   const access = await resolveAccess(uid);
-  const [card, mantra, tasksRow, meRow, asks, vault, standing] =
+  const [card, mantra, tasksRow, meRow, asks, vault, standing, oath] =
     await Promise.all([
       collarCard(uid),
       getSetting("chain_mantra"),
@@ -58,6 +61,7 @@ export default async function MePage() {
         .limit(20),
       vaultFor(uid, access.accessLevel),
       obedienceStanding(uid),
+      oathStatusFor(uid),
     ]);
   if (!card) return null;
 
@@ -145,6 +149,14 @@ export default async function MePage() {
           <MantraButton mantra={mantra} />
         </div>
       </Card>
+
+      {/* The Oath — the collar, earned by the chain (R9.5) */}
+      <OathCard
+        state={oath.state}
+        currentStreak={oath.currentStreak}
+        minStreak={oath.minStreak}
+        sinceLabel={oath.oathAt ? formatDate(oath.oathAt) : null}
+      />
 
       {/* Stats — tasks obeyed + hours under + devotion pieces */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

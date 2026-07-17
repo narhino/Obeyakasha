@@ -97,10 +97,12 @@ async function pollViewsFor(
   return map;
 }
 
-/** Whispers targeted to this subject, pinned first then newest (A11 / R1). */
+/** Whispers targeted to this subject, pinned first then newest (A11 / R1).
+ *  `isCollared` unlocks the `oath` audience for the collared inner circle (R9.5). */
 export async function whispersForSubject(
   userId: string,
   userLevel: number,
+  isCollared = false,
   limit = 50,
 ): Promise<WhisperCard[]> {
   const rows = await db
@@ -111,7 +113,7 @@ export async function whispersForSubject(
     .limit(200);
 
   const matched = rows.filter((w) =>
-    audienceMatches(w.audience as Audience, userLevel, userId),
+    audienceMatches(w.audience as Audience, userLevel, userId, isCollared),
   );
   if (matched.length === 0) return [];
   const visible = matched.slice(0, limit);

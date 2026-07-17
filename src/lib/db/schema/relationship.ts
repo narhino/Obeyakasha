@@ -34,6 +34,7 @@ export type Audience =
   | { type: "public" } // visible to logged-out visitors too (R1 public front door)
   | { type: "all" }
   | { type: "level"; level: number }
+  | { type: "oath" } // the collared inner circle — subjects with oathAt set (R9.5)
   | { type: "segment"; rule: Record<string, unknown> }
   | { type: "users"; userIds: string[] };
 

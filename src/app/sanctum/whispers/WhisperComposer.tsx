@@ -69,6 +69,7 @@ export function WhisperComposer({
             <option value="public">Public (logged-out too)</option>
             <option value="all">Everyone signed in</option>
             <option value="level">Access level ≥</option>
+            <option value="oath">The Collared</option>
             <option value="user">One subject</option>
           </Select>
         </label>

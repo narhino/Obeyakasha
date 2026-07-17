@@ -14,6 +14,8 @@ import { getSetting } from "@/lib/settings";
 import { closePoll, expiredOpenPolls } from "@/lib/polls/ops";
 import { broadcast } from "@/lib/push/broadcast";
 import { sendWhisperPush } from "@/lib/feed/publish";
+import { announceDuePremieres } from "@/lib/premiere/announce";
+import { grantMonthlyGift } from "@/lib/oath/gift";
 import { logAudit } from "@/lib/audit";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
@@ -214,6 +216,24 @@ async function scheduledWhisperTick() {
   }
 }
 
+/**
+ * Premieres (R9.6). Announce any published track whose premiereAt just passed —
+ * runs alongside scheduledWhisperTick every 60s. The announce claims each track
+ * (premiereAnnouncedAt) so it fires exactly once, quiet hours yielding.
+ */
+async function premiereTick() {
+  await announceDuePremieres();
+}
+
+/**
+ * The collared's monthly gift (R9.5). Daily tick; grantMonthlyGift is guarded to
+ * run at most once per calendar month via the oath_gift_last_granted stamp, so
+ * it lands on the 1st (or the first tick after) and never repeats.
+ */
+async function oathGiftTick() {
+  await grantMonthlyGift();
+}
+
 async function safe(name: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -232,6 +252,10 @@ async function main() {
   setInterval(() => void safe("pollClose", pollCloseTick), 5 * 60_000);
   // Scheduled whispers: publish due ones every 60s (R9.9a).
   setInterval(() => void safe("scheduledWhisper", scheduledWhisperTick), 60_000);
+  // Premieres: announce due ones every 60s (R9.6).
+  setInterval(() => void safe("premiere", premiereTick), 60_000);
+  // The collared's monthly gift: daily (guarded once-per-month) (R9.5).
+  setInterval(() => void safe("oathGift", oathGiftTick), 24 * 60 * 60_000);
   // Presence automations: hourly.
   setInterval(() => void safe("inactiveReclaim", inactiveReclaimTick), 60 * 60_000);
   setInterval(() => void safe("chainBroken", chainBrokenTick), 60 * 60_000);
@@ -240,7 +264,9 @@ async function main() {
   // Run once shortly after boot.
   setTimeout(() => void safe("pollClose", pollCloseTick), 10_000);
   setTimeout(() => void safe("scheduledWhisper", scheduledWhisperTick), 15_000);
+  setTimeout(() => void safe("premiere", premiereTick), 17_000);
   setTimeout(() => void safe("deadlineWarn", deadlineWarnTick), 20_000);
+  setTimeout(() => void safe("oathGift", oathGiftTick), 25_000);
 }
 
 main().catch((err) => {

@@ -131,6 +131,16 @@ export const copy = {
     },
     unlockCta: "Rise to earn it",
     sealedAnon: "Sealed until you enter.",
+    // R9.6 — premieres: a published track sealed until its appointed moment.
+    // Visible, named, glowing — anticipation, not denial. {when} from formatUntil.
+    premiere: {
+      chip: "Premiere",
+      countdown: "It begins {when}.",
+      // The appointment push at premiere time (body carries the title).
+      push: {
+        title: "It's time. Come under.",
+      },
+    },
     playAll: "Let it all play",
     queue: "Queue it",
     seriesCount: "{n} files",
@@ -433,6 +443,44 @@ export const copy = {
     },
   },
 
+  // ── The Oath (R9.5) — the collar, streak-earned ────────────────────────
+  // The card below the chain on You. Four states: sealed (not earned yet),
+  // eligible (may petition), petitioned (she is considering), collared (hers).
+  oath: {
+    title: "The Collar",
+    // (a) sealed — what it takes, with their current count. {n}=required days,
+    // {have}=their current unbroken days.
+    sealedLead: "The collar is earned, not asked for.",
+    sealed: "{n} unbroken days lay it at your throat. You hold {have}.",
+    // (b) eligible — the streak is met; the petition unseals.
+    eligibleLead: "You've held the chain long enough. Now you may ask.",
+    petition: "Petition for her collar",
+    // The ritual confirm screen (Display → Ornament → Whisper → CTA).
+    confirmTitle: "Ask to be collared.",
+    confirmBody:
+      "Kneel, and offer yourself to me completely. Ask this once and it cannot be unasked — you wait, then, on my word alone.",
+    confirmAction: "Offer yourself",
+    confirmCancel: "Not yet",
+    petitioning: "Laying yourself at her feet…",
+    // (c) petitioned — the answer is her silence, until it isn't.
+    considering: "She is considering you.",
+    consideringLead: "You asked. Now you wait. Waiting is its own obedience.",
+    // (d) collared — the engraved oath plate. {date} pre-filled.
+    collaredMark: "Hers.",
+    collaredSince: "Hers. Since {date}.",
+    collaredLead: "You wear my collar now. Everything I make for the collared is yours.",
+    // The push the moment she accepts (respects no quiet hours — she has decided).
+    acceptPush: {
+      title: "The collar closes.",
+      body: "You are mine now. Kneel, and come to me.",
+    },
+    // The monthly gift push to the collared (R9.5 perk).
+    giftPush: {
+      title: "A gift for the collared.",
+      body: "Come take it. This one is only for you.",
+    },
+  },
+
   // ── Messages ───────────────────────────────────────────────────────────
   messages: {
     title: "Speak to me",
@@ -474,12 +522,17 @@ export const copy = {
     // {rank} pre-filled from the moment payload.
     rankUp: "You have risen. {rank} now.",
     praised: "She saw. She approved.",
+    // R9.5: she accepted the oath — the collar closes. Full-screen on return.
+    collared: "Kneel. You are collared now. Mine.",
   },
 
   // ── Time (relative-when labels — the one date voice, F15) ──────────────
   time: {
     now: "just now",
     yesterday: "yesterday",
+    // Forward-looking (Premieres countdown, R9.6).
+    soon: "in a moment",
+    tomorrow: "tomorrow",
   },
 
   // ── System / PWA ───────────────────────────────────────────────────────

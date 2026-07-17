@@ -8,6 +8,7 @@ import { users } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
+import { acceptOath, declineOath } from "@/lib/oath/ops";
 import { fill, copy } from "@/copy/copy";
 
 const renameSchema = z.object({
@@ -71,4 +72,26 @@ export async function personalPush(formData: FormData) {
   });
   await logAudit(session.user.id, "subject.personal_push", { userId });
   revalidatePath("/sanctum/subjects");
+}
+
+const oathSchema = z.object({ userId: z.string().uuid() });
+
+/** Accept a collar petition (R9.5): sets oathAt, rituals + pushes, audited. */
+export async function acceptOathAction(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = oathSchema.safeParse({ userId: formData.get("userId") });
+  if (!parsed.success) throw new Error("Invalid subject");
+  await acceptOath(parsed.data.userId, session.user.id);
+  revalidatePath(`/sanctum/subjects/${parsed.data.userId}`);
+  revalidatePath("/sanctum");
+}
+
+/** Decline a collar petition (R9.5): clears it quietly — her silence is the answer. */
+export async function declineOathAction(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = oathSchema.safeParse({ userId: formData.get("userId") });
+  if (!parsed.success) throw new Error("Invalid subject");
+  await declineOath(parsed.data.userId, session.user.id);
+  revalidatePath(`/sanctum/subjects/${parsed.data.userId}`);
+  revalidatePath("/sanctum");
 }

@@ -1,13 +1,19 @@
-import { and, eq, gte, inArray, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { entitlements, users } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 
-/** Pure: does a given subject (by level + id) fall inside an audience? */
+/**
+ * Pure: does a given subject fall inside an audience? `isCollared` answers the
+ * `oath` audience (R9.5) — the collared inner circle — and defaults to false, so
+ * a surface that never targets the oath (polls, questions) needs no change and
+ * fails closed.
+ */
 export function audienceMatches(
   audience: Audience,
   userLevel: number,
   userId: string,
+  isCollared = false,
 ): boolean {
   switch (audience.type) {
     case "public":
@@ -18,6 +24,8 @@ export function audienceMatches(
       return true;
     case "level":
       return userLevel >= audience.level;
+    case "oath":
+      return isCollared;
     case "users":
       return audience.userIds.includes(userId);
     default:
@@ -56,6 +64,20 @@ export async function expandAudience(audience: Audience): Promise<string[]> {
               eq(entitlements.status, "active"),
               eq(entitlements.status, "grace"),
             ),
+          ),
+        );
+      return rows.map((r) => r.id);
+    }
+    // The collared inner circle (R9.5): active subjects with oathAt set.
+    case "oath": {
+      const rows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(
+            eq(users.role, "subject"),
+            eq(users.status, "active"),
+            isNotNull(users.oathAt),
           ),
         );
       return rows.map((r) => r.id);

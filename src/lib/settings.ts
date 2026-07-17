@@ -35,6 +35,11 @@ export const SETTINGS_DEFAULTS = {
   // (which pushes "She spoke to you."). The text is hers to edit in Access.
   welcome_dm_enabled: true as boolean,
   welcome_dm_text: copy.messages.welcomeDefault as string,
+  // The Oath (R9.5): unbroken chain days a subject must hold before the collar
+  // petition unseals. Editable in Access. The monthly-gift track id and the
+  // last-granted month stamp are dynamic keys (oath_gift_track_id /
+  // oath_gift_last_granted) read via getRawSetting.
+  oath_min_streak: 21 as number,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

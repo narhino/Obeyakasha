@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import { toast } from "@/lib/player/toast";
 import type { LibraryTrack } from "@/lib/library/queries";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { Button } from "@/components/ui";
-import { IconLock, IconPlay } from "@/components/ui/icons";
+import { IconLock, IconPlay, IconSpark } from "@/components/ui/icons";
 import { KeepButton } from "@/components/offline/KeepButton";
 import { formatDuration } from "@/lib/format/duration";
+import { formatUntil } from "@/lib/format/when";
 import { copy, fill } from "@/copy/copy";
 
 type CardTrack = LibraryTrack & { matchedOnlyTranscript?: boolean };
@@ -48,13 +50,15 @@ export function LibraryClient({
     toast(fill(copy.player.queue.queued, { title: t.title }));
   }
 
-  const entitled = tracks.filter((t) => signedIn && t.unlocked);
+  // A premiere-sealed track is entitled but not yet playable — it never joins
+  // any play queue (R9.6).
+  const playable = (t: LibraryTrack) =>
+    signedIn && t.unlocked && !isPremiereSealed(t.premiereAt);
+  const entitled = tracks.filter(playable);
 
   function playFrom(index: number) {
     const startId = tracks[index]?.id;
-    const queue = tracks
-      .filter((t) => signedIn && t.unlocked)
-      .map(toQueueTrack);
+    const queue = tracks.filter(playable).map(toQueueTrack);
     const startIndex = queue.findIndex((q) => q.id === startId);
     if (startIndex >= 0) playNow(queue, startIndex);
   }
@@ -84,20 +88,34 @@ export function LibraryClient({
               : t.unlocked
                 ? "entitled"
                 : "locked";
+            // Premiere (R9.6): visible + named, but sealed from play until its
+            // moment — a countdown, distinct from the level-sealed veil.
+            const premiereSealed = isPremiereSealed(t.premiereAt);
             // A published free sample is playable by anyone, so it never wears
-            // the sealed veil and shows a Play instead of a lock (R9.8).
-            const canPlay = state === "entitled" || t.freeSample;
-            const sealed = state !== "entitled" && !t.freeSample;
+            // the sealed veil and shows a Play instead of a lock (R9.8). A
+            // premiere overrides both — nothing plays until it begins.
+            const canPlay =
+              !premiereSealed && (state === "entitled" || t.freeSample);
+            const sealed = state !== "entitled" && !t.freeSample && !premiereSealed;
             return (
               <li
                 key={t.id}
                 className={`flex items-center gap-3 rounded-[var(--radius-lg)] border p-3 ${
-                  sealed
-                    ? "border-accent/20 bg-accent-soft/40"
-                    : "border-line bg-surface"
+                  premiereSealed
+                    ? "border-gold/30 bg-gold/5"
+                    : sealed
+                      ? "border-accent/20 bg-accent-soft/40"
+                      : "border-line bg-surface"
                 }`}
               >
-                {canPlay ? (
+                {premiereSealed ? (
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/10 text-gold [text-shadow:0_0_18px_rgba(212,175,106,0.5)]"
+                  >
+                    <IconSpark size={16} />
+                  </span>
+                ) : canPlay ? (
                   <button
                     onClick={() =>
                       state === "entitled" ? playFrom(i) : playSample(t)
@@ -135,7 +153,19 @@ export function LibraryClient({
                           .join(", ")
                       : ""}
                   </p>
-                  {t.freeSample && state !== "entitled" ? (
+                  {premiereSealed ? (
+                    <>
+                      <span className="mt-1 inline-flex items-center rounded-[var(--radius-sm)] border border-gold/40 bg-gold/10 px-1.5 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-gold">
+                        {copy.library.premiere.chip}
+                      </span>
+                      <p className="mt-0.5 text-xs italic text-gold/90">
+                        {fill(copy.library.premiere.countdown, {
+                          when: formatUntil(t.premiereAt),
+                        })}
+                      </p>
+                    </>
+                  ) : null}
+                  {!premiereSealed && t.freeSample && state !== "entitled" ? (
                     <span className="mt-1 inline-flex items-center rounded-[var(--radius-sm)] border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-gold">
                       {copy.library.sampleChip}
                     </span>
@@ -154,7 +184,9 @@ export function LibraryClient({
                         : copy.library.sealedAnon}
                     </p>
                   ) : null}
-                  {state === "entitled" && t.prereqMissing.length > 0 ? (
+                  {!premiereSealed &&
+                  state === "entitled" &&
+                  t.prereqMissing.length > 0 ? (
                     <p className="text-xs text-accent">
                       {fill(copy.library.sealedByPrereq, {
                         track: t.prereqMissing.join(", "),
@@ -169,7 +201,7 @@ export function LibraryClient({
                   </Link>
                 </div>
 
-                {state === "entitled" ? (
+                {premiereSealed ? null : state === "entitled" ? (
                   <div className="flex shrink-0 items-center gap-3">
                     {t.downloadable ? <KeepButton trackId={t.id} /> : null}
                     <button

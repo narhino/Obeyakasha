@@ -102,6 +102,39 @@ export async function setWelcomeDmText(formData: FormData) {
   revalidatePath("/sanctum/access");
 }
 
+const oathStreakSchema = z.object({
+  minStreak: z.coerce.number().int().min(1).max(3650),
+});
+
+/** Set the unbroken-days a subject must hold before the collar unseals (R9.5). */
+export async function setOathMinStreak(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = oathStreakSchema.safeParse({
+    minStreak: formData.get("minStreak"),
+  });
+  if (!parsed.success) throw new Error("Give a whole number of days (1–3650).");
+  const { setSetting } = await import("@/lib/settings");
+  await setSetting("oath_min_streak", parsed.data.minStreak);
+  await logAudit(session.user.id, "setting.oath_min_streak", {
+    value: parsed.data.minStreak,
+  });
+  revalidatePath("/sanctum/access");
+}
+
+/** Set (or clear) the track gifted to the collared each month (R9.5). Empty clears. */
+export async function setOathGiftTrack(formData: FormData) {
+  const session = await requireGoddess();
+  const raw = String(formData.get("trackId") ?? "").trim();
+  const trackId = raw === "" ? null : raw;
+  if (trackId && !/^[0-9a-f-]{36}$/i.test(trackId)) {
+    throw new Error("Pick a track, or clear it.");
+  }
+  const { setRawSetting } = await import("@/lib/settings");
+  await setRawSetting("oath_gift_track_id", trackId);
+  await logAudit(session.user.id, "setting.oath_gift_track_id", { trackId });
+  revalidatePath("/sanctum/access");
+}
+
 /** Set how much of the organize proposal auto-applies (ROADMAP C1.3). */
 export async function setOrganizeAutoApply(formData: FormData) {
   const session = await requireGoddess();

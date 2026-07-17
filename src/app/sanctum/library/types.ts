@@ -9,6 +9,8 @@ export interface LibraryRow {
   durationS: number | null;
   downloadable: boolean;
   freeSample: boolean;
+  /** Premiere moment as an ISO string (R9.6), null when none. */
+  premiereAt: string | null;
   hasAudio: boolean;
   pipeline:
     | "uploaded"

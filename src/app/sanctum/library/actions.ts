@@ -9,6 +9,7 @@ import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { enqueue } from "@/lib/jobs/queue";
 import { broadcast } from "@/lib/push/broadcast";
+import { parsePremiereInput } from "@/lib/premiere/logic";
 import { copy } from "@/copy/copy";
 
 // Uploads now stream through POST /api/sanctum/upload (ROADMAP C1.2); the old
@@ -21,9 +22,12 @@ const metaSchema = z.object({
   minAccessLevel: z.coerce.number().int().min(0).max(99),
   durationS: z.coerce.number().int().min(0).optional(),
   downloadable: z.union([z.literal("on"), z.null()]).transform((v) => v === "on"),
+  // R9.6: optional premiere datetime (datetime-local "YYYY-MM-DDTHH:mm"). Empty
+  // clears it. Handled outside the object set so it can re-arm the announcement.
+  premiereAt: z.string().optional(),
 });
 
-/** Edit track metadata (title, description, access level, duration, downloadable). */
+/** Edit track metadata (title, description, access level, duration, downloadable, premiere). */
 export async function updateTrackMeta(formData: FormData) {
   const session = await requireGoddess();
   const parsed = metaSchema.safeParse({
@@ -33,15 +37,36 @@ export async function updateTrackMeta(formData: FormData) {
     minAccessLevel: formData.get("minAccessLevel"),
     durationS: formData.get("durationS") || undefined,
     downloadable: formData.get("downloadable"),
+    premiereAt: formData.get("premiereAt") ?? undefined,
   });
   if (!parsed.success) throw new Error("Invalid track metadata");
-  const { trackId, ...set } = parsed.data;
+  const { trackId, premiereAt: premiereRaw, ...set } = parsed.data;
+  const premiereAt = parsePremiereInput(premiereRaw);
+
+  // Re-arm the announcement only when the premiere is (re)scheduled to a new
+  // moment — so saving unrelated edits never re-fires "it's time" for a premiere
+  // that already passed and announced.
+  const [before] = await db
+    .select({ premiereAt: tracks.premiereAt })
+    .from(tracks)
+    .where(eq(tracks.id, trackId))
+    .limit(1);
+  const changed =
+    (before?.premiereAt?.getTime() ?? null) !== (premiereAt?.getTime() ?? null);
 
   await db
     .update(tracks)
-    .set({ ...set, updatedAt: new Date() })
+    .set({
+      ...set,
+      premiereAt,
+      ...(changed ? { premiereAnnouncedAt: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(tracks.id, trackId));
-  await logAudit(session.user.id, "track.meta_updated", { trackId });
+  await logAudit(session.user.id, "track.meta_updated", {
+    trackId,
+    premiereAt: premiereAt ? premiereAt.toISOString() : null,
+  });
   revalidatePath("/sanctum/library");
 }
 
@@ -61,24 +86,38 @@ export async function setTrackVisibility(formData: FormData) {
       minAccessLevel: tracks.minAccessLevel,
       slug: tracks.slug,
       title: tracks.title,
+      premiereAt: tracks.premiereAt,
     })
     .from(tracks)
     .where(eq(tracks.id, trackId))
     .limit(1);
 
+  const now = new Date();
+  const firstPublish =
+    visibility === "published" && before != null && before.publishedAt === null;
+  // R9.6: a future premiere seals the track — the premiere announcement (worker
+  // tick) replaces the immediate new-file push. A premiere already in the past
+  // at publish plays now; stamp it announced so the tick doesn't also fire.
+  const premiereFuture =
+    before?.premiereAt != null && before.premiereAt.getTime() > now.getTime();
+  const stampPremiereAnnounced =
+    firstPublish && before?.premiereAt != null && !premiereFuture;
+
   await db
     .update(tracks)
     .set({
       visibility: visibility as "draft" | "published" | "archived",
-      publishedAt: visibility === "published" ? new Date() : undefined,
-      updatedAt: new Date(),
+      publishedAt: visibility === "published" ? now : undefined,
+      ...(stampPremiereAnnounced ? { premiereAnnouncedAt: now } : {}),
+      updatedAt: now,
     })
     .where(eq(tracks.id, trackId));
   await logAudit(session.user.id, "track.visibility", { trackId, visibility });
 
   // R7: first publish → whisper it to everyone at or above its depth. Guarded on
   // publishedAt-was-null so unpublish→republish never re-pushes the same file.
-  if (visibility === "published" && before && before.publishedAt === null) {
+  // R9.6: suppressed when a future premiere is set — the premiere push replaces it.
+  if (firstPublish && before && !premiereFuture) {
     await broadcast({
       title: copy.library.newFilePush,
       body: before.title,

@@ -12,6 +12,7 @@ import {
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { enqueue } from "@/lib/jobs/queue";
+import { parsePremiereInput } from "@/lib/premiere/logic";
 import { notifySeriesTrackAdded } from "@/lib/series/notify";
 import {
   addManualTag,
@@ -108,6 +109,45 @@ export async function saveDescriptionAction(formData: FormData) {
     .set({ description, updatedAt: new Date() })
     .where(eq(tracks.id, trackId));
   await logAudit(session.user.id, "dossier.description_saved", { trackId });
+  revalidate(trackId);
+}
+
+const premiereSchema = z.object({
+  trackId: z.string().uuid(),
+  premiereAt: z.string().optional(),
+});
+
+/**
+ * Set / clear a track's premiere from the dossier (R9.6). Re-arms the
+ * announcement (premiereAnnouncedAt = null) only when the moment actually
+ * changes, so re-saving never re-fires "it's time" for a premiere already past.
+ */
+export async function setPremiereAction(formData: FormData) {
+  const session = await requireGoddess();
+  const { trackId, premiereAt: raw } = premiereSchema.parse({
+    trackId: formData.get("trackId"),
+    premiereAt: formData.get("premiereAt") ?? undefined,
+  });
+  const premiereAt = parsePremiereInput(raw);
+  const [before] = await db
+    .select({ premiereAt: tracks.premiereAt })
+    .from(tracks)
+    .where(eq(tracks.id, trackId))
+    .limit(1);
+  const changed =
+    (before?.premiereAt?.getTime() ?? null) !== (premiereAt?.getTime() ?? null);
+  await db
+    .update(tracks)
+    .set({
+      premiereAt,
+      ...(changed ? { premiereAnnouncedAt: null } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(tracks.id, trackId));
+  await logAudit(session.user.id, "dossier.premiere_set", {
+    trackId,
+    premiereAt: premiereAt ? premiereAt.toISOString() : null,
+  });
   revalidate(trackId);
 }
 

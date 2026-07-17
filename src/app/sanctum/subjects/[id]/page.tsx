@@ -9,7 +9,13 @@ import { getOrCreateThread } from "@/lib/messages/ops";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
 import { countOf } from "@/lib/format/plural";
-import { personalPush, renameSubject } from "../actions";
+import { formatWhen } from "@/lib/format/when";
+import {
+  acceptOathAction,
+  declineOathAction,
+  personalPush,
+  renameSubject,
+} from "../actions";
 
 export default async function SubjectProfile({
   params,
@@ -46,7 +52,35 @@ export default async function SubjectProfile({
           <Badge tone="neutral">{countOf(card.filesCompleted, "file")}</Badge>
           <Badge tone="neutral">{card.listeningHours}h</Badge>
           <Badge tone="neutral">{countOf(card.triggersHeld.length, "trigger")}</Badge>
+          {user.oathAt ? <Badge tone="gold">collared</Badge> : null}
         </div>
+      ) : null}
+
+      {/* Collar petition (R9.5) — accept closes the collar (ritual + push);
+          decline clears it quietly, no push. Only when asked, not yet collared. */}
+      {user.oathPetitionedAt && !user.oathAt ? (
+        <Card raised className="mt-4 border-gold/40">
+          <Whisper className="text-xs">
+            Petitions for your collar · asked {formatWhen(user.oathPetitionedAt)}
+          </Whisper>
+          <Display as="h2" className="mt-1 text-xl text-gold">
+            {card?.chosenName ?? "This one"} kneels for the collar.
+          </Display>
+          <div className="mt-3 flex gap-2">
+            <form action={acceptOathAction}>
+              <input type="hidden" name="userId" value={id} />
+              <Button type="submit" size="sm" variant="gold">
+                Accept — collar them
+              </Button>
+            </form>
+            <form action={declineOathAction}>
+              <input type="hidden" name="userId" value={id} />
+              <Button type="submit" size="sm" variant="ghost">
+                Decline (silence)
+              </Button>
+            </form>
+          </div>
+        </Card>
       ) : null}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">

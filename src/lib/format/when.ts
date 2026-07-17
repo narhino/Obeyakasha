@@ -80,6 +80,34 @@ export function formatWhen(
   return formatDate(d, now);
 }
 
+/**
+ * Future-facing countdown, her quiet register — the mirror of formatWhen for a
+ * moment yet to come (Premieres R9.6, "It begins {when}."):
+ *   "in a moment" · "in 9m" · "in 2h" · "tomorrow" · "in 3 days" · "on Jun 12".
+ * A past or now instant reads "in a moment" (the seal is lifting).
+ */
+export function formatUntil(
+  input: Date | string | number | null | undefined,
+  now: Date = new Date(),
+): string {
+  const d = toDate(input);
+  if (!d) return "";
+  const sec = Math.round((d.getTime() - now.getTime()) / 1000);
+  if (sec < 45) return copy.time.soon;
+
+  const min = Math.round(sec / 60);
+  if (min < 60) return `in ${min}m`;
+
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `in ${hr}h`;
+
+  const dayDiff = Math.round((dayStart(d) - dayStart(now)) / 86_400_000);
+  if (dayDiff <= 1) return copy.time.tomorrow;
+  if (dayDiff < 7) return `in ${dayDiff} days`;
+
+  return `on ${formatDate(d, now)}`;
+}
+
 /** The Sanctum standard: ISO calendar day, e.g. "2026-07-17". */
 export function formatDay(
   input: Date | string | number | null | undefined,

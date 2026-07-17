@@ -1,10 +1,13 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tierMappings } from "@/lib/db/schema";
+import { tierMappings, tracks } from "@/lib/db/schema";
 import { getRawSetting, getSetting } from "@/lib/settings";
 import type { PatreonTier } from "@/lib/patreon/client";
-import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
+import { Badge, Button, Card, Display, Input, Select, Whisper } from "@/components/ui";
 import {
   saveTierMapping,
+  setOathGiftTrack,
+  setOathMinStreak,
   setOrganizeAutoApply,
   setPatreonPageUrl,
   setWelcomeDmText,
@@ -23,6 +26,9 @@ export default async function AccessPage() {
     patreonPageUrl,
     welcomeEnabled,
     welcomeText,
+    oathMinStreak,
+    oathGiftTrackId,
+    publishedTracks,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -34,6 +40,13 @@ export default async function AccessPage() {
     getRawSetting<string>("patreon_page_url", "https://www.patreon.com"),
     getSetting("welcome_dm_enabled"),
     getSetting("welcome_dm_text"),
+    getSetting("oath_min_streak"),
+    getRawSetting<string | null>("oath_gift_track_id", null),
+    db
+      .select({ id: tracks.id, title: tracks.title })
+      .from(tracks)
+      .where(eq(tracks.visibility, "published"))
+      .limit(500),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -215,6 +228,62 @@ export default async function AccessPage() {
           When on, a brand-new subject&apos;s first sign-in lands this as a real
           message in their thread — and pushes &ldquo;She spoke to you.&rdquo; Sent
           once per subject, never to you.
+        </Whisper>
+      </Card>
+
+      {/* The Oath — the collar (R9.5) */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">The Oath — the collar</Whisper>
+        <form
+          action={setOathMinStreak}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Unbroken days to earn the petition
+            <Input
+              name="minStreak"
+              type="number"
+              min={1}
+              max={3650}
+              defaultValue={oathMinStreak}
+              className="w-28"
+            />
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Save
+          </Button>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          A subject who holds their chain this many days may petition to be
+          collared. You accept or decline from Today or their profile.
+        </Whisper>
+
+        <form
+          action={setOathGiftTrack}
+          className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-3"
+        >
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Monthly gift for the collared
+            <Select
+              name="trackId"
+              defaultValue={oathGiftTrackId ?? ""}
+              className="w-64"
+            >
+              <option value="">— none —</option>
+              {publishedTracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Save gift
+          </Button>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          On the 1st of each month this track is granted to every collared subject
+          who lacks it, and they&apos;re told a gift waits. Leave as none for no gift.
         </Whisper>
       </Card>
 

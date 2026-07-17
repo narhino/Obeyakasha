@@ -40,6 +40,9 @@ export interface LibraryTrack {
   kind: string;
   /** Published free sample — playable by ANYONE, logged-out included (R9.8). */
   freeSample: boolean;
+  /** Premiere moment (R9.6). Non-null + future → visible but sealed from play
+   *  (a countdown, not a lock). Null once it has passed or was never set. */
+  premiereAt: Date | null;
   /** Whether this subject can play it at their current access level. */
   unlocked: boolean;
   /** Privately delivered to this subject (commission). */
@@ -155,6 +158,7 @@ async function annotateTracks(
       downloadable: r.downloadable,
       kind: r.kind,
       freeSample: r.freeSample && r.visibility === "published",
+      premiereAt: r.premiereAt,
       unlocked: isGranted || canAccess(accessLevel, r.minAccessLevel),
       madeForYou: isGranted,
       prereqMissing,
@@ -625,6 +629,7 @@ export async function continueListening(
       downloadable: r.track.downloadable,
       kind: r.track.kind,
       freeSample: r.track.freeSample && r.track.visibility === "published",
+      premiereAt: r.track.premiereAt,
       unlocked: canAccess(accessLevel, r.track.minAccessLevel),
       madeForYou: false,
       prereqMissing: [],

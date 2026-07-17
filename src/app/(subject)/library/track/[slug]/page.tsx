@@ -5,11 +5,12 @@ import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements/resolve";
 import { getTrackFilePage, getTrackMetaBySlug } from "@/lib/library/queries";
 import { getRawSetting } from "@/lib/settings";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { FilePlayAction } from "@/components/library/FilePlayAction";
 import { Badge, Display, Ornament } from "@/components/ui";
 import { IconSpark } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format/duration";
-import { formatDate } from "@/lib/format/when";
+import { formatDate, formatUntil } from "@/lib/format/when";
 import { copy, fill } from "@/copy/copy";
 
 // Public per-viewer file page (R3). Reads the session + DB per request.
@@ -73,6 +74,9 @@ export default async function TrackFilePage({
     : track.unlocked
       ? "entitled"
       : "locked";
+  // Premiere (R9.6): sealed until its moment — a countdown replaces the CTA.
+  const premiereSealed = isPremiereSealed(track.premiereAt);
+  const premiereWhen = premiereSealed ? formatUntil(track.premiereAt) : null;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -131,8 +135,10 @@ export default async function TrackFilePage({
               state={state}
               patreonPageUrl={patreonPageUrl}
               isSample={track.freeSample}
+              premiereWhen={premiereWhen}
             />
-            {state === "entitled" && track.prereqMissing.length > 0 ? (
+            {premiereSealed ? null : state === "entitled" &&
+              track.prereqMissing.length > 0 ? (
               <p className="mt-2 text-xs text-accent">
                 {fill(copy.library.sealedByPrereq, {
                   track: track.prereqMissing.join(", "),

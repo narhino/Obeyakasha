@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements/resolve";
+import { isCollared } from "@/lib/oath/resolve";
 import {
   publicWhispers,
   whispersForSubject,
@@ -30,11 +31,18 @@ export default async function Home() {
   if (!session?.user) {
     items = await publicWhispers();
   } else if (session.user.role === "goddess") {
-    // She sees everything in her own feed.
-    items = await whispersForSubject(session.user.id, 999);
+    // She sees everything in her own feed — collared audience included.
+    items = await whispersForSubject(session.user.id, 999, true);
   } else {
-    const access = await resolveAccess(session.user.id);
-    items = await whispersForSubject(session.user.id, access.accessLevel);
+    const [access, collared] = await Promise.all([
+      resolveAccess(session.user.id),
+      isCollared(session.user.id),
+    ]);
+    items = await whispersForSubject(
+      session.user.id,
+      access.accessLevel,
+      collared,
+    );
   }
 
   // ── Signed-in: live inside the app chrome (Whispers tab active) ──

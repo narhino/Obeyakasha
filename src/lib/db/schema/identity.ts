@@ -39,6 +39,12 @@ export const users = pgTable("users", {
   // innocuous family-safe message at the send choke point and the PWA manifest
   // serves a neutral identity. The in-app experience is unchanged.
   disguiseMode: boolean("disguise_mode").notNull().default(false),
+  // The Oath (R9.5) — the collar. `oathPetitionedAt` is stamped when a
+  // streak-eligible subject petitions to be collared; `oathAt` when she accepts.
+  // A non-null oathAt is the inner circle: the "oath" audience + the monthly
+  // gift reach exactly these. Both null = uncollared, never asked.
+  oathPetitionedAt: timestamp("oath_petitioned_at", { withTimezone: true }),
+  oathAt: timestamp("oath_at", { withTimezone: true }),
   status: userStatus("status").notNull().default("active"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

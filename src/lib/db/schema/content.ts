@@ -48,6 +48,14 @@ export const tracks = pgTable(
     visibility: trackVisibility("visibility").notNull().default("draft"),
     kind: trackKind("kind").notNull().default("session"),
     pipeline: pipelineStatus("pipeline").notNull().default("uploaded"),
+    // Premieres (R9.6): a published track with a future premiereAt is VISIBLE in
+    // the catalog + file page but sealed from playback until its moment — a
+    // countdown, not a lock. The stream endpoint refuses it while future (even
+    // for the entitled and for free samples). premiereAnnouncedAt is the guard
+    // the worker stamps once it has pushed the "it's time" appointment, so the
+    // announce fires exactly once.
+    premiereAt: timestamp("premiere_at", { withTimezone: true }),
+    premiereAnnouncedAt: timestamp("premiere_announced_at", { withTimezone: true }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     source: trackSource("source").notNull().default("upload"),
     patreonPostId: text("patreon_post_id"),

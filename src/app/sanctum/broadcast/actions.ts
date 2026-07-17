@@ -11,7 +11,7 @@ const schema = z.object({
   title: z.string().min(1).max(120),
   body: z.string().max(300).optional(),
   deepLink: z.string().max(300).optional(),
-  audienceType: z.enum(["all", "level", "user"]),
+  audienceType: z.enum(["all", "level", "oath", "user"]),
   level: z.coerce.number().int().min(0).max(99).optional(),
   userId: z.string().uuid().optional(),
   respectQuietHours: z.union([z.literal("on"), z.null()]).optional(),
@@ -35,6 +35,7 @@ export async function sendBroadcast(formData: FormData) {
   if (d.audienceType === "all") audience = { type: "all" };
   else if (d.audienceType === "level")
     audience = { type: "level", level: d.level ?? 1 };
+  else if (d.audienceType === "oath") audience = { type: "oath" };
   else {
     if (!d.userId) throw new Error("Pick a subject");
     audience = { type: "users", userIds: [d.userId] };

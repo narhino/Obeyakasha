@@ -118,6 +118,7 @@ export default async function TrackDossier({
         pipeline: track.pipeline,
         source: track.source,
         patreonPostId: track.patreonPostId,
+        premiereAt: track.premiereAt ? track.premiereAt.toISOString() : null,
         hasAudio: track.streamKey != null,
       }}
       streamUrl={streamUrl}

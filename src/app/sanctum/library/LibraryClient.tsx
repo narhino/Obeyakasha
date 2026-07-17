@@ -261,6 +261,18 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                     Downloadable
                   </label>
                   <label className="col-span-full flex flex-col gap-1 text-xs text-text-dim">
+                    Premiere (UTC) — leave empty for none
+                    <Input
+                      name="premiereAt"
+                      type="datetime-local"
+                      defaultValue={t.premiereAt ? t.premiereAt.slice(0, 16) : ""}
+                    />
+                    <span className="text-text-dim/70">
+                      A future time seals it in the catalog with a countdown until it
+                      begins; publishing then holds the new-file push for the premiere.
+                    </span>
+                  </label>
+                  <label className="col-span-full flex flex-col gap-1 text-xs text-text-dim">
                     Description
                     <textarea
                       name="description"

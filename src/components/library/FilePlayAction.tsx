@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import { toast } from "@/lib/player/toast";
 import { Button } from "@/components/ui";
-import { IconPlay } from "@/components/ui/icons";
+import { IconPlay, IconSpark } from "@/components/ui/icons";
 import { copy, fill } from "@/copy/copy";
 
 /**
@@ -19,15 +19,42 @@ export function FilePlayAction({
   state,
   patreonPageUrl,
   isSample = false,
+  premiereWhen = null,
 }: {
   track: QueueTrack;
   state: "entitled" | "locked" | "anon";
   patreonPageUrl: string;
   /** Published free sample — the unentitled/logged-out may still taste it (R9.8). */
   isSample?: boolean;
+  /** Premiere countdown phrase (R9.6). Non-null → sealed until its moment: a
+   *  glowing countdown replaces every play/upgrade action, for everyone. */
+  premiereWhen?: string | null;
 }) {
   const playNow = usePlayer((s) => s.playNow);
   const addToQueue = usePlayer((s) => s.addToQueue);
+
+  // Premiere seals playback for everyone until it begins — anticipation, not a
+  // lock. Overrides entitled / sample / locked / anon alike (R9.6).
+  if (premiereWhen) {
+    return (
+      <div className="inline-flex items-center gap-3 rounded-[var(--radius)] border border-gold/40 bg-gold/5 px-5 py-3">
+        <span
+          aria-hidden
+          className="text-gold [text-shadow:0_0_18px_rgba(212,175,106,0.5)]"
+        >
+          <IconSpark size={20} />
+        </span>
+        <span>
+          <span className="label-caps block text-gold/80">
+            {copy.library.premiere.chip}
+          </span>
+          <span className="font-[family-name:var(--font-display)] text-lg italic text-text">
+            {fill(copy.library.premiere.countdown, { when: premiereWhen })}
+          </span>
+        </span>
+      </div>
+    );
+  }
 
   if (state === "entitled") {
     return (

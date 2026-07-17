@@ -40,6 +40,7 @@ import {
   removeTagAction,
   runAnalysisAction,
   saveDescriptionAction,
+  setPremiereAction,
 } from "./actions";
 
 interface TrackLite {
@@ -53,6 +54,8 @@ interface TrackLite {
   pipeline: string;
   source: string;
   patreonPostId: string | null;
+  /** Premiere moment as an ISO string (R9.6), null when none. */
+  premiereAt: string | null;
   hasAudio: boolean;
 }
 interface DossierData {
@@ -290,6 +293,32 @@ export function DossierClient({
             </p>
           </div>
         ) : null}
+      </Card>
+
+      {/* Premiere (R9.6): an appointment. A future time seals it in the catalog
+          with a countdown until it begins; publishing then holds the new-file
+          push for the premiere announcement. UTC. */}
+      <Card className="mt-6">
+        <Label>Premiere</Label>
+        <Whisper className="mt-1 text-xs">
+          Optional. Set a future time and this stays visible but sealed — a
+          countdown, not a lock — until it begins, when it pushes its level. Leave
+          empty for none. Times are UTC.
+        </Whisper>
+        <form
+          action={setPremiereAction}
+          className="mt-3 flex flex-wrap items-end gap-2"
+        >
+          <input type="hidden" name="trackId" value={track.id} />
+          <Input
+            name="premiereAt"
+            type="datetime-local"
+            defaultValue={track.premiereAt ? track.premiereAt.slice(0, 16) : ""}
+          />
+          <Button type="submit" size="sm">
+            Save premiere
+          </Button>
+        </form>
       </Card>
 
       {/* Reading: summary / intended effects / safety (populated by the Opus pass) */}

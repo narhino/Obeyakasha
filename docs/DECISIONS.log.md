@@ -577,3 +577,63 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
 - **Migration `0012_r9a.sql`** — the two additive columns only
   (`listen_sessions.last_heartbeat_at`, `whispers.scheduled_for`). Gate green:
   typecheck · lint · 181 tests (170 + 11 new pure live tests) · build.
+
+## R9c — The Oath (R9.5) + Premieres (R9.6) (final phase)
+
+- **The Oath — the collar.** New `users.oath_petitioned_at` + `users.oath_at`
+  (null = uncollared). Pure state machine `src/lib/oath/logic.ts`
+  (sealed→eligible→petitioned→collared, precedence collared>petitioned>eligible>
+  sealed) unit-tested; `oath/resolve.ts` feeds it the live chain length + the new
+  `oath_min_streak` setting (typed, default 21, editable in Access). You page
+  gains an `OathCard` below the chain with all four states; the petition CTA opens
+  a ritual confirm overlay (Display→Ornament→Whisper→CTA, DESIGN rule 4) →
+  `POST /api/oath/petition`. `oath/ops.ts` re-checks eligibility server-side and
+  claims each transition with `WHERE … IS NULL` so replays never re-notify. Accept
+  sets `oath_at`, clears the petition, queues a `moments` row kind `collared`
+  (added to the Moments overlay) and pushes in voice (quiet hours yield); decline
+  clears the petition silently (no push). Petitions surface on Sanctum Today +
+  the subject profile with Accept/Decline.
+- **New `{type:"oath"}` audience.** Extended the `Audience` union +
+  `expandAudience` (active subjects with `oath_at` set) + `audienceMatches`
+  (gained an `isCollared` param, default false → fail-closed for surfaces that
+  never target it, e.g. polls/questions). Threaded `isCollared` through
+  `whispersForSubject` so the collared feed sees `oath` whispers. Composable in
+  the whisper composer + broadcast audience pickers ("The Collared").
+- **Monthly gift (`oath/gift.ts`).** Daily worker tick; guarded once-per-month via
+  raw stamp `oath_gift_last_granted="YYYY-MM"`. Grants the raw-setting
+  `oath_gift_track_id` (she sets it in Access) to every collared subject who
+  **lacks a grant row** for it (KEEP-SIMPLER reading of "lack it"), then pushes
+  "A gift for the collared." to only the newly-granted. Stamp is written last so a
+  mid-run failure retries; if no track is configured it waits without stamping.
+  Gift push uses kind `automation` so it **respects quiet hours** (a gift, not an
+  appointment) — unlike the accept push (bypasses) and premiere push (bypasses).
+- **Premieres.** New `tracks.premiere_at` + `tracks.premiere_announced_at`. Pure
+  `src/lib/premiere/logic.ts` (`isPremiereSealed` = non-null & strictly future;
+  `premiereDue`; `parsePremiereInput`) unit-tested. A published track with a
+  future premiere is visible in the catalog + file page but sealed from play — a
+  glowing countdown ("It begins {when}." via new `formatUntil`), distinct from the
+  level-locked veil. `stream-url` refuses it (`isPremiereSealed` → 404) for
+  **everyone incl. free samples** — the sample flag does not bypass a future
+  premiere. Worker `premiereTick` (60s) announces due premieres to their level
+  ("It's time. Come under.", quiet hours yield), claiming each via
+  `premiere_announced_at` so it fires once. Editable in the Sanctum library drawer
+  + the dossier.
+- **R7 publish-push interaction.** `setTrackVisibility` reads `premiere_at`: a
+  first publish with a **future** premiere **suppresses** the immediate new-file
+  push (the premiere announcement replaces it); a premiere already in the **past**
+  at publish fires R7 as normal and stamps `premiere_announced_at` so the tick
+  never double-announces; no premiere → unchanged R7 behaviour. Editing a premiere
+  re-arms `premiere_announced_at` only when the moment actually changes, so
+  re-saving unrelated edits never re-fires "it's time".
+- **Deviation — premiere datetimes are UTC.** The Sanctum datetime-local inputs
+  are parsed as UTC and the input default is a plain slice of the stored ISO, so
+  values round-trip exactly with no server-timezone dependency and no
+  SSR/hydration drift. This differs from the R9.9a whisper scheduler's
+  server-local `new Date(str)`; chosen deliberately because premieres are
+  compared to `now` in the DB and determinism matters more than local-clock
+  convenience for a solo-admin cockpit.
+- **Migration `0014_r9c.sql`** — four additive columns only
+  (`users.oath_petitioned_at`, `users.oath_at`, `tracks.premiere_at`,
+  `tracks.premiere_announced_at`). Gate green: typecheck · lint · 216 tests
+  (190 + 26 new pure oath/premiere tests) · build. DB-backed flows additionally
+  smoke-tested end-to-end (17 checks) against `obeyakasha_test`.

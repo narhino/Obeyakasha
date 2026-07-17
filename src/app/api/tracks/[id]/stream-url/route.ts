@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements/resolve";
 import { getAccessibleTrack, getSampleTrack } from "@/lib/library/queries";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { mediaProvider } from "@/lib/media";
 
 /**
@@ -31,6 +32,13 @@ export async function GET(
   if (!track) track = await getSampleTrack(id);
 
   if (!track || !track.streamKey) {
+    return Response.json({ error: "not_found_or_sealed" }, { status: 404 });
+  }
+
+  // Premiere seal (R9.6): a still-future premiere refuses playback for EVERYONE —
+  // entitled subjects and free-sample tasters alike — until its appointed moment.
+  // The free-sample flag does not bypass it; anticipation is the point.
+  if (isPremiereSealed(track.premiereAt)) {
     return Response.json({ error: "not_found_or_sealed" }, { status: 404 });
   }
 
