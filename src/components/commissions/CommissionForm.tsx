@@ -5,15 +5,24 @@ import type { CommissionField } from "@/lib/commissions/form";
 import { Button, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
+/**
+ * The commission request form (F04). Two shapes:
+ *  - "full"     — the field form, shown only when commissions are open AND the
+ *                 subject has nothing already in her hands.
+ *  - "waitlist" — a single "Add me to the waitlist" petition, shown when sealed.
+ * A duplicate active request is refused server-side and surfaced in her voice.
+ */
 export function CommissionForm({
   fields,
-  open,
+  variant,
 }: {
   fields: CommissionField[];
-  open: boolean;
+  variant: "full" | "waitlist";
 }) {
+  const open = variant === "full";
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
 
   function set(id: string, v: string) {
     setAnswers((a) => ({ ...a, [id]: v }));
@@ -21,24 +30,52 @@ export function CommissionForm({
 
   async function submit() {
     setState("sending");
+    setError(null);
     try {
       const res = await fetch("/api/commissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),
       });
-      if (res.ok) setState("done");
-      else setState("idle");
+      if (res.ok) {
+        setState("done");
+      } else if (res.status === 409) {
+        setState("idle");
+        setError(copy.comm.oneAtATime);
+      } else {
+        setState("idle");
+        setError(copy.system.genericHold);
+      }
     } catch {
       setState("idle");
+      setError(copy.system.genericHold);
     }
   }
 
   if (state === "done") {
     return (
       <p className="mt-8 text-gold">
-        {open ? copy.comm.submitted : "You're on the waitlist. Wait to be called."}
+        {open ? copy.comm.submitted : copy.comm.waitlisted}
       </p>
+    );
+  }
+
+  // Sealed: a single waitlist petition, no fields.
+  if (variant === "waitlist") {
+    return (
+      <div className="mt-8 space-y-4">
+        <Whisper>{copy.comm.waitlistWhisper}</Whisper>
+        {error ? <Whisper className="text-danger">{error}</Whisper> : null}
+        <Button
+          variant="gold"
+          size="lg"
+          disabled={state === "sending"}
+          loading={state === "sending"}
+          onClick={submit}
+        >
+          {copy.comm.waitlistJoin}
+        </Button>
+      </div>
     );
   }
 
@@ -79,8 +116,15 @@ export function CommissionForm({
           )}
         </div>
       ))}
-      <Button variant="gold" size="lg" disabled={state === "sending"} onClick={submit}>
-        {open ? copy.comm.submit : copy.comm.waitlistJoin}
+      {error ? <Whisper className="text-danger">{error}</Whisper> : null}
+      <Button
+        variant="gold"
+        size="lg"
+        disabled={state === "sending"}
+        loading={state === "sending"}
+        onClick={submit}
+      >
+        {copy.comm.submit}
       </Button>
       <Whisper className="text-xs">
         Payment is arranged in her reply if she accepts.

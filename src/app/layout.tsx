@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
+import { PlayerRoot } from "@/components/player/PlayerRoot";
 import { copy } from "@/copy/copy";
 
 /**
@@ -44,6 +45,11 @@ export default function RootLayout({
     <html lang="en" className={cormorant.variable}>
       <body className="min-h-dvh bg-bg text-text antialiased">
         {children}
+        {/* The single audio engine + mini-player, mounted once so playback and
+            the Spotify-style mini-player persist across every route (including
+            the Whispers Home). Inert until a track is playing; hides its own
+            chrome on the Sanctum and ritual screens. */}
+        <PlayerRoot />
         <div className="grain" aria-hidden />
       </body>
     </html>

@@ -2,14 +2,9 @@
 
 import { useRef, useState } from "react";
 import { usePlayer, type QueueKind, type QueueTrack } from "@/lib/player/store";
+import { formatDuration } from "@/lib/format/duration";
 import { copy, fill } from "@/copy/copy";
 import { IconChevronDown, IconSeal } from "@/components/ui/icons";
-
-function fmt(s: number | null): string {
-  if (s == null || !Number.isFinite(s)) return "";
-  const m = Math.floor(s / 60);
-  return `${m} min`;
-}
 
 /** Sigil placeholder tile — queue rows carry only a raw art key we never sign
  *  client-side (privacy), so we render the mark instead of the artwork. */
@@ -49,9 +44,9 @@ function Row({
         <ArtTile />
         <span className="min-w-0">
           <span className="block truncate text-sm text-text">{track.title}</span>
-          {fmt(track.durationS) ? (
+          {formatDuration(track.durationS) ? (
             <span className="block text-xs text-text-dim">
-              {fmt(track.durationS)}
+              {formatDuration(track.durationS)}
             </span>
           ) : null}
         </span>
@@ -173,9 +168,9 @@ export function QueueSheet() {
                   <span className="block truncate font-[family-name:var(--font-display)] text-[0.95rem] text-text">
                     {current.title}
                   </span>
-                  {fmt(current.durationS) ? (
+                  {formatDuration(current.durationS) ? (
                     <span className="block text-xs text-text-dim">
-                      {fmt(current.durationS)}
+                      {formatDuration(current.durationS)}
                     </span>
                   ) : null}
                 </span>

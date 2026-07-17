@@ -23,8 +23,15 @@ const schema = z.object({
   pollOptions: z.string().optional(), // newline-separated, 2–6
 });
 
+/** Result surfaced to the composer via useActionState — never throws for a
+ *  validation slip (F03), so a mis-filled poll can't 500 the Sanctum. */
+export type WhisperFormState = { ok?: boolean; error?: string };
+
 /** Post a whisper (A11 / R1) → feed + push. May carry a poll. */
-export async function publishWhisper(formData: FormData) {
+export async function publishWhisper(
+  _prev: WhisperFormState,
+  formData: FormData,
+): Promise<WhisperFormState> {
   const session = await requireGoddess();
   const parsed = schema.safeParse({
     body: formData.get("body") || undefined,
@@ -36,7 +43,7 @@ export async function publishWhisper(formData: FormData) {
     pollQuestion: formData.get("pollQuestion") || undefined,
     pollOptions: formData.get("pollOptions") || undefined,
   });
-  if (!parsed.success) throw new Error("Invalid whisper");
+  if (!parsed.success) return { error: "That whisper didn't hold together. Check the fields." };
   const d = parsed.data;
 
   let audience: Audience;
@@ -45,31 +52,33 @@ export async function publishWhisper(formData: FormData) {
   else if (d.audienceType === "level")
     audience = { type: "level", level: d.level ?? 1 };
   else {
-    if (!d.userId) throw new Error("Pick a subject");
+    if (!d.userId) return { error: "Choose the one subject this is for." };
     audience = { type: "users", userIds: [d.userId] };
   }
 
   // Resolve an attached poll: an existing open one, or a fresh inline poll.
   let pollId: string | null = null;
   if (d.pollMode === "existing") {
-    if (!d.existingPollId) throw new Error("Pick a poll");
+    if (!d.existingPollId) return { error: "Choose which open poll to attach." };
     const [p] = await db
       .select({ id: polls.id, status: polls.status })
       .from(polls)
       .where(eq(polls.id, d.existingPollId))
       .limit(1);
-    if (!p || p.status !== "open") throw new Error("That poll isn't open");
+    if (!p || p.status !== "open")
+      return { error: "That poll isn't open — pick another." };
     pollId = p.id;
   } else if (d.pollMode === "new") {
     if (!d.pollQuestion || d.pollQuestion.trim().length === 0)
-      throw new Error("The poll needs a question");
+      return { error: "Give the poll a question first." };
     const options: PollOption[] = (d.pollOptions ?? "")
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 6)
       .map((label, i) => ({ id: `o${i + 1}`, label }));
-    if (options.length < 2) throw new Error("The poll needs at least 2 options");
+    if (options.length < 2)
+      return { error: "A poll needs at least two options." };
     pollId = await createPollRecord({
       question: d.pollQuestion.trim(),
       options,
@@ -78,7 +87,8 @@ export async function publishWhisper(formData: FormData) {
   }
 
   const body = d.body?.trim() || null;
-  if (!body && !pollId) throw new Error("Say something, or attach a poll");
+  if (!body && !pollId)
+    return { error: "Say something, or attach a poll." };
 
   await db.insert(whispers).values({
     body,
@@ -113,6 +123,7 @@ export async function publishWhisper(formData: FormData) {
   });
   revalidatePath("/sanctum/whispers");
   revalidatePath("/");
+  return { ok: true };
 }
 
 const pinSchema = z.object({

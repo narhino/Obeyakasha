@@ -477,3 +477,50 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   a null `streamKey`; the dossier's "Run analysis" still fills from the
   heuristic floor using title + description (empty transcript is handled), so a
   shell can be analysed/described before its audio ever arrives.
+
+---
+
+## 2026-07-17 — Fix Pass 1 (QA teardown majors F01–F14)
+
+- **One persistent audio engine at the app root.** `PlayerRoot` (the single
+  `<audio>` + mini-player/fullscreen/queue chrome) moved from the `(subject)`
+  layout into the root layout (`src/app/layout.tsx`). It now survives every
+  navigation, so playback and the Spotify-style mini-player never restart when
+  crossing between the Whispers Home (`/`) and the tabs. The engine is inert
+  until a track loads; its visible chrome hides on `/sanctum` (which has its own
+  verify player) and the ritual/auth screens via a pathname guard inside
+  `PlayerRoot`. This is the cleanest way to satisfy F10 without a shared layout
+  between `/` (outside the route group) and the tabs.
+- **`SubjectShell` unifies the signed-in chrome (F10).** Extracted the header +
+  tab nav + moment checker + offline sync (minus the now-root PlayerRoot) into
+  `src/components/nav/SubjectShell.tsx`. Both the `(subject)` layout and the
+  signed-in branch of the Home page render it, so `/` wears the exact same shell
+  as every tab (Whispers tab active) and the moment overlay now fires on Home
+  too (closes F07 as a side effect). Anonymous `/` keeps the public front door.
+- **Mini-player is one object with the nav (F11/F12).** `MiniBar` is full-bleed
+  and docked flush on top of the tab bar (`bottom: calc(3.5rem + safe-area)`),
+  raised surface over the deeper nav — two shelves, one unit. Anatomy after
+  Spotify's: 888 sigil artwork (breathing while playing, privacy-safe — we never
+  sign art keys client-side, D7), title with an overflow marquee, source line,
+  queue, and a play/pause with a real pressed feel (`active:scale-90`). The
+  tap-to-seek line rides the top edge. Fullscreen player left untouched.
+- **One duration formatter everywhere subject-facing (F13).**
+  `src/lib/format/duration.ts` — m:ss under 10 min, "X min" to an hour, "1h 12m"
+  beyond — replaces four copies of a `{m} min` helper that floored 30s clips to
+  "0 min". The unused `copy.library.filePage.duration` template was removed.
+- **Whisper composer can't 500 on a mis-filled poll (F03).** `publishWhisper`
+  returns a friendly `WhisperFormState` via `useActionState` instead of throwing;
+  the new client `WhisperComposer` disables submit until a chosen poll / typed
+  question / picked subject is present. Belt and suspenders.
+- **Commissions state machine (F04).** Sealed → only the waitlist petition (no
+  field form); open + a live request → progress bar + an in-voice "one at a
+  time" line; open + nothing → the form. `submitCommission` refuses a duplicate
+  active request server-side; the API skips required-field validation for a
+  waitlist ping and returns 409 on a duplicate.
+- **"Run analysis" shows its work (F02).** New goddess-gated
+  `/api/sanctum/tracks/[id]/analysis-status` reports the dossier's `updatedAt`
+  and the latest analyze job's state. The dossier polls it (reusing `usePolling`)
+  while a run is in flight, shows "She is reading it…", refreshes when the
+  reading lands, and surfaces a failed job's error. (F01 proper — seeded rows
+  never analysed — was a QA-sandbox artifact: the worker wasn't running. With it
+  up, this flow is now observable.)

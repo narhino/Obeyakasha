@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Badge,
   Button,
@@ -10,9 +11,11 @@ import {
   Input,
   Label,
   Select,
+  Spinner,
   Whisper,
 } from "@/components/ui";
 import { IconPlay } from "@/components/ui/icons";
+import { usePolling } from "@/app/sanctum/library/usePolling";
 import type {
   AnalysisKeyword,
   AnalysisTrigger,
@@ -85,6 +88,13 @@ const CATEGORY_ORDER: KeywordCategory[] = [
   "descriptive",
 ];
 
+/** Polls the analysis-status endpoint while a run is in flight. Mounted only
+ *  when running, so it stops the moment the dossier settles. */
+function AnalysisPoller({ onTick }: { onTick: () => void }) {
+  usePolling(onTick, 2500);
+  return null;
+}
+
 export function DossierClient({
   track,
   streamUrl,
@@ -92,6 +102,8 @@ export function DossierClient({
   dossier,
   appliedTags,
   appliedTriggerNames,
+  analysisUpdatedAt,
+  analyzeJobActive,
   programs,
   playlists,
 }: {
@@ -105,11 +117,60 @@ export function DossierClient({
   dossier: DossierData | null;
   appliedTags: { tagId: string; kind: string; value: string }[];
   appliedTriggerNames: string[];
+  analysisUpdatedAt: string | null;
+  analyzeJobActive: boolean;
   programs: Placement[];
   playlists: Placement[];
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [query, setQuery] = useState("");
+  const router = useRouter();
+
+  // ── Live "Run analysis" state (F02): never let the run feel dead ──
+  const [running, setRunning] = useState(analyzeJobActive);
+  const [runError, setRunError] = useState<string | null>(null);
+  const baseUpdatedAt = useRef<string | null>(analysisUpdatedAt);
+  const [, startAnalyze] = useTransition();
+
+  const startRun = () => {
+    setRunError(null);
+    setRunning(true);
+    const fd = new FormData();
+    fd.set("trackId", track.id);
+    startAnalyze(() => {
+      void runAnalysisAction(fd);
+    });
+  };
+
+  const pollAnalysis = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/sanctum/tracks/${track.id}/analysis-status`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        analysisUpdatedAt: string | null;
+        job: { status: string; error: string | null } | null;
+      };
+      if (data.job?.status === "failed") {
+        setRunError(data.job.error || "The reading broke off. Try again.");
+        setRunning(false);
+        return;
+      }
+      const settled = !data.job || data.job.status === "done";
+      const changed =
+        data.analysisUpdatedAt != null &&
+        data.analysisUpdatedAt !== baseUpdatedAt.current;
+      if (settled && changed) {
+        baseUpdatedAt.current = data.analysisUpdatedAt;
+        setRunning(false);
+        router.refresh(); // pull the freshly-read keywords/triggers in
+      }
+    } catch {
+      /* transient; the next tick retries */
+    }
+  }, [track.id, router]);
 
   const seek = (start: number) => {
     const a = audioRef.current;
@@ -164,6 +225,34 @@ export function DossierClient({
         {track.minAccessLevel} · pipeline: {track.pipeline}
         {dossier?.model === "assisted" ? " · deep analysis" : ""}
       </Whisper>
+
+      {/* Live analysis state (F02): a working state + surfaced failure so
+          "Run analysis" never looks dead. Polls only while a run is in flight. */}
+      {running ? <AnalysisPoller onTick={pollAnalysis} /> : null}
+      {running ? (
+        <Card className="mt-4 border-gold/30" raised>
+          <p className="flex items-center gap-2 text-sm text-gold">
+            <Spinner /> She is reading it…
+          </p>
+          <Whisper className="mt-1 text-xs">
+            Keywords and triggers appear here the moment she&apos;s done. You can
+            keep working — this updates on its own.
+          </Whisper>
+        </Card>
+      ) : runError ? (
+        <Card className="mt-4 border-danger/30" raised>
+          <p className="text-sm text-danger">{runError}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="mt-2"
+            onClick={startRun}
+          >
+            Try again
+          </Button>
+        </Card>
+      ) : null}
 
       {/* Description */}
       <Card className="mt-6">
@@ -235,12 +324,18 @@ export function DossierClient({
             This track hasn&apos;t been analysed yet. Run it to extract keywords
             and triggers.
           </Whisper>
-          <form action={runAnalysisAction} className="mt-3">
-            <input type="hidden" name="trackId" value={track.id} />
-            <Button type="submit" size="sm" variant="gold">
-              Run analysis
+          <div className="mt-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="gold"
+              loading={running}
+              disabled={running}
+              onClick={startRun}
+            >
+              {running ? "Reading…" : "Run analysis"}
             </Button>
-          </form>
+          </div>
         </Card>
       ) : null}
 
@@ -249,15 +344,14 @@ export function DossierClient({
         <Card className="mt-6">
           <div className="flex items-center justify-between">
             <Label>Keywords → tags</Label>
-            <form action={runAnalysisAction}>
-              <input type="hidden" name="trackId" value={track.id} />
-              <button
-                type="submit"
-                className="text-xs text-text-dim hover:text-text"
-              >
-                Re-analyse
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={startRun}
+              disabled={running}
+              className="text-xs text-text-dim transition-colors hover:text-text disabled:opacity-40"
+            >
+              {running ? "reading…" : "Re-analyse"}
+            </button>
           </div>
           <Whisper className="mt-1 text-xs">
             Approve the ones that fit — they become tags subjects can filter by.

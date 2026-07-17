@@ -2,13 +2,8 @@
 
 import { usePlayer } from "@/lib/player/store";
 import type { LibraryTrack } from "@/lib/library/queries";
+import { formatDuration } from "@/lib/format/duration";
 import { copy } from "@/copy/copy";
-
-function fmt(s: number | null): string {
-  if (s == null) return "";
-  const m = Math.floor(s / 60);
-  return `${m} min`;
-}
 
 /** "Where I left you" — the returning-subject resume shelf (signed-in only). */
 export function ContinueShelf({
@@ -44,8 +39,10 @@ export function ContinueShelf({
             }
             className="w-40 shrink-0 rounded-[var(--radius-lg)] border border-line bg-surface p-3 text-left"
           >
-            <p className="truncate text-sm text-text">{track.title}</p>
-            <p className="text-xs text-text-dim">{fmt(track.durationS)}</p>
+            <p className="line-clamp-2 text-sm text-text">{track.title}</p>
+            <p className="text-xs text-text-dim">
+              {formatDuration(track.durationS)}
+            </p>
           </button>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { commissions, grants } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
@@ -15,12 +15,43 @@ export type CommissionStatus =
   | "declined"
   | "closed";
 
-/** Subject submits a commission request (or joins the waitlist if closed). */
+/** Statuses that mean a real request is still occupying a slot (not a mere
+ *  waitlist ping, and not finished/refused). Used to enforce "one at a time". */
+export const ACTIVE_COMMISSION_STATUSES = [
+  "new",
+  "reviewing",
+  "accepted",
+  "in_progress",
+] as const;
+
+/** Does this subject already have a live request in my hands? (waitlist pings
+ *  don't count — they hold no slot). */
+export async function hasActiveCommission(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: commissions.id })
+    .from(commissions)
+    .where(
+      and(
+        eq(commissions.userId, userId),
+        eq(commissions.waitlist, false),
+        inArray(commissions.status, [...ACTIVE_COMMISSION_STATUSES]),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+/** Subject submits a commission request (or joins the waitlist if closed).
+ *  Refuses a duplicate active request when open (defence in depth — the UI
+ *  already hides the form in that state). */
 export async function submitCommission(
   userId: string,
   answers: Record<string, unknown>,
-): Promise<{ waitlisted: boolean }> {
+): Promise<{ waitlisted: boolean; duplicate?: boolean }> {
   const open = await getSetting("commissions_open");
+  if (open && (await hasActiveCommission(userId))) {
+    return { waitlisted: false, duplicate: true };
+  }
   await db.insert(commissions).values({
     userId,
     answers,

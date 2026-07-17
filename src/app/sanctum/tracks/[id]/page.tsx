@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import {
+  jobs,
   playlistItems,
   playlists,
   programItems,
@@ -50,6 +51,7 @@ export default async function TrackDossier({
     programPlacements,
     allPlaylists,
     playlistPlacements,
+    [analyzeJob],
   ] = await Promise.all([
     db.select().from(transcripts).where(eq(transcripts.trackId, id)).limit(1),
     db.select().from(trackAnalysis).where(eq(trackAnalysis.trackId, id)).limit(1),
@@ -73,7 +75,17 @@ export default async function TrackDossier({
       .select({ playlistId: playlistItems.playlistId })
       .from(playlistItems)
       .where(eq(playlistItems.trackId, id)),
+    db
+      .select({ status: jobs.status })
+      .from(jobs)
+      .where(eq(jobs.dedupeKey, `analyze:${id}`))
+      .orderBy(desc(jobs.createdAt))
+      .limit(1),
   ]);
+
+  // Is an analyze run already in flight? (seeds the dossier's live state)
+  const analyzeJobActive =
+    analyzeJob?.status === "queued" || analyzeJob?.status === "running";
 
   const streamUrl = track.streamKey
     ? await mediaProvider().signStreamUrl(track.streamKey, 6 * 60 * 60)
@@ -129,6 +141,8 @@ export default async function TrackDossier({
       }
       appliedTags={appliedTagRows}
       appliedTriggerNames={appliedTriggerRows.map((t) => t.name.toLowerCase())}
+      analysisUpdatedAt={analysis?.updatedAt ? analysis.updatedAt.toISOString() : null}
+      analyzeJobActive={analyzeJobActive}
       programs={allPrograms.map((p) => ({
         ...p,
         contains: inPrograms.has(p.id),

@@ -1,23 +1,105 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/lib/player/store";
+import { formatDuration } from "@/lib/format/duration";
 import { copy } from "@/copy/copy";
-import { IconPause, IconPlay, IconQueue } from "@/components/ui/icons";
+import { IconPause, IconPlay, IconQueue, IconSeal } from "@/components/ui/icons";
 
-function fmt(s: number): string {
-  if (!Number.isFinite(s)) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${String(sec).padStart(2, "0")}`;
+/**
+ * The title line — truncates when it fits, and on overflow drifts gently to
+ * reveal its tail before returning (a slow marquee, not a ticker). A soft
+ * right-edge mask hides the hard clip. Motionless under reduced-motion.
+ */
+function TitleLine({ text }: { text: string }) {
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
+  const [reduce, setReduce] = useState(false);
+
+  useEffect(() => {
+    const box = boxRef.current;
+    const inner = innerRef.current;
+    if (!box || !inner) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const measure = () => {
+      setReduce(mq.matches);
+      setOverflow(Math.max(0, inner.scrollWidth - box.clientWidth));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    mq.addEventListener?.("change", measure);
+    return () => {
+      ro.disconnect();
+      mq.removeEventListener?.("change", measure);
+    };
+  }, [text]);
+
+  const overflowing = overflow > 4;
+  const animate = overflowing && !reduce;
+
+  return (
+    <span
+      ref={boxRef}
+      className="block overflow-hidden"
+      style={
+        overflowing
+          ? {
+              maskImage: "linear-gradient(to right, #000 86%, transparent)",
+              WebkitMaskImage: "linear-gradient(to right, #000 86%, transparent)",
+            }
+          : undefined
+      }
+    >
+      <span
+        ref={innerRef}
+        className={`block whitespace-nowrap font-[family-name:var(--font-display)] text-[0.9375rem] leading-tight text-text ${
+          animate ? "marquee-move" : ""
+        }`}
+        style={
+          animate
+            ? ({
+                "--marquee-shift": `-${overflow}px`,
+                "--marquee-dur": `${Math.max(7, overflow / 14 + 6)}s`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {text}
+      </span>
+    </span>
+  );
 }
 
-/** Floating mini player — sits above the mobile tab bar, docks bottom on desktop. */
+/** Sigil artwork tile — queue/mini rows carry only a raw art key we never sign
+ *  client-side (privacy, D7), so we render the 888 mark. It breathes while she
+ *  plays (steady under reduced-motion via the global rule). */
+function ArtTile({ playing }: { playing: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] border border-line/70 bg-accent-soft/50 text-gold/85"
+    >
+      <IconSeal size={20} className={playing ? "breathe" : undefined} />
+    </span>
+  );
+}
+
+/**
+ * The mini-player (R4/P1, F11+F12). Docked flush on top of the bottom tab bar
+ * as one object with two shelves — full-bleed, raised over the deeper nav, an
+ * ultra-thin tap-to-seek line along its top edge. Anatomy after Spotify's:
+ * artwork · title + source · queue · play/pause with a real pressed feel.
+ * Tapping the artwork/title opens the (untouched) fullscreen player.
+ */
 export function MiniBar() {
   const current = usePlayer((s) => s.current);
   const playing = usePlayer((s) => s.playing);
   const positionS = usePlayer((s) => s.positionS);
   const durationS = usePlayer((s) => s.durationS);
   const bufferedS = usePlayer((s) => s.bufferedS);
+  const sourceName = usePlayer((s) => s.sourceName);
   const toggle = usePlayer((s) => s.toggle);
   const seekTo = usePlayer((s) => s.seekTo);
   const setFullscreen = usePlayer((s) => s.setFullscreen);
@@ -25,66 +107,75 @@ export function MiniBar() {
   const fullscreen = usePlayer((s) => s.fullscreen);
 
   if (!current || fullscreen) return null;
-  const pct = durationS > 0 ? (positionS / durationS) * 100 : 0;
-  const buf = durationS > 0 ? Math.min((bufferedS / durationS) * 100, 100) : 0;
+  const dur = durationS > 0 ? durationS : (current.durationS ?? 0);
+  const pct = dur > 0 ? Math.min((positionS / dur) * 100, 100) : 0;
+  const buf = dur > 0 ? Math.min((bufferedS / dur) * 100, 100) : 0;
+
+  // Secondary line: the source she's playing from, else the length, else her name.
+  const subline =
+    sourceName || formatDuration(current.durationS) || copy.brand.name;
 
   function tapSeek(e: React.MouseEvent<HTMLButtonElement>) {
-    if (durationS <= 0) return;
+    if (dur <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-    seekTo(frac * durationS);
+    seekTo(frac * dur);
   }
 
   return (
-    <div
-      className="fixed inset-x-3 z-40 md:inset-x-0 md:bottom-0"
-      style={{
-        bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.5rem)",
-      }}
-    >
-      <div className="mx-auto max-w-2xl overflow-hidden rounded-[var(--radius-lg)] border border-line/80 bg-surface-raised/95 shadow-[0_12px_40px_rgba(0,0,0,0.55)] backdrop-blur-md md:rounded-none md:border-x-0 md:border-b-0">
-        {/* tap-to-seek progress strip (with buffered indicator) */}
+    <div className="fixed inset-x-0 bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-0">
+      <div className="border-t border-line/70 bg-surface-raised/95 shadow-[0_-8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md">
+        {/* ultra-thin tap-to-seek line along the TOP edge (buffered + played) */}
         <button
           type="button"
           onClick={tapSeek}
           aria-label={copy.player.controls.scrub}
-          className="relative block h-2.5 w-full"
+          className="group relative block h-2 w-full"
         >
-          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-line/60" />
+          <span className="absolute inset-x-0 top-0 h-[2px] bg-line/70" />
           <span
-            className="absolute top-1/2 left-0 h-px -translate-y-1/2 bg-text-dim/35"
+            className="absolute top-0 left-0 h-[2px] bg-text-dim/30"
             style={{ width: `${buf}%` }}
           />
           <span
-            className="absolute top-1/2 left-0 h-px -translate-y-1/2 bg-gold transition-[width] duration-500"
+            className="absolute top-0 left-0 h-[2px] bg-gold transition-[width] duration-500 group-hover:h-[3px]"
             style={{ width: `${pct}%` }}
           />
         </button>
-        <div className="flex items-center gap-2 px-4 py-2.5">
+
+        <div className="mx-auto flex max-w-2xl items-center gap-3 px-3 pt-1.5 pb-2.5 sm:px-4">
           <button
             onClick={() => setFullscreen(true)}
-            className="min-w-0 flex-1 text-left"
+            aria-label={current.title}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
-            <p className="truncate font-[family-name:var(--font-display)] text-[0.9375rem] text-text">
-              {current.title}
-            </p>
-            <p className="text-[0.6875rem] tracking-[0.1em] text-text-dim">
-              {fmt(positionS)} · {fmt(durationS)}
-            </p>
+            <ArtTile playing={playing} />
+            <span className="min-w-0 flex-1">
+              <TitleLine text={current.title} />
+              <span className="mt-0.5 block truncate text-[0.6875rem] tracking-[0.08em] text-text-dim">
+                {subline}
+              </span>
+            </span>
           </button>
+
           <button
             onClick={() => setQueueOpen(true)}
             aria-label={copy.player.controls.queue}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold active:text-gold"
           >
             <IconQueue size={19} />
           </button>
+
           <button
             onClick={toggle}
             aria-label={playing ? "Pause" : "Play"}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-bg shadow-[0_0_20px_rgba(212,175,106,0.18)] transition hover:bg-gold-deep active:scale-90"
           >
-            {playing ? <IconPause size={17} /> : <IconPlay size={17} />}
+            {playing ? (
+              <IconPause size={18} />
+            ) : (
+              <IconPlay size={18} className="translate-x-[1px]" />
+            )}
           </button>
         </div>
       </div>

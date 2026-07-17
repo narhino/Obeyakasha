@@ -8,6 +8,7 @@ import { getRawSetting } from "@/lib/settings";
 import { FilePlayAction } from "@/components/library/FilePlayAction";
 import { Badge, Display, Ornament } from "@/components/ui";
 import { IconSpark } from "@/components/ui/icons";
+import { formatDuration } from "@/lib/format/duration";
 import { copy, fill } from "@/copy/copy";
 
 // Public per-viewer file page (R3). Reads the session + DB per request.
@@ -15,11 +16,6 @@ export const dynamic = "force-dynamic";
 
 const KIND_LABELS = copy.library.tagKinds as Record<string, string>;
 const RELATION_LABELS = copy.library.filePage.relation as Record<string, string>;
-
-function minutesLabel(s: number | null): string {
-  if (s == null) return "";
-  return fill(copy.library.filePage.duration, { n: Math.floor(s / 60) });
-}
 
 function publishedLabel(d: Date | null): string {
   if (!d) return "";
@@ -124,7 +120,7 @@ export default async function TrackFilePage({
           <Display className="text-3xl">{track.title}</Display>
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tracking-[0.1em] text-text-dim">
             {track.durationS != null ? (
-              <span>{minutesLabel(track.durationS)}</span>
+              <span>{formatDuration(track.durationS)}</span>
             ) : null}
             {track.durationS != null && page.publishedAt ? (
               <span aria-hidden>·</span>
@@ -265,7 +261,7 @@ export default async function TrackFilePage({
               >
                 <p className="truncate text-sm text-text">{t.title}</p>
                 <p className="mt-0.5 text-xs text-text-dim">
-                  {t.durationS != null ? minutesLabel(t.durationS) : ""}
+                  {t.durationS != null ? formatDuration(t.durationS) : ""}
                   {!t.unlocked
                     ? `${t.durationS != null ? " · " : ""}${copy.library.filePage.railSealed}`
                     : ""}

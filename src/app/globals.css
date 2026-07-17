@@ -127,6 +127,27 @@ body {
   animation: turn 240s linear infinite;
 }
 
+/* ── mini-player marquee — a long title dwells, drifts to reveal its tail,
+   and returns. Slow and deliberate, never a ticker. Distance + pace are set
+   per-title via --marquee-shift / --marquee-dur. ── */
+@keyframes marquee-move {
+  0%,
+  14% {
+    transform: translateX(0);
+  }
+  50%,
+  64% {
+    transform: translateX(var(--marquee-shift, 0));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+.marquee-move {
+  animation: marquee-move var(--marquee-dur, 9s) var(--ease-trance) infinite;
+  will-change: transform;
+}
+
 /* ── task alert — a danger dot that insists (Tasks tab, R5) ── */
 @keyframes pulse-alert {
   0%,
@@ -146,7 +167,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .breathe,
   .turn-slow,
-  .pulse-alert {
+  .pulse-alert,
+  .marquee-move {
     animation: none;
   }
   * {

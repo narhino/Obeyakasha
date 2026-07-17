@@ -3,16 +3,9 @@ import { db } from "@/lib/db";
 import { users, whispers } from "@/lib/db/schema";
 import { whisperStats } from "@/lib/feed/whispers";
 import { listOpenPolls } from "@/lib/polls/ops";
-import {
-  Badge,
-  Button,
-  Card,
-  Display,
-  Input,
-  Select,
-  Whisper,
-} from "@/components/ui";
-import { publishWhisper, setWhisperPinned } from "./actions";
+import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
+import { WhisperComposer } from "./WhisperComposer";
+import { setWhisperPinned } from "./actions";
 
 export default async function SanctumWhispers() {
   const [subjects, recent, openPolls] = await Promise.all([
@@ -38,66 +31,14 @@ export default async function SanctumWhispers() {
       </Whisper>
 
       <Card className="mt-6">
-        <form action={publishWhisper} className="space-y-3">
-          <textarea
-            name="body"
-            maxLength={500}
-            rows={3}
-            placeholder="Say it… (optional if you attach a poll)"
-            className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
-          />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Select name="audienceType" defaultValue="all">
-              <option value="public">Public (logged-out too)</option>
-              <option value="all">Everyone signed in</option>
-              <option value="level">Access level ≥</option>
-              <option value="user">One subject</option>
-            </Select>
-            <Input name="level" type="number" min={0} max={99} defaultValue={1} />
-            <Select name="userId">
-              <option value="">—</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name ?? s.email ?? s.id.slice(0, 8)}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {/* Poll attach — none · an existing open poll · a fresh inline poll. */}
-          <fieldset className="space-y-3 rounded-[var(--radius)] border border-line/70 p-3">
-            <legend className="label-caps px-1 text-text-dim">Poll</legend>
-            <Select name="pollMode" defaultValue="none">
-              <option value="none">No poll</option>
-              <option value="existing">Attach an open poll</option>
-              <option value="new">Create a quick poll</option>
-            </Select>
-            <Select name="existingPollId" defaultValue="">
-              <option value="">— pick an open poll —</option>
-              {openPolls.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.question}
-                </option>
-              ))}
-            </Select>
-            <Input
-              name="pollQuestion"
-              maxLength={200}
-              placeholder="Quick poll question"
-              className="w-full"
-            />
-            <textarea
-              name="pollOptions"
-              rows={3}
-              placeholder={"One option per line (2–6)\ne.g. A chastity file\nA doll transformation"}
-              className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
-            />
-          </fieldset>
-
-          <Button type="submit" variant="gold">
-            Whisper
-          </Button>
-        </form>
+        <WhisperComposer
+          subjects={subjects.map((s) => ({
+            id: s.id,
+            name: s.name,
+            email: s.email,
+          }))}
+          openPolls={openPolls.map((p) => ({ id: p.id, question: p.question }))}
+        />
       </Card>
 
       <div className="mt-8 space-y-2">

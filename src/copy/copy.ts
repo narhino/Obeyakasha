@@ -133,7 +133,6 @@ export const copy = {
     filePage: {
       cardLink: "Look closer",
       draftBadge: "Draft — only your eyes.",
-      duration: "{n} min",
       play: "Let it take you",
       triggersTitle: "What it works in you",
       relation: {
@@ -283,10 +282,15 @@ export const copy = {
   comm: {
     openTitle: "Ask me for something of your own.",
     openBody: "Tell me exactly what you crave. If I take it, it'll be only yours.",
+    sealedTitle: "Commissions are sealed.",
     submit: "Petition me",
     submitted: "I have your request. I'll decide.",
     sealed: "Commissions are sealed. Petition for a slot and wait to be called.",
     waitlistJoin: "Add me to the waitlist",
+    waitlistWhisper: "No slots open right now. Put your name down and I'll call you when one does.",
+    waitlisted: "You're on my waitlist. Wait — I'll call you when a slot opens.",
+    // Shown when a subject already has one in my hands (open, but one at a time).
+    oneAtATime: "One at a time. Yours is already in my hands — let me finish it before you ask again.",
     delivered: "I made something only for you. Come listen.",
     declined: "Not this one. Ask me again another time.",
   },

@@ -6,6 +6,7 @@ import { toast } from "@/lib/player/toast";
 import type { LibraryTrack } from "@/lib/library/queries";
 import { Button } from "@/components/ui";
 import { IconLock, IconPlay } from "@/components/ui/icons";
+import { formatDuration } from "@/lib/format/duration";
 import { copy, fill } from "@/copy/copy";
 
 function toQueueTrack(t: LibraryTrack): QueueTrack {
@@ -15,12 +16,6 @@ function toQueueTrack(t: LibraryTrack): QueueTrack {
     durationS: t.durationS,
     artworkKey: t.artworkKey,
   };
-}
-
-function fmt(s: number | null): string {
-  if (s == null) return "";
-  const m = Math.floor(s / 60);
-  return `${m} min`;
 }
 
 /**
@@ -112,14 +107,14 @@ export function SeriesClient({
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/library/track/${t.slug}`}
-                  className="block truncate text-sm text-text transition-colors duration-[var(--dur-med)] hover:text-gold"
+                  className="line-clamp-2 text-sm text-text transition-colors duration-[var(--dur-med)] hover:text-gold"
                 >
                   {t.title}
                 </Link>
                 <p className="text-xs text-text-dim">
-                  {fmt(t.durationS)}
+                  {formatDuration(t.durationS)}
                   {sealed
-                    ? `${fmt(t.durationS) ? " · " : ""}${
+                    ? `${formatDuration(t.durationS) ? " · " : ""}${
                         state === "locked"
                           ? fill(copy.library.sealed, { level: `level ${t.minAccessLevel}` })
                           : copy.library.sealedAnon

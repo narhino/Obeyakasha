@@ -2,13 +2,18 @@ import Link from "next/link";
 import { requireSubject } from "@/lib/auth-helpers";
 import { getSetting } from "@/lib/settings";
 import { getCommissionForm } from "@/lib/commissions/form";
-import { getUserCommissions } from "@/lib/commissions/ops";
+import {
+  ACTIVE_COMMISSION_STATUSES,
+  getUserCommissions,
+} from "@/lib/commissions/ops";
 import { daysLeft, stageInfo } from "@/lib/commissions/stages";
 import { CommissionForm } from "@/components/commissions/CommissionForm";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 export const dynamic = "force-dynamic";
+
+const ACTIVE = new Set<string>(ACTIVE_COMMISSION_STATUSES);
 
 export default async function CommissionsPage() {
   const session = await requireSubject();
@@ -19,20 +24,27 @@ export default async function CommissionsPage() {
     getSetting("commission_eta_days"),
   ]);
 
-  const active = mine.filter((c) => c.status !== "declined");
+  // Shown as progress cards: everything not declined (delivered included).
+  const shown = mine.filter((c) => c.status !== "declined");
+  // A real request still in her hands (waitlist pings hold no slot).
+  const hasActive = mine.some((c) => !c.waitlist && ACTIVE.has(c.status));
+  // Already waiting in line while sealed.
+  const alreadyWaitlisted = mine.some(
+    (c) => c.waitlist && (c.status === "new" || c.status === "reviewing"),
+  );
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <Display className="text-3xl">
-        {open ? copy.comm.openTitle : "Commissions are sealed"}
+        {open ? copy.comm.openTitle : copy.comm.sealedTitle}
       </Display>
       <Whisper className="mt-1">
         {open ? copy.comm.openBody : copy.comm.sealed}
       </Whisper>
 
-      {active.length > 0 ? (
+      {shown.length > 0 ? (
         <div className="mt-6 space-y-3">
-          {active.map((c) => {
+          {shown.map((c) => {
             const info = stageInfo(c.stage);
             const left = daysLeft(c.acceptedAt, etaDays);
             const delivered = c.status === "delivered";
@@ -80,9 +92,26 @@ export default async function CommissionsPage() {
         </div>
       ) : null}
 
-      <div className="mt-8">
-        <CommissionForm fields={fields} open={open} />
-      </div>
+      {/* State machine (F04):
+          · sealed + not waiting → the waitlist petition ONLY (no field form)
+          · sealed + waiting     → "you're on my waitlist" note
+          · open + has active    → "one at a time" (progress shown above)
+          · open + nothing       → the full request form */}
+      {!open ? (
+        alreadyWaitlisted ? (
+          <Whisper className="mt-8 font-[family-name:var(--font-display)] text-base italic text-gold">
+            {copy.comm.waitlisted}
+          </Whisper>
+        ) : (
+          <CommissionForm fields={[]} variant="waitlist" />
+        )
+      ) : hasActive ? (
+        <Whisper className="mt-8 font-[family-name:var(--font-display)] text-base italic text-gold">
+          {copy.comm.oneAtATime}
+        </Whisper>
+      ) : (
+        <CommissionForm fields={fields} variant="full" />
+      )}
     </main>
   );
 }

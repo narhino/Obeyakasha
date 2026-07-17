@@ -7,6 +7,7 @@ import type { LibraryTrack } from "@/lib/library/queries";
 import { Button } from "@/components/ui";
 import { IconLock, IconPlay } from "@/components/ui/icons";
 import { KeepButton } from "@/components/offline/KeepButton";
+import { formatDuration } from "@/lib/format/duration";
 import { copy, fill } from "@/copy/copy";
 
 type CardTrack = LibraryTrack & { matchedOnlyTranscript?: boolean };
@@ -18,12 +19,6 @@ function toQueueTrack(t: LibraryTrack): QueueTrack {
     durationS: t.durationS,
     artworkKey: t.artworkKey,
   };
-}
-
-function fmt(s: number | null): string {
-  if (s == null) return "";
-  const m = Math.floor(s / 60);
-  return `${m} min`;
 }
 
 /**
@@ -110,7 +105,7 @@ export function LibraryClient({
                 )}
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-text">
+                  <p className="line-clamp-2 text-sm text-text">
                     {t.title}
                     {t.madeForYou ? (
                       <span className="ml-2 text-xs text-gold">
@@ -119,7 +114,7 @@ export function LibraryClient({
                     ) : null}
                   </p>
                   <p className="text-xs text-text-dim">
-                    {fmt(t.durationS)}
+                    {formatDuration(t.durationS)}
                     {t.tags.length > 0
                       ? " · " +
                         t.tags

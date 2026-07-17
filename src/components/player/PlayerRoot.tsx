@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { usePlayer } from "@/lib/player/store";
 import { beacon, postJson } from "@/lib/player/telemetry";
 import { offlineBlobUrl } from "@/lib/offline/store";
@@ -9,6 +10,18 @@ import { Fullscreen } from "./Fullscreen";
 import { DropPrompt } from "./DropPrompt";
 import { QueueSheet } from "./QueueSheet";
 import { Toaster } from "./Toaster";
+
+/** Surfaces that must never wear the subject mini-player: the Sanctum cockpit
+ *  (its own verify player) and the full-screen ritual / auth screens. The audio
+ *  engine keeps running regardless — only the visible chrome steps aside. */
+function chromelessPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/sanctum") ||
+    pathname === "/signin" ||
+    pathname === "/about" ||
+    pathname === "/threshold"
+  );
+}
 
 /** Seconds buffered ahead of (and covering) the playhead. */
 function bufferedAheadOf(audio: HTMLAudioElement): number {
@@ -32,6 +45,8 @@ function bufferedAheadOf(audio: HTMLAudioElement): number {
  * actions.
  */
 export function PlayerRoot() {
+  const pathname = usePathname();
+  const chromeless = chromelessPath(pathname);
   const audioRef = useRef<HTMLAudioElement>(null);
   const sessionIdRef = useRef<string | null>(null);
   const loadedTrackIdRef = useRef<string | null>(null);
@@ -294,11 +309,16 @@ export function PlayerRoot() {
         onEnded={onEnded}
         preload="metadata"
       />
-      <MiniBar />
-      <Fullscreen />
-      <QueueSheet />
-      <Toaster />
-      <DropPrompt />
+      {/* Chrome only on subject surfaces; the engine above always runs. */}
+      {chromeless ? null : (
+        <>
+          <MiniBar />
+          <Fullscreen />
+          <QueueSheet />
+          <Toaster />
+          <DropPrompt />
+        </>
+      )}
     </>
   );
 }
