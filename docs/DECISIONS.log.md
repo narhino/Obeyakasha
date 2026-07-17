@@ -430,3 +430,50 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   unpublish→republish never re-pushes the same file.
 - **`moments.payload` is `notNull().default({})`** (matching the `jobs` table
   convention) rather than a bare nullable default, so readers never handle null.
+
+## R8 — Manual Patreon import, professional (2026-07-17)
+
+- **Imported posts are SHELLS by default, not skips.** Patreon's API cannot
+  hand over post audio (verified 400 on `attachments_media` downloads — a
+  platform limitation), so `importPatreonPost` no longer returns early on a
+  no-audio post: it creates a draft `tracks` row (title + HTML→text description
+  + `source='patreon_import'` + `patreonPostId`, no `streamKey`) and logs
+  `patreon.shell_created`. The rare post that *does* yield a downloadable audio
+  keeps the full ingest path. Idempotency is unchanged (the pre-existing
+  `patreonPostId` guard), so re-import is a no-op. **No schema change** — a shell
+  is just `source='patreon_import' AND stream_key IS NULL`; the roadmap's
+  conceptual `needs_audio` status is expressed by that predicate, not a new enum
+  value (there is no `needs_audio` in `pipelineStatus`, and the pipeline stays
+  `uploaded` until audio is attached).
+- **Attach reuses the streaming upload route via an optional `?trackId=`.**
+  `POST /api/sanctum/upload` gains an attach branch: validate uuid → track must
+  exist (404) → `streamKey` must be null (**409** if it already has audio) →
+  stream the body to a temp file → `attachUploadToTrack` (new in
+  `media/ingest.ts`: `putOriginal` + `putStream` + duration probe, updates
+  `streamKey`/`durationS` and resets `pipeline='uploaded'`). Same auto-pipeline
+  enqueue as the create path; audit `track.audio_attached`. The create path is
+  untouched.
+- **Filename↔shell matcher is pure + dep-free** (`src/lib/patreon/match.ts`,
+  unit-tested). `scoreMatch` blends token-overlap (Sørensen–Dice on the word
+  sets, weight 0.6) with character-bigram Dice (weight 0.4), both after a shared
+  normalize (lowercase, strip audio extension + punctuation/underscores).
+  `proposeMatches` ranks every file↔shell pair ≥ floor (0.2) and assigns
+  greedily highest-first, never reusing a file or a shell — so a confident pair
+  claims its shell before a weaker contender, and losers come back unmatched
+  rather than mis-assigned. `high` chip ≥ 0.55, else `uncertain`.
+- **Bulk attach is a client island** (`/sanctum/import/attach`) that reuses the
+  shared upload primitives. The XHR `probeDuration`/`uploadAudio` helpers were
+  **extracted** from `library/UploadQueue.tsx` into `sanctum/upload-client.ts`
+  and are now shared by the UploadQueue, the per-row `AttachButton`, and the
+  bulk `AttachClient` (concurrency 2, per-file progress, per-row reassign/skip
+  dropdown, retry on failure). No wholesale duplication.
+- **Waiting-shell count is a local fact.** The Import page's "Attach audio (N
+  waiting)" banner and the attach screen both read `listWaitingShells()` (a
+  local DB query), so the affordance holds even when Patreon is momentarily
+  unreachable. Shell rows on the Import page show a `shell · needs audio` badge
+  (replacing the old `no audio`) plus an inline single-file attach picker.
+- **Shells degrade gracefully with no audio (verified, no change needed):**
+  Publish stays disabled (`hasAudio` guard); `transcribeTrack` returns early on
+  a null `streamKey`; the dossier's "Run analysis" still fills from the
+  heuristic floor using title + description (empty transcript is handled), so a
+  shell can be analysed/described before its audio ever arrives.

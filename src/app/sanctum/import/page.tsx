@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireGoddess } from "@/lib/auth-helpers";
-import { listImportablePosts } from "@/lib/patreon/import";
+import { listImportablePosts, listWaitingShells } from "@/lib/patreon/import";
 import { diagnoseImport } from "@/lib/patreon/diagnose";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { AttachButton } from "./AttachButton";
 import { importAllNewAction, importPostAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -52,8 +53,11 @@ export default async function ImportPage({
     );
   }
 
+  // Waiting shells are a local fact (imported posts with no audio yet), so this
+  // holds even if Patreon is momentarily unreachable.
+  const waiting = await listWaitingShells();
   const { ready, posts, error } = await listImportablePosts();
-  // "new" = never imported and not currently queued/running/done.
+  // "new" = never imported and not currently queued/running.
   const fresh = posts.filter(
     (p) =>
       !p.imported && (p.jobStatus === null || p.jobStatus === "failed"),
@@ -63,12 +67,31 @@ export default async function ImportPage({
     <div className="max-w-2xl">
       <Display className="text-3xl">Import from Patreon</Display>
       <Whisper className="mt-1">
-        Pull your posts and their audio straight in. Everything lands as a draft
-        and runs through the pipeline — transcribed, analysed, tagged.{" "}
+        Pull your posts in as drafts. Patreon can&apos;t hand over post audio, so
+        each lands as a shell — title and words kept — waiting for you to attach
+        the file. Attach it and the pipeline runs: transcribed, analysed, tagged.{" "}
         <Link href="/sanctum/import?diag=1" className="text-gold hover:underline">
           Diagnose
         </Link>
       </Whisper>
+
+      {waiting.length > 0 ? (
+        <Link
+          href="/sanctum/import/attach"
+          className="mt-4 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-gold/40 bg-gold/5 px-4 py-3 transition-colors hover:border-gold/70"
+        >
+          <span className="text-sm text-text">
+            <span className="font-[family-name:var(--font-display)] text-gold">
+              Attach audio
+            </span>{" "}
+            — {waiting.length} shell{waiting.length === 1 ? "" : "s"} waiting for
+            their files.
+          </span>
+          <span className="shrink-0 text-xs uppercase tracking-[0.14em] text-gold">
+            Open →
+          </span>
+        </Link>
+      ) : null}
 
       {error ? (
         <Card className="mt-6">
@@ -109,8 +132,7 @@ export default async function ImportPage({
               </form>
             ) : null}
             <Whisper className="text-xs">
-              {posts.length} posts · watch progress in the Library. Text-only
-              posts are skipped.
+              {posts.length} posts · imports as drafts, then attach the audio.
             </Whisper>
           </div>
 
@@ -131,12 +153,17 @@ export default async function ImportPage({
                     </Whisper>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {p.imported ? (
+                    {p.imported && p.needsAudio ? (
+                      <>
+                        <Badge tone="sealed">shell · needs audio</Badge>
+                        {p.trackId ? (
+                          <AttachButton trackId={p.trackId} />
+                        ) : null}
+                      </>
+                    ) : p.imported ? (
                       <Badge tone="gold">imported</Badge>
                     ) : p.jobStatus === "queued" || p.jobStatus === "running" ? (
                       <Badge tone="neutral">importing…</Badge>
-                    ) : p.jobStatus === "done" ? (
-                      <Badge tone="sealed">no audio</Badge>
                     ) : (
                       <form action={importPostAction}>
                         <input type="hidden" name="postId" value={p.postId} />

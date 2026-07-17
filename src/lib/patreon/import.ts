@@ -4,12 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { jobs, tracks } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { getRawSetting, getSetting, setRawSetting } from "@/lib/settings";
-import { ingestUploadFromPath } from "@/lib/media/ingest";
+import {
+  ingestUploadFromPath,
+  slugify,
+  uniqueSlug,
+} from "@/lib/media/ingest";
 import { enqueue } from "@/lib/jobs/queue";
 import { logAudit } from "@/lib/audit";
 import {
@@ -56,6 +60,14 @@ export function htmlToText(html: string): string {
 
 export interface ImportablePost extends CampaignPost {
   imported: boolean;
+  /**
+   * Imported but still audio-less — a shell awaiting a file on the attach
+   * screen (R8). True when a track exists for this post but none has a
+   * streamKey yet.
+   */
+  needsAudio: boolean;
+  /** The shell track's id when {@link needsAudio} — the per-row attach target. */
+  trackId: string | null;
   /** Import-job state for feedback: queued | running | done | failed | null. */
   jobStatus: string | null;
   jobError: string | null;
@@ -102,11 +114,27 @@ export async function listImportablePosts(): Promise<{
     const ids = all.map((p) => p.postId);
     const existing = ids.length
       ? await db
-          .select({ pid: tracks.patreonPostId })
+          .select({
+            id: tracks.id,
+            pid: tracks.patreonPostId,
+            streamKey: tracks.streamKey,
+          })
           .from(tracks)
           .where(inArray(tracks.patreonPostId, ids))
       : [];
     const importedSet = new Set(existing.map((e) => e.pid));
+    // A post "has audio" once ANY of its tracks carries a streamKey (a shell got
+    // a file, or it was a rare full import). Otherwise it's a waiting shell.
+    const audioSet = new Set(
+      existing.filter((e) => e.streamKey != null).map((e) => e.pid),
+    );
+    // The waiting shell's track id per post — the per-row attach target.
+    const shellByPost = new Map<string, string>();
+    for (const e of existing) {
+      if (e.streamKey == null && e.pid && !shellByPost.has(e.pid)) {
+        shellByPost.set(e.pid, e.id);
+      }
+    }
 
     // Import-job status per post (for live feedback on the page).
     const jobRows = await db
@@ -131,9 +159,13 @@ export async function listImportablePosts(): Promise<{
       ready: true,
       posts: all.map((p) => {
         const job = jobByPost.get(p.postId);
+        const needsAudio =
+          importedSet.has(p.postId) && !audioSet.has(p.postId);
         return {
           ...p,
           imported: importedSet.has(p.postId),
+          needsAudio,
+          trackId: needsAudio ? (shellByPost.get(p.postId) ?? null) : null,
           jobStatus: job?.status ?? null,
           jobError: job?.error ?? null,
         };
@@ -148,6 +180,55 @@ export async function listImportablePosts(): Promise<{
   }
 }
 
+/**
+ * Create an audio-less shell track for a post (ROADMAP-v1.5 R8). Keeps the
+ * post's title + description + id so the bulk-attach screen can later stream the
+ * real audio onto it. Draft, so it stays invisible to subjects until published.
+ */
+async function createShellTrack(
+  post: CampaignPost,
+  description: string | null,
+): Promise<string> {
+  const slug = await uniqueSlug(slugify(post.title));
+  const [track] = await db
+    .insert(tracks)
+    .values({
+      title: post.title,
+      slug,
+      description,
+      visibility: "draft",
+      source: "patreon_import",
+      patreonPostId: post.postId,
+    })
+    .returning({ id: tracks.id });
+  return track!.id;
+}
+
+export interface WaitingShell {
+  id: string;
+  title: string;
+  patreonPostId: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Imported Patreon shells that still need audio attached (R8) — source
+ * `patreon_import` with a null streamKey. Powers the bulk-attach screen and the
+ * "Attach audio (N waiting)" affordance on the Import page. Newest first.
+ */
+export async function listWaitingShells(): Promise<WaitingShell[]> {
+  return db
+    .select({
+      id: tracks.id,
+      title: tracks.title,
+      patreonPostId: tracks.patreonPostId,
+      createdAt: tracks.createdAt,
+    })
+    .from(tracks)
+    .where(and(eq(tracks.source, "patreon_import"), isNull(tracks.streamKey)))
+    .orderBy(desc(tracks.createdAt));
+}
+
 async function downloadTo(url: string, dest: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok || !res.body) {
@@ -160,9 +241,15 @@ async function downloadTo(url: string, dest: string): Promise<void> {
 }
 
 /**
- * Import one post's audio → draft track(s) + kick off the pipeline. Re-fetches
- * the post so download URLs are fresh (safe to retry). Idempotent: a post whose
- * audio is already imported is skipped.
+ * Import one post → track(s) + (when audio is present) the pipeline. Re-fetches
+ * the post so download URLs are fresh (safe to retry). Idempotent on
+ * patreonPostId: a post already imported is skipped.
+ *
+ * Patreon's API cannot hand us post audio (platform limitation — verified 400
+ * on attachments_media downloads), so the normal case is a SHELL: a draft track
+ * carrying the post's title + description + id, awaiting a file attached by hand
+ * on /sanctum/import/attach (R8). A post that DOES yield downloadable audio (the
+ * rare case) keeps the full ingest path.
  */
 export async function importPatreonPost(postId: string): Promise<string[]> {
   const token = creatorToken();
@@ -176,12 +263,22 @@ export async function importPatreonPost(postId: string): Promise<string[]> {
   if (already) return [];
 
   const post = await fetchPost(token, postId);
-  // Null = the single-post fetch failed (surface it as a failed job). Empty
-  // audio = a text post → skip quietly (job succeeds, no track).
+  // Null = the single-post fetch failed (surface it as a failed job).
   if (!post) throw new Error("Patreon returned no data for this post");
-  if (post.audio.length === 0) return [];
 
   const description = htmlToText(post.contentHtml) || null;
+
+  // The normal case: no downloadable audio → create a shell to attach audio to.
+  if (post.audio.length === 0) {
+    const shellId = await createShellTrack(post, description);
+    await logAudit(null, "patreon.shell_created", {
+      postId,
+      title: post.title,
+      trackId: shellId,
+    });
+    return [shellId];
+  }
+
   const autoPipeline = await getSetting("auto_pipeline");
   const created: string[] = [];
 

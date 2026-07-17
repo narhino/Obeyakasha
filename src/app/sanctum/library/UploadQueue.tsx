@@ -2,82 +2,29 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Whisper } from "@/components/ui";
+import {
+  AUDIO_RE,
+  probeDuration,
+  uploadAudio,
+  type UploadState,
+} from "../upload-client";
 
 /**
  * Multi-file streaming uploader (ROADMAP-v1.5 C1.2). Each file uploads via XHR
  * to /api/sanctum/upload so `upload.onprogress` drives a real per-file bar —
  * the fix for "I click upload and nothing shows." Concurrency 2; drag-drop,
- * multi-select, and whole-folder drop supported. Duration is probed client-side
- * so the server needs no ffprobe.
+ * multi-select, and whole-folder drop supported. The upload primitives are
+ * shared with the Patreon attach flows (see ../upload-client).
  */
 
 const CONCURRENCY = 2;
-const AUDIO_RE = /\.(mp3|m4a|mp4|wav|aac|ogg)$/i;
-
-type ItemState = "queued" | "uploading" | "done" | "error";
 
 interface UploadItem {
   id: string;
   file: File;
   progress: number; // 0..1
-  state: ItemState;
+  state: UploadState;
   error?: string;
-}
-
-function probeDuration(file: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const url = URL.createObjectURL(file);
-    const audio = document.createElement("audio");
-    audio.preload = "metadata";
-    const done = (v: number | null) => {
-      if (settled) return;
-      settled = true;
-      URL.revokeObjectURL(url);
-      resolve(v);
-    };
-    audio.onloadedmetadata = () =>
-      done(Number.isFinite(audio.duration) ? Math.round(audio.duration) : null);
-    audio.onerror = () => done(null);
-    // Safety: never hang the queue on a file the browser can't parse.
-    setTimeout(() => done(null), 8000);
-    audio.src = url;
-  });
-}
-
-function putFile(
-  file: File,
-  durationS: number | null,
-  onProgress: (fraction: number) => void,
-): Promise<{ trackId: string }> {
-  return new Promise((resolve, reject) => {
-    const params = new URLSearchParams({ filename: file.name });
-    if (durationS != null) params.set("durationS", String(durationS));
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/sanctum/upload?${params.toString()}`);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          resolve(JSON.parse(xhr.responseText));
-        } catch {
-          resolve({ trackId: "" });
-        }
-      } else {
-        let msg = `upload failed (${xhr.status})`;
-        try {
-          msg = JSON.parse(xhr.responseText).error ?? msg;
-        } catch {
-          /* keep default */
-        }
-        reject(new Error(msg));
-      }
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.send(file);
-  });
 }
 
 export function UploadQueue({
@@ -109,9 +56,10 @@ export function UploadQueue({
       void (async () => {
         try {
           const durationS = await probeDuration(item.file);
-          await putFile(item.file, durationS, (f) =>
-            patch(item.id, { progress: f }),
-          );
+          await uploadAudio(item.file, {
+            durationS,
+            onProgress: (f) => patch(item.id, { progress: f }),
+          });
           patch(item.id, { state: "done", progress: 1 });
           onUploaded();
         } catch (err) {

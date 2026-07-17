@@ -9,7 +9,7 @@ import { probeDurationSeconds } from "./probe";
 
 const ALLOWED_EXT = new Set([".mp3", ".m4a", ".mp4", ".wav", ".aac", ".ogg"]);
 
-function slugify(title: string): string {
+export function slugify(title: string): string {
   return (
     title
       .toLowerCase()
@@ -19,7 +19,7 @@ function slugify(title: string): string {
   );
 }
 
-async function uniqueSlug(base: string): Promise<string> {
+export async function uniqueSlug(base: string): Promise<string> {
   let slug = base;
   let n = 1;
   // Cheap uniqueness loop; collisions are rare at this scale.
@@ -107,6 +107,51 @@ export async function ingestUploadFromPath(params: {
     title: params.title,
     clientDurationS: params.clientDurationS ?? null,
   });
+}
+
+/**
+ * Attach an uploaded audio file to an EXISTING (shell) track (ROADMAP-v1.5 R8).
+ * Patreon imports arrive as audio-less shells; the bulk-attach screen streams
+ * her real files onto them. Mirrors {@link ingestUpload}'s storage writes +
+ * duration probe, but updates the track in place instead of inserting a new row
+ * and resets the pipeline to `uploaded` so the auto-pipeline can chain from it.
+ *
+ * The caller (the upload route) MUST have verified the track exists and has no
+ * `streamKey` yet — attaching over existing audio is refused there (409).
+ */
+export async function attachUploadToTrack(params: {
+  trackId: string;
+  path: string;
+  filename: string;
+  clientDurationS?: number | null;
+}): Promise<IngestResult> {
+  const ext = extname(params.filename).toLowerCase();
+  if (!ALLOWED_EXT.has(ext)) {
+    throw new Error(`Unsupported audio type: ${ext || "(none)"}`);
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const bytes = new Uint8Array(await readFile(params.path));
+
+  const provider = mediaProvider();
+  await provider.putOriginal(params.trackId, params.filename, bytes);
+  const streamKey = await provider.putStream(params.trackId, bytes, ext);
+
+  let durationS = params.clientDurationS ?? null;
+  const probed = await probeToTemp(bytes, ext);
+  if (probed !== null) durationS = probed;
+
+  await db
+    .update(tracks)
+    .set({
+      streamKey,
+      durationS: durationS ?? undefined,
+      pipeline: "uploaded",
+      updatedAt: new Date(),
+    })
+    .where(eq(tracks.id, params.trackId));
+
+  return { trackId: params.trackId, durationS, streamKey };
 }
 
 async function probeToTemp(
