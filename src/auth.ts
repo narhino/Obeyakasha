@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { authConfig } from "@/auth.config";
 import { pinGoddessRole, syncPatreonUser } from "@/lib/patreon/sync";
+import { maybeSendWelcomeDm } from "@/lib/messages/welcome";
 import { logAudit } from "@/lib/audit";
 
 /**
@@ -47,6 +48,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
         }
       }
+
+      // R9.9b: the first time a new subject connects, her welcome lands in their
+      // thread (once ever, never for the goddess). Self-guarded; never throws.
+      await maybeSendWelcomeDm(user.id, isGoddess);
     },
   },
 });

@@ -29,6 +29,10 @@ export const listenSessions = pgTable(
       .notNull()
       .defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    // R9.1 ("She sees you"): stamped on every heartbeat so the Sanctum live view
+    // can tell who is under *right now* — a session with no endedAt whose last
+    // heartbeat landed within the live window (see src/lib/listen/live.ts).
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     secondsListened: integer("seconds_listened").notNull().default(0),
     maxPositionS: integer("max_position_s").notNull().default(0),
     completed: boolean("completed").notNull().default(false),

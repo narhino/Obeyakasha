@@ -524,3 +524,56 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   reading lands, and surfaces a failed job's error. (F01 proper — seeded rows
   never analysed — was a QA-sandbox artifact: the worker wasn't running. With it
   up, this flow is now observable.)
+
+## 2026-07-17 — R9a (creative additions, batch 1: R9.1 + R9.9a + R9.9b)
+
+- **Live presence needs a heartbeat clock (R9.1).** `listen_sessions` had no
+  per-heartbeat timestamp — only value columns (`seconds_listened`,
+  `max_position_s`) and the one-shot `started_at`. Added `last_heartbeat_at`
+  timestamptz, stamped on every `recordHeartbeat` (insert + update). "Currently
+  under" = open session (`ended_at` null) whose last beat is within
+  `LIVE_WINDOW_MS` (90s ≈ a couple missed 10s beats). The window + the
+  minutes-in/depth shaping are pure (`src/lib/listen/live.ts`, unit-tested);
+  only the join that feeds them touches the DB. Live view is goddess-only —
+  collar names never leave the Sanctum (D7).
+- **Touch is a moment kind, not a push (R9.1).** One-tap/free-text lines write a
+  `moments` row kind `touch` (`{text}`), audited, NO push (they're in-app). The
+  subject overlay polls `/api/me/moments?kinds=touch` only while audio plays.
+  **Collision with the session-start ritual is prevented server-side:** the
+  default moments query (the ritual queue) now excludes kind `touch`
+  (`ne(kind,'touch')`), and the `touch` branch is its own channel that also
+  expires unshown touches older than 10 min query-side (`gt(created_at, …)`).
+  `Moments.lineFor` already returns null for unknown kinds — belt and suspenders.
+  The overlay (`Touch`) mounts inside `PlayerRoot`'s subject chrome at `z-[60]`
+  (over the `z-50` fullscreen), `pointer-events-none` so it never steals a tap —
+  a line that breathes in, holds ~6s, fades; reduced motion collapses to
+  appear/vanish via the global transition reset. It is a deliberately different
+  surface from the ritual dialog, so the two never visually clash.
+- **`usePolling` promoted to `src/lib/hooks/`.** It lived under
+  `app/sanctum/library/`; the subject touch overlay + the live panels reuse it,
+  so importing Sanctum-route code into subject chrome was a layering smell.
+  Moved to `@/lib/hooks/usePolling` and re-pointed the two existing imports
+  (LibraryClient, DossierClient). Pure relocation, no behaviour change.
+- **One whisper-push path (R9.9a).** Extracted `sendWhisperPush`
+  (`src/lib/feed/publish.ts`) — the body-vs-poll-question fallback, title, deep
+  link, audience. Both immediate publish (composer action) and the 60s scheduled
+  worker tick call it, so they cannot drift. The two push titles moved from
+  inline literals into `copy.whispers.{whisperedPush,askingPush}` (they're
+  subject-facing — the golden rule wants them in `copy.ts`). Scheduling saves the
+  whisper with `published_at` null + `scheduled_for`; every feed query already
+  filters on `published_at`, so it stays invisible until the tick claims it
+  (`UPDATE … WHERE published_at IS NULL` — restart/overlap-safe) and fires the
+  push. Sanctum list gains a `scheduled · <when>` badge + audited Cancel (delete,
+  guarded to unpublished only).
+- **Auto-welcome on first connect (R9.9b).** Fires from the `auth.ts` `signIn`
+  event (which already knows `isGoddess` and only runs for Patreon) rather than
+  the adapter `createUser` event, because goddess exclusion + the settings read
+  live there. Guarded once-ever on an empty thread; reuses `sendGoddessMessage`
+  (which already pushes "She spoke to you." and trains the corpus). Never throws
+  — a welcome must not block sign-in. New typed settings `welcome_dm_enabled`
+  (default true) + `welcome_dm_text` (default seeded from
+  `copy.messages.welcomeDefault`), both editable in Sanctum → Access. Chose typed
+  `SETTINGS_DEFAULTS` keys over raw settings since they're a fixed contract.
+- **Migration `0012_r9a.sql`** — the two additive columns only
+  (`listen_sessions.last_heartbeat_at`, `whispers.scheduled_for`). Gate green:
+  typecheck · lint · 181 tests (170 + 11 new pure live tests) · build.

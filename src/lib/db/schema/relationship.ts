@@ -50,6 +50,10 @@ export const whispers = pgTable(
     pinned: boolean("pinned").notNull().default(false),
     // R1: a whisper may carry a poll, rendered + voted inline in the feed.
     pollId: uuid("poll_id").references(() => polls.id),
+    // R9.9a: when set with a null publishedAt, the whisper is scheduled — the
+    // worker publishes it (sets publishedAt + fires the push) once this time
+    // passes. Feed queries filter on publishedAt, so it stays invisible until then.
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

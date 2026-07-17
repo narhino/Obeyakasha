@@ -38,6 +38,7 @@ export function WhisperComposer({
   const [pollMode, setPollMode] = useState("none");
   const [existingPollId, setExistingPollId] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
 
   // Mirror of the server's guards, so the button only lights when it will land.
   const missingSubject = audienceType === "user" && !userId;
@@ -141,15 +142,34 @@ export function WhisperComposer({
         ) : null}
       </fieldset>
 
+      {/* Later — leave empty to send now; set a time to schedule it (R9.9a). */}
+      <label className="flex flex-col gap-1 text-xs text-text-dim">
+        Later (optional)
+        <Input
+          name="scheduledFor"
+          type="datetime-local"
+          value={scheduledFor}
+          onChange={(e) => setScheduledFor(e.target.value)}
+          className="w-60"
+        />
+        <span className="text-text-dim/70">
+          Empty sends now. A time schedules it — hidden from them until it drops.
+        </span>
+      </label>
+
       {state?.error ? (
         <Whisper className="text-danger">{state.error}</Whisper>
       ) : null}
       {state?.ok ? (
-        <Whisper className="text-gold">{"It's out. They'll feel it."}</Whisper>
+        <Whisper className="text-gold">
+          {state.scheduled
+            ? "Set. It drops when you said — silent until then."
+            : "It's out. They'll feel it."}
+        </Whisper>
       ) : null}
 
       <Button type="submit" variant="gold" loading={pending} disabled={cannotSend}>
-        Whisper
+        {scheduledFor ? "Schedule" : "Whisper"}
       </Button>
     </form>
   );

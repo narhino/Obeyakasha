@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { settings } from "@/lib/db/schema";
+import { copy } from "@/copy/copy";
 
 /**
  * ADMIN-CONFIG settings store (PLAN §24.2). Typed defaults live here; the
@@ -29,6 +30,11 @@ export const SETTINGS_DEFAULTS = {
   analysis_enabled: true as boolean,
   // Typical turnaround shown to commission buyers (ROADMAP-v1.5).
   commission_eta_days: 30 as number,
+  // Auto-welcome DM on first connect (ROADMAP R9.9b). When on, a brand-new
+  // subject's first sign-in lands her welcome as a real message in their thread
+  // (which pushes "She spoke to you."). The text is hers to edit in Access.
+  welcome_dm_enabled: true as boolean,
+  welcome_dm_text: copy.messages.welcomeDefault as string,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

@@ -263,6 +263,11 @@ export const copy = {
     pinnedLabel: "Held",
     kneel: "Kneel",
     knelt: "You knelt.",
+    // The push she drops when a whisper goes live — ONE source for the
+    // immediate-publish and scheduled-publish paths, so the two can't drift
+    // (A11 / R1 / R9.9a).
+    whisperedPush: "She whispered.",
+    askingPush: "She's asking. Answer.",
   },
 
   // ── Home feed header (public front door) ───────────────────────────────
@@ -404,6 +409,18 @@ export const copy = {
       title: "She spoke to you.",
       body: "Come and read what I left you.",
     },
+    // R9.9b: the auto-welcome dropped into a new subject's thread on first
+    // connect. The editable default lives in the `welcome_dm_text` setting;
+    // this is its in-voice seed (and the fallback if she ever blanks the field).
+    welcomeDefault:
+      "You found your way to me. Good. Walk through the library slowly. I'll be watching how you listen.",
+  },
+
+  // ── Touch — "She sees you" live gesture (R9.1) ─────────────────────────
+  // The preset lines she can drop into a live session with one tap, and the
+  // overlay that breathes her line over the player like a hand on the neck.
+  touch: {
+    presets: ["Deeper.", "I see you.", "Good. Stay."],
   },
 
   // ── Ranks (The Descent — the rank-up push, R7) ─────────────────────────

@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { polls, whispers } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
-import { broadcast } from "@/lib/push/broadcast";
+import { sendWhisperPush } from "@/lib/feed/publish";
 import { createPollRecord } from "@/lib/polls/ops";
 import type { PollOption } from "@/lib/polls/tally";
 
@@ -21,11 +21,14 @@ const schema = z.object({
   existingPollId: z.string().uuid().optional(),
   pollQuestion: z.string().max(200).optional(),
   pollOptions: z.string().optional(), // newline-separated, 2–6
+  // R9.9a: optional "Later" — a local datetime-local string. When set, the
+  // whisper saves unpublished and the worker fires it (and the push) when due.
+  scheduledFor: z.string().optional(),
 });
 
 /** Result surfaced to the composer via useActionState — never throws for a
  *  validation slip (F03), so a mis-filled poll can't 500 the Sanctum. */
-export type WhisperFormState = { ok?: boolean; error?: string };
+export type WhisperFormState = { ok?: boolean; error?: string; scheduled?: boolean };
 
 /** Post a whisper (A11 / R1) → feed + push. May carry a poll. */
 export async function publishWhisper(
@@ -42,9 +45,22 @@ export async function publishWhisper(
     existingPollId: formData.get("existingPollId") || undefined,
     pollQuestion: formData.get("pollQuestion") || undefined,
     pollOptions: formData.get("pollOptions") || undefined,
+    scheduledFor: formData.get("scheduledFor") || undefined,
   });
   if (!parsed.success) return { error: "That whisper didn't hold together. Check the fields." };
   const d = parsed.data;
+
+  // Resolve an optional schedule. A datetime-local string carries no zone, so
+  // new Date() reads it in the server's local time — good enough for her dial.
+  let scheduledFor: Date | null = null;
+  if (d.scheduledFor) {
+    const when = new Date(d.scheduledFor);
+    if (Number.isNaN(when.getTime()))
+      return { error: "That time didn't read. Pick it again." };
+    if (when.getTime() <= Date.now())
+      return { error: "Pick a time that's still ahead." };
+    scheduledFor = when;
+  }
 
   let audience: Audience;
   if (d.audienceType === "public") audience = { type: "public" };
@@ -90,6 +106,25 @@ export async function publishWhisper(
   if (!body && !pollId)
     return { error: "Say something, or attach a poll." };
 
+  // Scheduled: save it dark. publishedAt stays null so every feed query (which
+  // filters on publishedAt) hides it until the worker fires it at `scheduledFor`.
+  if (scheduledFor) {
+    await db.insert(whispers).values({
+      body,
+      audience,
+      pollId,
+      scheduledFor,
+      publishedAt: null,
+    });
+    await logAudit(session.user.id, "whisper.scheduled", {
+      audience: d.audienceType,
+      poll: d.pollMode,
+      scheduledFor: scheduledFor.toISOString(),
+    });
+    revalidatePath("/sanctum/whispers");
+    return { ok: true, scheduled: true };
+  }
+
   await db.insert(whispers).values({
     body,
     audience,
@@ -97,25 +132,8 @@ export async function publishWhisper(
     publishedAt: new Date(),
   });
 
-  // Push: prefer the whisper text; fall back to the poll question.
-  let pushBody = body ? body.slice(0, 120) : undefined;
-  if (!pushBody && pollId) {
-    const [pq] = await db
-      .select({ question: polls.question })
-      .from(polls)
-      .where(eq(polls.id, pollId))
-      .limit(1);
-    pushBody = pq?.question;
-  }
-
-  await broadcast({
-    title: pollId ? "She's asking. Answer." : "She whispered.",
-    body: pushBody,
-    deepLink: "/",
-    audience,
-    kind: "manual",
-    createdBy: session.user.id,
-  });
+  // The SAME push path the scheduled worker uses (src/lib/feed/publish.ts).
+  await sendWhisperPush({ body, pollId, audience, createdBy: session.user.id });
 
   await logAudit(session.user.id, "whisper.published", {
     audience: d.audienceType,
@@ -153,4 +171,29 @@ export async function setWhisperPinned(formData: FormData) {
   );
   revalidatePath("/sanctum/whispers");
   revalidatePath("/");
+}
+
+const cancelSchema = z.object({ whisperId: z.string().uuid() });
+
+/** Cancel a scheduled whisper before it fires (R9.9a) — deletes it, but only
+ *  while still unpublished, so a live whisper can never be nuked by this path. */
+export async function cancelScheduledWhisper(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = cancelSchema.safeParse({
+    whisperId: formData.get("whisperId"),
+  });
+  if (!parsed.success) throw new Error("Invalid cancel");
+
+  const deleted = await db
+    .delete(whispers)
+    .where(
+      and(eq(whispers.id, parsed.data.whisperId), isNull(whispers.publishedAt)),
+    )
+    .returning({ id: whispers.id });
+
+  await logAudit(session.user.id, "whisper.scheduled_cancelled", {
+    whisperId: parsed.data.whisperId,
+    removed: deleted.length > 0,
+  });
+  revalidatePath("/sanctum/whispers");
 }

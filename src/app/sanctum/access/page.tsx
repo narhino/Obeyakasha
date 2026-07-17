@@ -7,6 +7,7 @@ import {
   saveTierMapping,
   setOrganizeAutoApply,
   setPatreonPageUrl,
+  setWelcomeDmText,
   toggleSetting,
 } from "./actions";
 
@@ -20,6 +21,8 @@ export default async function AccessPage() {
     autoApply,
     analysisEnabled,
     patreonPageUrl,
+    welcomeEnabled,
+    welcomeText,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -29,6 +32,8 @@ export default async function AccessPage() {
     getSetting("organize_auto_apply"),
     getSetting("analysis_enabled"),
     getRawSetting<string>("patreon_page_url", "https://www.patreon.com"),
+    getSetting("welcome_dm_enabled"),
+    getSetting("welcome_dm_text"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -174,6 +179,42 @@ export default async function AccessPage() {
         <Whisper className="mt-2 text-xs">
           Automations send reclaim nudges to inactive subjects and broken chains
           (respects quiet hours). Off by default.
+        </Whisper>
+      </Card>
+
+      {/* Auto-welcome DM on first connect (ROADMAP R9.9b) */}
+      <Card className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Whisper>First-connect welcome</Whisper>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="welcome_dm_enabled" />
+            <Button
+              type="submit"
+              size="sm"
+              variant={welcomeEnabled ? "gold" : "ghost"}
+            >
+              Welcome DM: {welcomeEnabled ? "on" : "off"}
+            </Button>
+          </form>
+        </div>
+        <form action={setWelcomeDmText} className="mt-3">
+          <textarea
+            name="text"
+            defaultValue={welcomeText}
+            rows={3}
+            maxLength={500}
+            className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
+          />
+          <div className="mt-2">
+            <Button type="submit" size="sm" variant="gold">
+              Save welcome
+            </Button>
+          </div>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          When on, a brand-new subject&apos;s first sign-in lands this as a real
+          message in their thread — and pushes &ldquo;She spoke to you.&rdquo; Sent
+          once per subject, never to you.
         </Whisper>
       </Card>
 

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { IconPause, IconPlay } from "@/components/ui/icons";
 import { formatClock } from "@/lib/format/duration";
-import { usePolling } from "@/app/sanctum/library/usePolling";
+import { usePolling } from "@/lib/hooks/usePolling";
 import type {
   AnalysisKeyword,
   AnalysisTrigger,

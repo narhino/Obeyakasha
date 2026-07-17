@@ -10,6 +10,7 @@ import { Fullscreen } from "./Fullscreen";
 import { DropPrompt } from "./DropPrompt";
 import { QueueSheet } from "./QueueSheet";
 import { Toaster } from "./Toaster";
+import { Touch } from "@/components/moments/Touch";
 
 /** Surfaces that must never wear the subject mini-player: the Sanctum cockpit
  *  (its own verify player) and the full-screen ritual / auth screens. The audio
@@ -317,6 +318,8 @@ export function PlayerRoot() {
           <QueueSheet />
           <Toaster />
           <DropPrompt />
+          {/* R9.1: her live touch, fading over the player while a track plays. */}
+          <Touch />
         </>
       )}
     </>

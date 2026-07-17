@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { and, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   chains,
@@ -7,10 +7,13 @@ import {
   orderAssignments,
   orders,
   users,
+  whispers,
 } from "@/lib/db/schema";
+import type { Audience } from "@/lib/db/schema/relationship";
 import { getSetting } from "@/lib/settings";
 import { closePoll, expiredOpenPolls } from "@/lib/polls/ops";
 import { broadcast } from "@/lib/push/broadcast";
+import { sendWhisperPush } from "@/lib/feed/publish";
 import { logAudit } from "@/lib/audit";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
@@ -168,6 +171,49 @@ async function deadlineWarnTick() {
   await logAudit(null, "automation.deadline_warned", { users: byUser.size });
 }
 
+/**
+ * Scheduled whispers (R9.9a). Publish any whisper whose time has come — set
+ * publishedAt (making it visible to the feed) and fire the audience push via the
+ * SAME path immediate publishing uses, so the two can never drift. The update is
+ * the claim: `WHERE published_at IS NULL` means two overlapping ticks (or a
+ * restart) can never double-publish or double-push the same whisper.
+ */
+async function scheduledWhisperTick() {
+  const now = new Date();
+  const due = await db
+    .select({
+      id: whispers.id,
+      body: whispers.body,
+      pollId: whispers.pollId,
+      audience: whispers.audience,
+    })
+    .from(whispers)
+    .where(
+      and(
+        isNull(whispers.publishedAt),
+        isNotNull(whispers.scheduledFor),
+        lte(whispers.scheduledFor, now),
+      ),
+    );
+  if (due.length === 0) return;
+
+  for (const w of due) {
+    const claimed = await db
+      .update(whispers)
+      .set({ publishedAt: now })
+      .where(and(eq(whispers.id, w.id), isNull(whispers.publishedAt)))
+      .returning({ id: whispers.id });
+    if (claimed.length === 0) continue; // another tick got it first
+
+    await sendWhisperPush({
+      body: w.body,
+      pollId: w.pollId,
+      audience: w.audience as Audience,
+    });
+    await logAudit(null, "whisper.scheduled_published", { whisperId: w.id });
+  }
+}
+
 async function safe(name: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -184,6 +230,8 @@ async function main() {
   setInterval(() => void safe("jobs", jobsTick), 3_000);
   // Poll close: every 5 minutes.
   setInterval(() => void safe("pollClose", pollCloseTick), 5 * 60_000);
+  // Scheduled whispers: publish due ones every 60s (R9.9a).
+  setInterval(() => void safe("scheduledWhisper", scheduledWhisperTick), 60_000);
   // Presence automations: hourly.
   setInterval(() => void safe("inactiveReclaim", inactiveReclaimTick), 60 * 60_000);
   setInterval(() => void safe("chainBroken", chainBrokenTick), 60 * 60_000);
@@ -191,6 +239,7 @@ async function main() {
   setInterval(() => void safe("deadlineWarn", deadlineWarnTick), 60 * 60_000);
   // Run once shortly after boot.
   setTimeout(() => void safe("pollClose", pollCloseTick), 10_000);
+  setTimeout(() => void safe("scheduledWhisper", scheduledWhisperTick), 15_000);
   setTimeout(() => void safe("deadlineWarn", deadlineWarnTick), 20_000);
 }
 

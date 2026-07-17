@@ -7,6 +7,9 @@ import { useEffect, useRef } from "react";
  * immediately when it becomes visible again (ROADMAP-v1.5 C1.4). Pass a shorter
  * delay while work is in flight and a longer one when idle — changing `delayMs`
  * restarts the interval.
+ *
+ * Shared across the Sanctum reactive surfaces (library, dossier, the live room)
+ * and the subject in-session touch overlay (R9.1).
  */
 export function usePolling(cb: () => void, delayMs: number): void {
   const cbRef = useRef(cb);

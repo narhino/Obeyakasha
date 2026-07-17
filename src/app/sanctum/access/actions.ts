@@ -55,6 +55,7 @@ export async function toggleSetting(formData: FormData) {
     "downloads_enabled",
     "auto_pipeline",
     "analysis_enabled",
+    "welcome_dm_enabled",
   ] as const;
   if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
   const { getSetting, setSetting } = await import("@/lib/settings");
@@ -81,6 +82,23 @@ export async function setPatreonPageUrl(formData: FormData) {
   await logAudit(session.user.id, "setting.patreon_page_url", {
     url: parsed.data.url,
   });
+  revalidatePath("/sanctum/access");
+}
+
+const welcomeTextSchema = z.object({
+  text: z.string().trim().min(1).max(500),
+});
+
+/** Edit the auto-welcome DM text sent to new subjects on first connect (R9.9b). */
+export async function setWelcomeDmText(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = welcomeTextSchema.safeParse({ text: formData.get("text") });
+  if (!parsed.success) {
+    throw new Error("Give the welcome some words (up to 500).");
+  }
+  const { setSetting } = await import("@/lib/settings");
+  await setSetting("welcome_dm_text", parsed.data.text);
+  await logAudit(session.user.id, "setting.welcome_dm_text", {});
   revalidatePath("/sanctum/access");
 }
 

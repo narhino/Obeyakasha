@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Badge, Button, Card, Input, Whisper } from "@/components/ui";
 import { UploadQueue } from "./UploadQueue";
-import { usePolling } from "./usePolling";
+import { usePolling } from "@/lib/hooks/usePolling";
 import type { LibraryRow } from "./types";
 import {
   requestTranscription,

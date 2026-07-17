@@ -48,6 +48,7 @@ export async function recordHeartbeat(params: {
 }) {
   const { sessionId, userId, trackId, positionS, secondsListened } = params;
 
+  const now = new Date();
   await db
     .insert(listenSessions)
     .values({
@@ -56,12 +57,15 @@ export async function recordHeartbeat(params: {
       trackId,
       secondsListened,
       maxPositionS: Math.round(positionS),
+      lastHeartbeatAt: now,
     })
     .onConflictDoUpdate({
       target: listenSessions.id,
       set: {
         secondsListened: sql`greatest(${listenSessions.secondsListened}, ${secondsListened})`,
         maxPositionS: sql`greatest(${listenSessions.maxPositionS}, ${Math.round(positionS)})`,
+        // R9.1: freshest heartbeat wins — this is the "is she under now?" clock.
+        lastHeartbeatAt: now,
       },
     });
 

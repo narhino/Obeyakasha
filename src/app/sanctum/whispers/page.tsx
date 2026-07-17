@@ -5,7 +5,17 @@ import { whisperStats } from "@/lib/feed/whispers";
 import { listOpenPolls } from "@/lib/polls/ops";
 import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
 import { WhisperComposer } from "./WhisperComposer";
-import { setWhisperPinned } from "./actions";
+import { cancelScheduledWhisper, setWhisperPinned } from "./actions";
+
+/** Admin-facing when-label for a scheduled whisper (server-rendered only). */
+function whenLabel(d: Date): string {
+  return new Date(d).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default async function SanctumWhispers() {
   const [subjects, recent, openPolls] = await Promise.all([
@@ -42,36 +52,56 @@ export default async function SanctumWhispers() {
       </Card>
 
       <div className="mt-8 space-y-2">
-        {recent.map((w, i) => (
-          <Card key={w.id} className="flex items-center justify-between gap-3 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-text">
-                {w.body ?? (w.pollId ? "— poll —" : "")}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {w.pinned ? <Badge tone="gold">Pinned</Badge> : null}
-                {w.pollId ? <Badge tone="neutral">Poll</Badge> : null}
-                <Badge tone="neutral">{stats[i]!.seen} seen</Badge>
-                <Badge tone="gold">{stats[i]!.knelt} knelt</Badge>
+        {recent.map((w, i) => {
+          const scheduled = !w.publishedAt && w.scheduledFor;
+          return (
+            <Card key={w.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-text">
+                  {w.body ?? (w.pollId ? "— poll —" : "")}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {w.pinned ? <Badge tone="gold">Pinned</Badge> : null}
+                  {w.pollId ? <Badge tone="neutral">Poll</Badge> : null}
+                  {scheduled ? (
+                    <Badge tone="sealed">
+                      scheduled · {whenLabel(w.scheduledFor!)}
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge tone="neutral">{stats[i]!.seen} seen</Badge>
+                      <Badge tone="gold">{stats[i]!.knelt} knelt</Badge>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-            <form action={setWhisperPinned}>
-              <input type="hidden" name="whisperId" value={w.id} />
-              <input
-                type="hidden"
-                name="pinned"
-                value={w.pinned ? "false" : "true"}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                variant={w.pinned ? "ghost" : "gold"}
-              >
-                {w.pinned ? "Unpin" : "Pin"}
-              </Button>
-            </form>
-          </Card>
-        ))}
+              {scheduled ? (
+                <form action={cancelScheduledWhisper}>
+                  <input type="hidden" name="whisperId" value={w.id} />
+                  <Button type="submit" size="sm" variant="danger">
+                    Cancel
+                  </Button>
+                </form>
+              ) : (
+                <form action={setWhisperPinned}>
+                  <input type="hidden" name="whisperId" value={w.id} />
+                  <input
+                    type="hidden"
+                    name="pinned"
+                    value={w.pinned ? "false" : "true"}
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant={w.pinned ? "ghost" : "gold"}
+                  >
+                    {w.pinned ? "Unpin" : "Pin"}
+                  </Button>
+                </form>
+              )}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

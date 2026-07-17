@@ -4,6 +4,7 @@ import { signOut } from "@/auth";
 
 const nav = [
   { href: "/sanctum", label: "Today" },
+  { href: "/sanctum/live", label: "Live" },
   { href: "/sanctum/messages", label: "Messages" },
   { href: "/sanctum/subjects", label: "Subjects" },
   { href: "/sanctum/library", label: "Library" },
