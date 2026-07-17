@@ -1,7 +1,13 @@
 import "dotenv/config";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { chains, listenSessions, users } from "@/lib/db/schema";
+import {
+  chains,
+  listenSessions,
+  orderAssignments,
+  orders,
+  users,
+} from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
 import { closePoll, expiredOpenPolls } from "@/lib/polls/ops";
 import { broadcast } from "@/lib/push/broadcast";
@@ -9,6 +15,7 @@ import { logAudit } from "@/lib/audit";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
 import { ensureVocabulary } from "@/lib/tags/seed";
+import { copy } from "@/copy/copy";
 
 /**
  * Worker process (PLAN §18). Interval-based rather than pg-boss for v1 — simple
@@ -78,6 +85,89 @@ async function chainBrokenTick() {
   await logAudit(null, "automation.chain_broken", { count: rows.length });
 }
 
+/**
+ * Deadline warnings (R5/R7). Tasks still owed (sent|seen) whose order is due
+ * within the next 24h and haven't been warned yet → one push per subject, then
+ * stamp `deadlineWarnedAt` so we never re-warn. NOT gated behind
+ * `automations_enabled`: this is her explicit deadline surfacing, not a presence
+ * ping, so it always runs (quiet hours still respected by broadcast).
+ */
+async function deadlineWarnTick() {
+  const now = new Date();
+  const in24h = new Date(now.getTime() + 24 * 60 * 60_000);
+  const rows = await db
+    .select({
+      userId: orderAssignments.userId,
+      orderId: orderAssignments.orderId,
+      title: orders.title,
+      dueAt: orders.dueAt,
+    })
+    .from(orderAssignments)
+    .innerJoin(orders, eq(orders.id, orderAssignments.orderId))
+    .where(
+      and(
+        inArray(orderAssignments.status, ["sent", "seen"]),
+        isNull(orderAssignments.deadlineWarnedAt),
+        isNotNull(orders.dueAt),
+        gt(orders.dueAt, now),
+        lt(orders.dueAt, in24h),
+      ),
+    );
+  if (rows.length === 0) return;
+
+  // Batch per subject → one whisper even if several tasks loom; the push body is
+  // the soonest one's title.
+  const byUser = new Map<
+    string,
+    { orderIds: string[]; soonestTitle: string; soonestDue: Date }
+  >();
+  for (const r of rows) {
+    if (!r.dueAt) continue;
+    const entry = byUser.get(r.userId);
+    if (!entry) {
+      byUser.set(r.userId, {
+        orderIds: [r.orderId],
+        soonestTitle: r.title,
+        soonestDue: r.dueAt,
+      });
+    } else {
+      entry.orderIds.push(r.orderId);
+      if (r.dueAt < entry.soonestDue) {
+        entry.soonestDue = r.dueAt;
+        entry.soonestTitle = r.title;
+      }
+    }
+  }
+
+  for (const [userId, entry] of byUser) {
+    const stats = await broadcast({
+      title: copy.tasks.deadlineWarnPush.title,
+      body: entry.soonestTitle,
+      deepLink: "/orders",
+      audience: { type: "users", userIds: [userId] },
+      kind: "automation",
+      respectQuietHours: true,
+    });
+    // Held back purely by quiet hours → leave unmarked so the next hourly tick
+    // retries once they're out of it. Any real attempt (sent / no-device /
+    // failed) marks the tasks warned so we don't nag every hour.
+    const quietOnly =
+      stats.skippedQuiet > 0 &&
+      stats.sent + stats.failed + stats.pruned + stats.skippedNoDevice === 0;
+    if (quietOnly) continue;
+    await db
+      .update(orderAssignments)
+      .set({ deadlineWarnedAt: new Date() })
+      .where(
+        and(
+          eq(orderAssignments.userId, userId),
+          inArray(orderAssignments.orderId, entry.orderIds),
+        ),
+      );
+  }
+  await logAudit(null, "automation.deadline_warned", { users: byUser.size });
+}
+
 async function safe(name: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -97,8 +187,11 @@ async function main() {
   // Presence automations: hourly.
   setInterval(() => void safe("inactiveReclaim", inactiveReclaimTick), 60 * 60_000);
   setInterval(() => void safe("chainBroken", chainBrokenTick), 60 * 60_000);
+  // Deadline warnings: hourly (order-driven, always on).
+  setInterval(() => void safe("deadlineWarn", deadlineWarnTick), 60 * 60_000);
   // Run once shortly after boot.
   setTimeout(() => void safe("pollClose", pollCloseTick), 10_000);
+  setTimeout(() => void safe("deadlineWarn", deadlineWarnTick), 20_000);
 }
 
 main().catch((err) => {

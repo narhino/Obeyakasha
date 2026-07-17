@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { orderAssignments, orders, users } from "@/lib/db/schema";
+import { moments, orderAssignments, orders, users } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 import { broadcast } from "@/lib/push/broadcast";
 import { expandAudience } from "@/lib/push/audience";
@@ -163,6 +163,18 @@ export async function praiseProof(
         eq(orderAssignments.userId, userId),
       ),
     );
+  // R7: the praise also lands as a ritual moment on their next session, so it's
+  // felt even if the push was missed (deduped: the pop-up is a distinct surface).
+  const [order] = await db
+    .select({ title: orders.title })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  await db.insert(moments).values({
+    userId,
+    kind: "praised",
+    payload: { orderTitle: order?.title ?? "" },
+  });
   await broadcast({
     title: copy.tasks.praise.pushTitle,
     body: copy.tasks.praise.pushBody,

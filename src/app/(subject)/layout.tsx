@@ -10,6 +10,7 @@ import { SubjectGate } from "@/components/gate/SubjectGate";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
 import { OfflineSync } from "@/components/offline/OfflineSync";
+import { Moments } from "@/components/moments/Moments";
 import { BottomNav, DesktopNav } from "@/components/nav/SubjectNav";
 import { Button } from "@/components/ui";
 import { copy } from "@/copy/copy";
@@ -87,6 +88,7 @@ export default async function SubjectLayout({
           {children}
           <PlayerRoot />
           <OfflineSync />
+          <Moments />
           <BottomNav pendingCount={pendingCount} />
         </div>
       </IntakeGuard>

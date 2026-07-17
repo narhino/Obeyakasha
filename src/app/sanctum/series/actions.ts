@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { playlistItems, playlists } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
+import { notifySeriesTrackAdded } from "@/lib/series/notify";
 
 const CADENCES = ["ongoing", "weekly", "ended"] as const;
 const VISIBILITIES = ["draft", "published", "archived"] as const;
@@ -94,6 +95,8 @@ export async function addSeriesItem(formData: FormData) {
     sort: (currentMax ?? -1) + 1,
   });
   await logAudit(session.user.id, "series.item_added", { playlistId, trackId });
+  // R7: if this series is published, whisper the addition (deduped per series).
+  await notifySeriesTrackAdded(playlistId);
   revalidatePath("/sanctum/series");
 }
 

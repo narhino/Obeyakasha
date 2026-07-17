@@ -2,6 +2,8 @@ import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages, threads, users, voiceCorpus } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
+import { broadcast } from "@/lib/push/broadcast";
+import { copy } from "@/copy/copy";
 import { triageMessage } from "./triage";
 
 export async function getOrCreateThread(userId: string): Promise<string> {
@@ -69,6 +71,26 @@ export async function sendGoddessMessage(
     text: body,
     approved: true,
   });
+  // R7: tell that one subject she spoke. The reply is already saved above, so a
+  // push failure is best-effort — it must never lose her words.
+  try {
+    const [thread] = await db
+      .select({ userId: threads.userId })
+      .from(threads)
+      .where(eq(threads.id, threadId))
+      .limit(1);
+    if (thread) {
+      await broadcast({
+        title: copy.messages.spokePush.title,
+        body: copy.messages.spokePush.body,
+        deepLink: "/messages",
+        audience: { type: "users", userIds: [thread.userId] },
+        kind: "manual",
+      });
+    }
+  } catch (err) {
+    console.error("[messages] goddess reply push failed:", err);
+  }
 }
 
 export async function threadMessages(threadId: string) {

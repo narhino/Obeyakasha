@@ -93,6 +93,13 @@ export const copy = {
     sealedByPrereq: "Not yet. Begin with {track} — you haven't earned this one.",
     continueRow: "Where I left you",
     madeForYou: "Made for you.",
+    // R7: the push when a new file lands at a subject's depth (body is the title).
+    newFilePush: "Something new waits at your depth.",
+    // R7: the push when a track joins a published series ({series} pre-filled).
+    seriesAddPush: {
+      title: "{series} deepens.",
+      body: "Another file joins it. Fall into what's new.",
+    },
     // R2a — public catalog, smart search, segments
     publicIntro:
       "Everything I've made lives here. Look all you like — only the claimed may play.",
@@ -227,6 +234,10 @@ export const copy = {
     receivedPush: {
       title: "An order.",
     },
+    // R7: the worker's 24h deadline warning (body carries the task title).
+    deadlineWarnPush: {
+      title: "Time thins. Your task waits.",
+    },
   },
 
   // ── Chain of Obedience ─────────────────────────────────────────────────
@@ -264,6 +275,8 @@ export const copy = {
     closed: "This one's closed.",
     connectCta: "Enter to answer",
     connectWhisper: "Only the claimed may choose. Come in, and your voice counts.",
+    // R7: the push when she opens a poll on its own (body carries the question).
+    askPush: "She asks. Answer.",
   },
 
   // ── Commissions ────────────────────────────────────────────────────────
@@ -361,6 +374,29 @@ export const copy = {
     placeholder: "Say it. I read everything.",
     limitReached: "That's enough words for today. I heard you.",
     empty: "Nothing between us yet. Break the silence.",
+    // R7: the push when she replies to a subject in their thread.
+    spokePush: {
+      title: "She spoke to you.",
+      body: "Come and read what I left you.",
+    },
+  },
+
+  // ── Ranks (The Descent — the rank-up push, R7) ─────────────────────────
+  ranks: {
+    // Reaches that one subject the moment they rise ({rank} pre-filled).
+    upPush: {
+      title: "You've risen.",
+      body: "You are {rank} now. Wear it.",
+    },
+  },
+
+  // ── Moments (in-app ritual pop-ups at next session, R7) ────────────────
+  // One line per moment kind, shown full-screen when a subject returns.
+  moments: {
+    dismiss: "Kneel",
+    // {rank} pre-filled from the moment payload.
+    rankUp: "You have risen. {rank} now.",
+    praised: "She saw. She approved.",
   },
 
   // ── System / PWA ───────────────────────────────────────────────────────

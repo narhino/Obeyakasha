@@ -10,6 +10,7 @@ import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
 import { closePoll, createPollRecord, pollResults } from "@/lib/polls/ops";
+import { copy } from "@/copy/copy";
 
 const createSchema = z.object({
   question: z.string().min(1).max(200),
@@ -52,7 +53,7 @@ export async function createPoll(formData: FormData) {
   });
 
   await broadcast({
-    title: "She's asking. Answer.",
+    title: copy.poll.askPush,
     body: d.question,
     deepLink: "/asks",
     audience,

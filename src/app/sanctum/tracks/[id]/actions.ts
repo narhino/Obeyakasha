@@ -12,6 +12,7 @@ import {
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { enqueue } from "@/lib/jobs/queue";
+import { notifySeriesTrackAdded } from "@/lib/series/notify";
 import {
   addManualTag,
   approveKeyword,
@@ -166,6 +167,8 @@ export async function addToPlaylistAction(formData: FormData) {
   if (!exists) {
     await db.insert(playlistItems).values({ playlistId, trackId, sort: 0 });
     await logAudit(null, "dossier.added_to_playlist", { trackId, playlistId });
+    // R7: if this series is published, whisper the addition (deduped per series).
+    await notifySeriesTrackAdded(playlistId);
   }
   revalidate(trackId);
 }

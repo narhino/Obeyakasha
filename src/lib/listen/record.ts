@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
 import { keepChain } from "@/lib/chain/keep";
+import { recordRankProgress } from "@/lib/ranks/promote";
 import { isComplete } from "./completion";
 
 /** On a completed listen, add any triggers this track INSTALLS to the vault (A5). */
@@ -143,6 +144,9 @@ export async function recordEnd(params: {
         and(eq(resumePoints.userId, userId), eq(resumePoints.trackId, trackId)),
       );
     await grantInstalledTriggers(userId, trackId);
+    // Files-completed feeds the rank score — a finish may cross a threshold
+    // even when the chain didn't grow (already kept today).
+    await recordRankProgress(userId);
   }
 
   return { completed };

@@ -394,3 +394,39 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   also `notifyGoddess`-es (admin-facing inline English, per the R5 convention)
   and audits the create. Her Sanctum reply pushes only to that one subject in
   voice ("She answered your petition."), respecting quiet hours.
+
+## R7 — Notifications everywhere (2026-07-17)
+
+- **Rank-up is detected against the `moments` ledger, not a stored rank.** Ranks
+  were never persisted — the You page derives them live from files-completed +
+  chain length via the pure `rankFor(DESCENT)`, and the `ranks`/`user_ranks`
+  tables are dead schema (never read or written). So `recordRankProgress`
+  (`src/lib/ranks/promote.ts`) treats the newest `rank_up` moment's payload as
+  "the last rank we told them about" and fires only when the fresh rank sits
+  higher on the Descent. The **first** observation of any subject writes a
+  *silent* baseline moment (shownAt set, no push) at their current rank, so
+  subjects already deep before R7 don't get a false "you have risen" on first
+  hook — only genuine crossings after that celebrate. Hooked at the two score
+  inputs: `keepChain` (chain growth — covers listen/mantra/order in one place)
+  and `recordEnd`'s completion branch (files). The helper never throws so it can
+  never break a listen, mantra, or order response.
+- **Deadline warnings run ungated (unlike presence automations).** The new
+  hourly `deadlineWarnTick` in the worker is NOT behind `automations_enabled`:
+  it surfaces deadlines she explicitly set on orders, not a presence ping, so it
+  always runs. Quiet hours are still respected (`respectQuietHours: true`), and a
+  subject held back purely by quiet hours is left un-`deadlineWarnedAt` so the
+  next hourly tick retries once they're out of it; any real attempt (sent /
+  no-device / failed) stamps the mark so a task is warned at most once. Batched
+  per subject → one push even when several tasks loom.
+- **Series-add push is shared + deduped by deep link.** `notifySeriesTrackAdded`
+  (`src/lib/series/notify.ts`) is called from both add-to-series sites (the
+  Series board and the dossier Placement panel). It pushes `{type:"all"}` only
+  when the series is published, and collapses bulk adds by skipping if a
+  `notifications` row already carries the same series deep link within the last
+  10 minutes. Best-effort (never throws) — the placement already succeeded.
+- **New-file push guards on `publishedAt` being previously null.** The publish
+  action reads the track's prior `publishedAt` before updating; only the
+  first-ever publish announces (to `{type:"level", level: minAccessLevel}`), so
+  unpublish→republish never re-pushes the same file.
+- **`moments.payload` is `notNull().default({})`** (matching the `jobs` table
+  convention) rather than a bare nullable default, so readers never handle null.

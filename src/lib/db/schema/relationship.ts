@@ -111,6 +111,9 @@ export const orderAssignments = pgTable(
     proofAt: timestamp("proof_at", { withTimezone: true }),
     // Set when the goddess praises the proof (gold seal + a push to that subject).
     praisedAt: timestamp("praised_at", { withTimezone: true }),
+    // R7: set once the worker has pushed the 24h deadline warning for this
+    // assignment — the guard that stops the hourly tick re-warning the same task.
+    deadlineWarnedAt: timestamp("deadline_warned_at", { withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.orderId, t.userId] })],
 );
@@ -316,6 +319,32 @@ export const notificationDeliveries = pgTable(
       columns: [t.notificationId, t.userId, t.deviceId],
     }),
   ],
+);
+
+// ── Moments: in-app ritual pop-ups at next session (R7) ──────────────────
+// A durable queue of subject-facing "moments" (rank-up, praised, …). Written
+// alongside the matching push so a subject who missed the notification still
+// meets the ritual on their next visit. `shownAt` is null until dismissed;
+// it also serves as the rank-up ledger (the latest rank_up row's payload is the
+// last rank we recorded for a subject).
+export const moments = pgTable(
+  "moments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    payload: jsonb("payload")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    shownAt: timestamp("shown_at", { withTimezone: true }),
+  },
+  (t) => [index("moments_user_shown_idx").on(t.userId, t.shownAt)],
 );
 
 // ── Automations (A13) + templates ────────────────────────────────────────

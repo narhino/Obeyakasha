@@ -8,6 +8,8 @@ import { tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { enqueue } from "@/lib/jobs/queue";
+import { broadcast } from "@/lib/push/broadcast";
+import { copy } from "@/copy/copy";
 
 // Uploads now stream through POST /api/sanctum/upload (ROADMAP C1.2); the old
 // buffered server-action upload was removed.
@@ -51,6 +53,19 @@ export async function setTrackVisibility(formData: FormData) {
   if (!["draft", "published", "archived"].includes(visibility)) {
     throw new Error("Invalid visibility");
   }
+  // Read the prior state first — a null publishedAt marks a first-ever publish,
+  // which is the only transition that should announce the file (R7).
+  const [before] = await db
+    .select({
+      publishedAt: tracks.publishedAt,
+      minAccessLevel: tracks.minAccessLevel,
+      slug: tracks.slug,
+      title: tracks.title,
+    })
+    .from(tracks)
+    .where(eq(tracks.id, trackId))
+    .limit(1);
+
   await db
     .update(tracks)
     .set({
@@ -60,6 +75,19 @@ export async function setTrackVisibility(formData: FormData) {
     })
     .where(eq(tracks.id, trackId));
   await logAudit(session.user.id, "track.visibility", { trackId, visibility });
+
+  // R7: first publish → whisper it to everyone at or above its depth. Guarded on
+  // publishedAt-was-null so unpublish→republish never re-pushes the same file.
+  if (visibility === "published" && before && before.publishedAt === null) {
+    await broadcast({
+      title: copy.library.newFilePush,
+      body: before.title,
+      deepLink: `/library/track/${before.slug}`,
+      audience: { type: "level", level: before.minAccessLevel },
+      kind: "manual",
+      createdBy: session.user.id,
+    });
+  }
   revalidatePath("/sanctum/library");
 }
 

@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chainEvents, chains, users } from "@/lib/db/schema";
+import { recordRankProgress } from "@/lib/ranks/promote";
 import { localDate, nextChainState } from "./logic";
 
 /**
@@ -63,6 +64,10 @@ export async function keepChain(
         lastKeptDate: next.lastKeptDate,
       },
     });
+
+  // Chain length feeds the rank score — a fresh keep may cross a threshold.
+  // Covers every chain-growth caller (listen, mantra, order) in one place.
+  await recordRankProgress(userId);
 
   return { currentLen: next.currentLen, kept: true };
 }
