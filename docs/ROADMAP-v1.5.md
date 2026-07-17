@@ -486,6 +486,16 @@ areas, scroll behavior, transitions. Screenshot evidence for each finding.
 **Output:** one prioritized findings report (severity × effort), reviewed
 with Akasha → approved fix pass(es) → re-audit until clean. Only then R9.
 
+**Fix-pass toolbox (Akasha's mandate — be resourceful):** copy interaction
+patterns from best-in-class sites (Spotify player/queue, shibbydex pages,
+x.com feed); use open-source, license-compatible building blocks inlined
+into our stack (e.g. icon sets like Lucide/Phosphor absorbed into icons.tsx,
+headless UI patterns, easing curves) — self-contained only, no CDNs; generate
+bespoke artwork via the connected Higgsfield tools (series covers, default
+track art, the disguise-mode neutral app icon, about-page imagery) in the
+editorial-occult palette. Every borrow still passes the token contract and
+her voice.
+
 ### R9 — Creative additions (approved; build AFTER R1–R8)
 1. "She sees you" — Sanctum live now-under view; one-tap line drops into the
    listener's session as an overlay.
