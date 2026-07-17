@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
+import { auth } from "@/auth";
 import { PlayerRoot } from "@/components/player/PlayerRoot";
 import { copy } from "@/copy/copy";
 
@@ -38,9 +39,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Session is read here only to tell the audio engine whether to run subject
+  // telemetry — a logged-out visitor may still play a free sample (R9.8).
+  const session = await auth();
   return (
     <html lang="en" className={cormorant.variable}>
       <body className="min-h-dvh bg-bg text-text antialiased">
@@ -49,7 +53,7 @@ export default function RootLayout({
             the Spotify-style mini-player persist across every route (including
             the Whispers Home). Inert until a track is playing; hides its own
             chrome on the Sanctum and ritual screens. */}
-        <PlayerRoot />
+        <PlayerRoot signedIn={Boolean(session?.user)} />
         <div className="grain" aria-hidden />
       </body>
     </html>

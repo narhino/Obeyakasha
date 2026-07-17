@@ -15,6 +15,7 @@ import {
 import { getRawSetting } from "@/lib/settings";
 import { LibraryClient } from "@/components/library/LibraryClient";
 import { ContinueShelf } from "@/components/library/ContinueShelf";
+import { SurrenderBand } from "@/components/library/SurrenderBand";
 import { Badge, Button, Card, Display, Input, Ornament, Whisper } from "@/components/ui";
 import { copy, fill } from "@/copy/copy";
 
@@ -64,6 +65,10 @@ export default async function LibraryPage({
   const q = typeof sp.q === "string" ? sp.q : "";
   const activeTags = toArray(sp.tags);
 
+  // Surrender (R9.7) is for the claimed only: signed-in, not frozen, with a
+  // level that actually unlocks something.
+  const entitled = signedIn && !access.frozen && access.accessLevel >= 1;
+
   const patreonPageUrl = await getRawSetting<string>(
     "patreon_page_url",
     "https://www.patreon.com",
@@ -93,6 +98,7 @@ export default async function LibraryPage({
         fallback={catalog.fallback}
         continueRow={continueRow}
         signedIn={signedIn}
+        entitled={entitled}
         patreonPageUrl={patreonPageUrl}
         q={q}
         activeTags={activeTags}
@@ -180,6 +186,7 @@ function FilesSegment({
   fallback,
   continueRow,
   signedIn,
+  entitled,
   patreonPageUrl,
   q,
   activeTags,
@@ -189,13 +196,18 @@ function FilesSegment({
   fallback: "related" | "popular" | null;
   continueRow: { track: LibraryTrack; positionS: number }[];
   signedIn: boolean;
+  entitled: boolean;
   patreonPageUrl: string;
   q: string;
   activeTags: string[];
 }) {
   const filtersActive = q !== "" || activeTags.length > 0;
+  // Only offer Surrender when the shelf isn't already narrowed by a search —
+  // "let her choose" reads oddly under an active filter (F-consistency).
+  const showSurrender = entitled && !filtersActive;
   return (
     <div>
+      {showSurrender ? <SurrenderBand /> : null}
       {continueRow.length > 0 ? <ContinueShelf rows={continueRow} /> : null}
 
       <form

@@ -14,3 +14,30 @@ export function countOf(
 ): string {
   return `${n} ${plural(n, singular, pluralForm)}`;
 }
+
+const WORDS = [
+  "Zero",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+] as const;
+
+/**
+ * Spelled, sentence-cased small count ("Three", "Two") for in-voice lines like
+ * the Trigger Vault's tally (F20 sibling). Falls back to digits past twelve so
+ * a big number never reads as a run-on word.
+ */
+export function numberWord(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return "Zero";
+  const i = Math.floor(n);
+  return i < WORDS.length ? WORDS[i]! : String(i);
+}

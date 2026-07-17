@@ -55,7 +55,7 @@ function Chip({
   );
 }
 
-export function Fullscreen() {
+export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
   const current = usePlayer((s) => s.current);
   const fullscreen = usePlayer((s) => s.fullscreen);
   const playing = usePlayer((s) => s.playing);
@@ -88,7 +88,9 @@ export function Fullscreen() {
   function ground() {
     const s = usePlayer.getState();
     beginGrounding();
-    if (s.current) {
+    // Subjects only — the listen endpoint is gated, so an anon sample listener
+    // grounds without a (silently-failing) telemetry beacon (R9.8).
+    if (signedIn && s.current) {
       beacon("/api/listen/end", {
         sessionId: crypto.randomUUID(),
         trackId: s.current.id,

@@ -8,6 +8,7 @@ export interface LibraryRow {
   minAccessLevel: number;
   durationS: number | null;
   downloadable: boolean;
+  freeSample: boolean;
   hasAudio: boolean;
   pipeline:
     | "uploaded"

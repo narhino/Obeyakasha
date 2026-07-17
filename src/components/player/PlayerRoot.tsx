@@ -10,6 +10,7 @@ import { Fullscreen } from "./Fullscreen";
 import { DropPrompt } from "./DropPrompt";
 import { QueueSheet } from "./QueueSheet";
 import { Toaster } from "./Toaster";
+import { SampleUpsell } from "./SampleUpsell";
 import { Touch } from "@/components/moments/Touch";
 
 /** Surfaces that must never wear the subject mini-player: the Sanctum cockpit
@@ -39,13 +40,18 @@ function bufferedAheadOf(audio: HTMLAudioElement): number {
 }
 
 /**
- * The single audio engine (PLAN §9), mounted once in the subject layout.
+ * The single audio engine (PLAN §9), mounted once in the root layout.
  * Owns the <audio> element and reconciles it with the player store: loads
  * signed stream URLs, play/pause, progress + heartbeats, end handling, Media
  * Session, and the sleep timer. UI (MiniBar/Fullscreen) only dispatches store
  * actions.
+ *
+ * `signedIn` gates every subject-only path: a logged-out visitor can play a free
+ * sample (R9.8), but the listen telemetry endpoints are subject-gated, so we
+ * skip heartbeats/end/beacon and the drop report entirely and show the sample
+ * upsell instead — nothing 401s, nothing crashes.
  */
-export function PlayerRoot() {
+export function PlayerRoot({ signedIn = false }: { signedIn?: boolean }) {
   const pathname = usePathname();
   const chromeless = chromelessPath(pathname);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -182,11 +188,12 @@ export function PlayerRoot() {
     };
   }, [current]);
 
-  // Flush an "abandoned" end on tab close.
+  // Flush an "abandoned" end on tab close (subjects only — the anon listen
+  // endpoints are gated, so a sample close stays silent).
   useEffect(() => {
     const onHide = () => {
       const audio = audioRef.current;
-      if (sessionIdRef.current && current && audio) {
+      if (signedIn && sessionIdRef.current && current && audio) {
         beacon("/api/listen/end", {
           sessionId: sessionIdRef.current,
           trackId: current.id,
@@ -197,9 +204,10 @@ export function PlayerRoot() {
     };
     window.addEventListener("pagehide", onHide);
     return () => window.removeEventListener("pagehide", onHide);
-  }, [current]);
+  }, [current, signedIn]);
 
   function finalize(reason: "finished" | "stopped" | "grounded" | "abandoned") {
+    if (!signedIn) return; // anon: no listen telemetry
     const audio = audioRef.current;
     const sessionId = sessionIdRef.current;
     const trackId = loadedTrackIdRef.current;
@@ -252,12 +260,12 @@ export function PlayerRoot() {
       return;
     }
 
-    // Heartbeat every ~10s of playback.
+    // Heartbeat every ~10s of playback (subjects only — the endpoint is gated).
     const now = audio.currentTime;
     if (now - lastBeatRef.current >= 10) {
       listenedRef.current += now - lastBeatRef.current;
       lastBeatRef.current = now;
-      if (sessionIdRef.current) {
+      if (signedIn && sessionIdRef.current) {
         void postJson("/api/listen/heartbeat", {
           sessionId: sessionIdRef.current,
           trackId: current.id,
@@ -271,12 +279,13 @@ export function PlayerRoot() {
   function onEnded() {
     const state = usePlayer.getState();
     const audio = audioRef.current;
-    finalize("finished");
+    const title = current?.title ?? null;
+    finalize("finished"); // no-op for anon
 
-    // Offer a drop report for this finished session.
+    // Subjects: offer a drop report for this finished session.
     const sessionId = sessionIdRef.current;
     const trackId = loadedTrackIdRef.current;
-    if (sessionId && trackId && current) {
+    if (signedIn && sessionId && trackId && current) {
       window.dispatchEvent(
         new CustomEvent("akasha:drop-prompt", {
           detail: { sessionId, trackId, title: current.title },
@@ -292,6 +301,13 @@ export function PlayerRoot() {
       audio.currentTime = 0;
       audio.play().catch(() => {});
       return;
+    }
+
+    // Anon: the sample is over → the upsell, never a drop report (R9.8).
+    if (!signedIn && title) {
+      window.dispatchEvent(
+        new CustomEvent("akasha:sample-ended", { detail: { title } }),
+      );
     }
 
     // Prevent the next load effect from double-finalizing this session.
@@ -314,12 +330,20 @@ export function PlayerRoot() {
       {chromeless ? null : (
         <>
           <MiniBar />
-          <Fullscreen />
+          <Fullscreen signedIn={signedIn} />
           <QueueSheet />
           <Toaster />
-          <DropPrompt />
-          {/* R9.1: her live touch, fading over the player while a track plays. */}
-          <Touch />
+          {signedIn ? (
+            <>
+              <DropPrompt />
+              {/* R9.1: her live touch, fading over the player while a track plays. */}
+              <Touch />
+            </>
+          ) : (
+            // Anon can only ever be playing a free sample here (R9.8) — close
+            // the taste with the upsell instead of the subject drop report.
+            <SampleUpsell />
+          )}
         </>
       )}
     </>

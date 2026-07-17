@@ -38,6 +38,8 @@ export interface LibraryTrack {
   minAccessLevel: number;
   downloadable: boolean;
   kind: string;
+  /** Published free sample — playable by ANYONE, logged-out included (R9.8). */
+  freeSample: boolean;
   /** Whether this subject can play it at their current access level. */
   unlocked: boolean;
   /** Privately delivered to this subject (commission). */
@@ -152,6 +154,7 @@ async function annotateTracks(
       minAccessLevel: r.minAccessLevel,
       downloadable: r.downloadable,
       kind: r.kind,
+      freeSample: r.freeSample && r.visibility === "published",
       unlocked: isGranted || canAccess(accessLevel, r.minAccessLevel),
       madeForYou: isGranted,
       prereqMissing,
@@ -621,12 +624,34 @@ export async function continueListening(
       minAccessLevel: r.track.minAccessLevel,
       downloadable: r.track.downloadable,
       kind: r.track.kind,
+      freeSample: r.track.freeSample && r.track.visibility === "published",
       unlocked: canAccess(accessLevel, r.track.minAccessLevel),
       madeForYou: false,
       prereqMissing: [],
       tags: [],
     },
   }));
+}
+
+/**
+ * A track anyone may stream because it's a published free sample (R9.8).
+ * Returns the row only when it's a published `freeSample` with playable audio —
+ * the single place the stream endpoint may bypass the entitlement check for a
+ * logged-out (or under-levelled) visitor. Never returns drafts or non-samples.
+ */
+export async function getSampleTrack(
+  trackId: string,
+): Promise<typeof tracks.$inferSelect | null> {
+  const [row] = await db
+    .select()
+    .from(tracks)
+    .where(eq(tracks.id, trackId))
+    .limit(1);
+  if (!row) return null;
+  if (row.visibility !== "published" || !row.freeSample || !row.streamKey) {
+    return null;
+  }
+  return row;
 }
 
 export async function listPlaylistsWithTracks(accessLevel: number) {

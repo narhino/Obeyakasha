@@ -59,6 +59,12 @@ export function LibraryClient({
     if (startIndex >= 0) playNow(queue, startIndex);
   }
 
+  // A published free sample plays on its own for the unentitled/logged-out —
+  // the public taste (R9.8). Never joins the entitled play-all queue.
+  function playSample(t: LibraryTrack) {
+    playNow([toQueueTrack(t)], 0);
+  }
+
   return (
     <div>
       {fallback ? (
@@ -78,7 +84,10 @@ export function LibraryClient({
               : t.unlocked
                 ? "entitled"
                 : "locked";
-            const sealed = state !== "entitled";
+            // A published free sample is playable by anyone, so it never wears
+            // the sealed veil and shows a Play instead of a lock (R9.8).
+            const canPlay = state === "entitled" || t.freeSample;
+            const sealed = state !== "entitled" && !t.freeSample;
             return (
               <li
                 key={t.id}
@@ -88,9 +97,11 @@ export function LibraryClient({
                     : "border-line bg-surface"
                 }`}
               >
-                {state === "entitled" ? (
+                {canPlay ? (
                   <button
-                    onClick={() => playFrom(i)}
+                    onClick={() =>
+                      state === "entitled" ? playFrom(i) : playSample(t)
+                    }
                     aria-label={`Play ${t.title}`}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep"
                   >
@@ -124,6 +135,11 @@ export function LibraryClient({
                           .join(", ")
                       : ""}
                   </p>
+                  {t.freeSample && state !== "entitled" ? (
+                    <span className="mt-1 inline-flex items-center rounded-[var(--radius-sm)] border border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-gold">
+                      {copy.library.sampleChip}
+                    </span>
+                  ) : null}
                   {t.matchedOnlyTranscript ? (
                     <p className="mt-0.5 text-xs italic text-gold/80">
                       {copy.library.spokenMatch}
@@ -163,7 +179,7 @@ export function LibraryClient({
                       {copy.library.queue}
                     </button>
                   </div>
-                ) : state === "locked" ? (
+                ) : t.freeSample ? null : state === "locked" ? (
                   <a
                     href={patreonPageUrl}
                     target="_blank"

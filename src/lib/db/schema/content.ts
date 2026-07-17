@@ -41,6 +41,10 @@ export const tracks = pgTable(
     waveform: jsonb("waveform").$type<number[]>(),
     minAccessLevel: integer("min_access_level").notNull().default(1),
     downloadable: boolean("downloadable").notNull().default(true),
+    // R9.8 free samples: a published track flagged here streams to ANYONE
+    // (logged-out included) — the public free-funnel taste. Access checks defer
+    // to this before sealing (src/app/api/tracks/[id]/stream-url).
+    freeSample: boolean("free_sample").notNull().default(false),
     visibility: trackVisibility("visibility").notNull().default("draft"),
     kind: trackKind("kind").notNull().default("session"),
     pipeline: pipelineStatus("pipeline").notNull().default("uploaded"),

@@ -4,6 +4,9 @@ import { requireSubject } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { orderAssignments, users, wishes } from "@/lib/db/schema";
 import { collarCard } from "@/lib/profile/collar";
+import { vaultFor } from "@/lib/profile/vault";
+import { obedienceStanding } from "@/lib/stats/standing";
+import { resolveAccess } from "@/lib/entitlements/resolve";
 import { getSetting } from "@/lib/settings";
 import { rankFor } from "@/lib/ranks/logic";
 import { plural } from "@/lib/format/plural";
@@ -11,6 +14,7 @@ import { Badge, Card, Display, Label, Whisper } from "@/components/ui";
 import { MantraButton } from "@/components/chain/MantraButton";
 import { SecretModeCard } from "@/components/me/SecretModeCard";
 import { PetitionForm } from "@/components/me/PetitionForm";
+import { TriggerVault } from "@/components/me/TriggerVault";
 import { copy, fill } from "@/copy/copy";
 
 function daysSince(d: Date): number {
@@ -21,33 +25,40 @@ export default async function MePage() {
   const session = await requireSubject();
   const uid = session.user.id;
 
-  const [card, mantra, tasksRow, meRow, asks] = await Promise.all([
-    collarCard(uid),
-    getSetting("chain_mantra"),
-    db
-      .select({ c: count() })
-      .from(orderAssignments)
-      .where(
-        and(eq(orderAssignments.userId, uid), eq(orderAssignments.status, "done")),
-      ),
-    db
-      .select({ disguiseMode: users.disguiseMode })
-      .from(users)
-      .where(eq(users.id, uid))
-      .limit(1),
-    db
-      .select({
-        id: wishes.id,
-        title: wishes.title,
-        body: wishes.body,
-        reply: wishes.reply,
-        status: wishes.status,
-      })
-      .from(wishes)
-      .where(eq(wishes.userId, uid))
-      .orderBy(desc(wishes.createdAt))
-      .limit(20),
-  ]);
+  const access = await resolveAccess(uid);
+  const [card, mantra, tasksRow, meRow, asks, vault, standing] =
+    await Promise.all([
+      collarCard(uid),
+      getSetting("chain_mantra"),
+      db
+        .select({ c: count() })
+        .from(orderAssignments)
+        .where(
+          and(
+            eq(orderAssignments.userId, uid),
+            eq(orderAssignments.status, "done"),
+          ),
+        ),
+      db
+        .select({ disguiseMode: users.disguiseMode })
+        .from(users)
+        .where(eq(users.id, uid))
+        .limit(1),
+      db
+        .select({
+          id: wishes.id,
+          title: wishes.title,
+          body: wishes.body,
+          reply: wishes.reply,
+          status: wishes.status,
+        })
+        .from(wishes)
+        .where(eq(wishes.userId, uid))
+        .orderBy(desc(wishes.createdAt))
+        .limit(20),
+      vaultFor(uid, access.accessLevel),
+      obedienceStanding(uid),
+    ]);
   if (!card) return null;
 
   const rank = rankFor(card.filesCompleted, card.chain.currentLen);
@@ -152,21 +163,15 @@ export default async function MePage() {
         ))}
       </div>
 
-      {/* Triggers held */}
-      <Card className="mt-6">
-        <Label>{copy.you.triggersTitle}</Label>
-        {card.triggersHeld.length === 0 ? (
-          <Whisper className="mt-2">{copy.you.triggersEmpty}</Whisper>
-        ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {card.triggersHeld.map((t) => (
-              <Badge key={t.name} tone="gold">
-                {t.name}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* Obedience percentile — anonymous + aggregate (D7), hidden below 5 subjects */}
+      {standing.eligible ? (
+        <Whisper className="mt-3 text-center text-xs italic text-gold/80">
+          {fill(copy.you.percentile, { n: standing.percentile })}
+        </Whisper>
+      ) : null}
+
+      {/* Trigger Vault — what she's installed + the sealed slots that wait */}
+      <TriggerVault carried={vault.carried} waiting={vault.waiting} />
 
       {/* Ask — petition her */}
       <div className="mt-6">

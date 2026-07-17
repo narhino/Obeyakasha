@@ -23,6 +23,7 @@ export default async function SanctumLibrary() {
       minAccessLevel: tracks.minAccessLevel,
       durationS: tracks.durationS,
       downloadable: tracks.downloadable,
+      freeSample: tracks.freeSample,
       streamKey: tracks.streamKey,
       pipeline: tracks.pipeline,
       transcriptStatus: transcripts.status,
@@ -48,6 +49,7 @@ export default async function SanctumLibrary() {
     minAccessLevel: r.minAccessLevel,
     durationS: r.durationS,
     downloadable: r.downloadable,
+    freeSample: r.freeSample,
     hasAudio: r.streamKey != null,
     pipeline: r.pipeline,
     transcriptStatus: (r.transcriptStatus ??

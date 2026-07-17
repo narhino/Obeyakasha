@@ -1,0 +1,1 @@
+ALTER TABLE "tracks" ADD COLUMN "free_sample" boolean DEFAULT false NOT NULL;

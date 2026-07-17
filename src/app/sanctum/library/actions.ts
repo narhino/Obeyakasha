@@ -91,6 +91,20 @@ export async function setTrackVisibility(formData: FormData) {
   revalidatePath("/sanctum/library");
 }
 
+/** Flag / unflag a track as a public free sample (R9.8). Audited. */
+export async function setFreeSample(formData: FormData) {
+  const session = await requireGoddess();
+  const trackId = String(formData.get("trackId"));
+  if (!trackId) throw new Error("No track");
+  const freeSample = String(formData.get("freeSample")) === "true";
+  await db
+    .update(tracks)
+    .set({ freeSample, updatedAt: new Date() })
+    .where(eq(tracks.id, trackId));
+  await logAudit(session.user.id, "track.free_sample", { trackId, freeSample });
+  revalidatePath("/sanctum/library");
+}
+
 /** Kick off transcription by enqueuing a durable job (ROADMAP C1.1). */
 export async function requestTranscription(formData: FormData) {
   const session = await requireGoddess();

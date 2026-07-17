@@ -7,6 +7,7 @@ import { usePolling } from "@/lib/hooks/usePolling";
 import type { LibraryRow } from "./types";
 import {
   requestTranscription,
+  setFreeSample,
   setTrackVisibility,
   updateTrackMeta,
 } from "./actions";
@@ -107,6 +108,14 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
     run(id, fd, setTrackVisibility);
   };
 
+  const onFreeSample = (id: string, freeSample: boolean) => {
+    patch(id, { freeSample }); // optimistic
+    const fd = new FormData();
+    fd.set("trackId", id);
+    fd.set("freeSample", String(freeSample));
+    run(id, fd, setFreeSample);
+  };
+
   return (
     <div>
       <Card className="mt-6">
@@ -188,6 +197,16 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                   onClick={() => onOrganize(t.id)}
                 >
                   Organize
+                </Button>
+                <Button
+                  size="sm"
+                  variant={t.freeSample ? "gold" : "ghost"}
+                  loading={busyId === t.id}
+                  disabled={busyId === t.id}
+                  onClick={() => onFreeSample(t.id, !t.freeSample)}
+                  title="A published free sample streams to anyone — logged-out included."
+                >
+                  {t.freeSample ? "Sample on" : "Free sample"}
                 </Button>
                 <a
                   href={`/sanctum/tracks/${t.id}`}

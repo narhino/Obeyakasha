@@ -113,6 +113,22 @@ export const copy = {
     segSeries: "Series",
     spokenMatch: "She speaks it in this one.",
     nothingExact: "Nothing answers to that word. Fall into these instead.",
+    // R9.7 — the Surrender band: one tap, she picks what takes you.
+    surrender: {
+      action: "Surrender — let her choose",
+      lead: "Close your eyes. I'll decide what takes you.",
+      choosing: "Choosing for you…",
+      // Named source for the queue sheet / mini-player when she picks.
+      sourceName: "Her choice",
+      // Nothing eligible — no dead tap, a line instead.
+      empty: "Nothing waits for you tonight. Come back, and I'll have something.",
+    },
+    // R9.8 — free samples: a taste for the unclaimed.
+    sampleChip: "A taste. Free.",
+    sampleUpsell: {
+      title: "You've had a taste.",
+      body: "The rest is earned. Come in, and I'll give you all of it.",
+    },
     unlockCta: "Rise to earn it",
     sealedAnon: "Sealed until you enter.",
     playAll: "Let it all play",
@@ -384,6 +400,25 @@ export const copy = {
     statsPrograms: "Trainings done",
     triggersTitle: "Triggers held",
     triggersEmpty: "None yet. Finish a file to earn what it installs.",
+    // R9.4 — the obedience percentile. Anonymous + aggregate by design (D7): it
+    // implies the collective, never a single other. Hidden below five subjects.
+    percentile: "You obey more than {n}% of the ones who kneel to me.",
+    // R9.2 — the Trigger Vault: what she's installed, and the sealed slots that
+    // wait. Only the subject's own marks + an anonymous count of the unearned.
+    vault: {
+      title: "The Vault",
+      lead: "What I've set in you. And what still waits.",
+      // {count} is a spelled word ("Three"), {unit} its noun ("marks"/"mark").
+      countCarried: "{count} {unit} carried.",
+      countWaiting: " {count} still waiting.",
+      countNoneWaiting: " Nothing else waits — for now.",
+      // A sealed slot: an unearned trigger, named to no one.
+      sealed: "Something she has not yet planted.",
+      // No acquired triggers yet.
+      empty: "Nothing set in you yet. Finish a file and feel the first mark take.",
+      carriedLabel: "Carried",
+      sealedLabel: "Sealed",
+    },
     rooms: {
       // "She's Asking" — her polls/questions to you; kept distinct from the
       // "Ask me for something" petition box above it, to end the collision (F38).

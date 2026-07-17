@@ -130,6 +130,7 @@ export default async function TrackFilePage({
               }}
               state={state}
               patreonPageUrl={patreonPageUrl}
+              isSample={track.freeSample}
             />
             {state === "entitled" && track.prereqMissing.length > 0 ? (
               <p className="mt-2 text-xs text-accent">
@@ -137,11 +138,11 @@ export default async function TrackFilePage({
                   track: track.prereqMissing.join(", "),
                 })}
               </p>
-            ) : state === "locked" ? (
+            ) : state === "locked" && !track.freeSample ? (
               <p className="mt-2 text-xs text-text-dim/80">
                 {fill(copy.library.sealed, { level: `level ${track.minAccessLevel}` })}
               </p>
-            ) : state === "anon" ? (
+            ) : state === "anon" && !track.freeSample ? (
               <p className="mt-2 text-xs text-text-dim/80">
                 {copy.library.sealedAnon}
               </p>

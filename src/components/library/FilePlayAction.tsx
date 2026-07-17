@@ -18,10 +18,13 @@ export function FilePlayAction({
   track,
   state,
   patreonPageUrl,
+  isSample = false,
 }: {
   track: QueueTrack;
   state: "entitled" | "locked" | "anon";
   patreonPageUrl: string;
+  /** Published free sample — the unentitled/logged-out may still taste it (R9.8). */
+  isSample?: boolean;
 }) {
   const playNow = usePlayer((s) => s.playNow);
   const addToQueue = usePlayer((s) => s.addToQueue);
@@ -45,6 +48,25 @@ export function FilePlayAction({
         >
           {copy.library.queue}
         </button>
+      </div>
+    );
+  }
+
+  // Not entitled, but a published free sample → the public may play it, then
+  // meet the upsell when it ends (R9.8). Gold Play + the "free taste" chip.
+  if (isSample) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => playNow([track], 0)}
+          className="inline-flex items-center gap-2.5 rounded-[var(--radius)] bg-gold px-6 py-3 text-sm font-medium uppercase tracking-[0.08em] text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep"
+        >
+          <IconPlay size={18} />
+          {copy.library.filePage.play}
+        </button>
+        <span className="inline-flex items-center rounded-[var(--radius-sm)] border border-gold/30 bg-gold/10 px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-gold">
+          {copy.library.sampleChip}
+        </span>
       </div>
     );
   }
