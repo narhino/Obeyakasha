@@ -457,6 +457,17 @@ stays reachable from You.
   proposes pairs → she confirms/fixes via dropdown → attach streams file to
   shell → full pipeline runs. Per-shell single attach too.
 
+### R-QA — Full flow audit (runs AFTER R8, BEFORE R9)
+- A dedicated agent drives the real app in the bundled Chromium (Playwright)
+  as three personas — anonymous visitor, subject, the goddess — through every
+  tab and flow (land → connect → gate → browse → search → file page → play →
+  queue → series → task → ask → you → secret mode; plus Sanctum core loops).
+- Screenshots every screen (mobile + desktop); flags dead ends, inconsistent
+  shells/navigation (known: whispers home header vs app shell), copy drift,
+  confusing states, broken affordances.
+- Output: a findings report + prioritized fix list → review with Akasha →
+  fix pass. Only then R9.
+
 ### R9 — Creative additions (approved; build AFTER R1–R8)
 1. "She sees you" — Sanctum live now-under view; one-tap line drops into the
    listener's session as an overlay.
