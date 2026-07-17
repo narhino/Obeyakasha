@@ -6,6 +6,7 @@ import { Badge, Button, Card, Display, Input, Whisper } from "@/components/ui";
 import {
   saveTierMapping,
   setOrganizeAutoApply,
+  setPatreonPageUrl,
   toggleSetting,
 } from "./actions";
 
@@ -18,6 +19,7 @@ export default async function AccessPage() {
     autoPipeline,
     autoApply,
     analysisEnabled,
+    patreonPageUrl,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -26,6 +28,7 @@ export default async function AccessPage() {
     getSetting("auto_pipeline"),
     getSetting("organize_auto_apply"),
     getSetting("analysis_enabled"),
+    getRawSetting<string>("patreon_page_url", "https://www.patreon.com"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -57,6 +60,33 @@ export default async function AccessPage() {
         Map each Patreon tier to an access level. Level 0 is the free Threshold;
         higher levels unlock more of the Library.
       </Whisper>
+
+      {/* Upgrade link — where locked cards in the public catalog send subjects. */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">Upgrade link</Whisper>
+        <form
+          action={setPatreonPageUrl}
+          className="flex flex-wrap items-end gap-3"
+        >
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Patreon page URL
+            <Input
+              name="url"
+              type="url"
+              defaultValue={patreonPageUrl}
+              required
+              className="w-80"
+            />
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Save
+          </Button>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          Locked cards in the public Library send subjects here to upgrade.
+          Defaults to patreon.com.
+        </Whisper>
+      </Card>
 
       {discoveredTiers.length === 0 ? (
         <Card className="mt-6">

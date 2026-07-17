@@ -50,6 +50,13 @@
       "when": 1784293307708,
       "tag": "0006_whispers_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784294452127,
+      "tag": "0007_pg_trgm",
+      "breakpoints": true
     }
   ]
 }

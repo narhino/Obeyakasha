@@ -77,6 +77,34 @@ export const copy = {
     sealedByPrereq: "Not yet. Begin with {track} — you haven't earned this one.",
     continueRow: "Where I left you",
     madeForYou: "Made for you.",
+    // R2a — public catalog, smart search, segments
+    publicIntro:
+      "Everything I've made lives here. Look all you like — only the claimed may play.",
+    searchPlaceholder: "Name what you're reaching for.",
+    searchAction: "Find it",
+    clearSearch: "Clear",
+    segFiles: "Files",
+    segSeries: "Series",
+    spokenMatch: "She speaks it in this one.",
+    nothingExact: "Nothing answers to that word. Fall into these instead.",
+    unlockCta: "Rise to earn it",
+    sealedAnon: "Sealed until you enter.",
+    playAll: "Let it all play",
+    queue: "Queue it",
+    seriesCount: "{n} files",
+    seriesEmpty: "No series yet. Soon.",
+    backToLibrary: "Back to the Library",
+    tagKinds: {
+      purpose: "Purpose",
+      theme: "Theme",
+      format: "Format",
+      intensity: "Intensity",
+    },
+    cadence: {
+      ongoing: "Ongoing",
+      weekly: "Weekly",
+      ended: "Complete",
+    },
   },
 
   // ── Player ─────────────────────────────────────────────────────────────

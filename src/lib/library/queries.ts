@@ -1,14 +1,18 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   grants,
+  listenSessions,
   playlistItems,
   playlists,
+  programItems,
+  programs,
   resumePoints,
   tags,
   trackTags,
   trackTriggers,
   tracks,
+  transcripts,
   triggers,
   userTriggers,
 } from "@/lib/db/schema";
@@ -42,13 +46,18 @@ export interface LibraryTrack {
   tags: { kind: string; value: string }[];
 }
 
-/** All published tracks + privately-granted ones, annotated per subject. */
-export async function listLibraryTracks(
-  userId: string,
-  accessLevel: number,
-): Promise<LibraryTrack[]> {
-  const granted = await grantedTrackIds(userId);
-  const rows = await db
+/** A catalog card: a library track plus why it surfaced in a search. */
+export type CatalogTrack = LibraryTrack & {
+  /** Surfaced ONLY because the query is spoken in the audio (privacy: the
+   *  transcript itself is never returned — this is just an indicator). */
+  matchedOnlyTranscript: boolean;
+};
+
+// ── Shared annotation ──────────────────────────────────────────────────────
+
+/** Published tracks + the viewer's privately-granted ones (rows only). */
+async function fetchBaseTrackRows(granted: Set<string>) {
+  return db
     .select()
     .from(tracks)
     .where(
@@ -60,10 +69,17 @@ export async function listLibraryTracks(
         : eq(tracks.visibility, "published"),
     )
     .orderBy(desc(tracks.publishedAt));
+}
 
+/** Annotate track rows with tags, per-subject lock state, and prereqs. */
+async function annotateTracks(
+  rows: (typeof tracks.$inferSelect)[],
+  opts: { userId: string | null; accessLevel: number; granted: Set<string> },
+): Promise<LibraryTrack[]> {
   if (rows.length === 0) return [];
-
+  const { userId, accessLevel, granted } = opts;
   const trackIds = rows.map((r) => r.id);
+
   const tagRows = await db
     .select({
       trackId: trackTags.trackId,
@@ -93,13 +109,15 @@ export async function listLibraryTracks(
           eq(trackTriggers.relation, "requires"),
         ),
       ),
-    db
-      .select({ triggerId: userTriggers.triggerId })
-      .from(userTriggers)
-      .where(eq(userTriggers.userId, userId)),
+    userId
+      ? db
+          .select({ triggerId: userTriggers.triggerId })
+          .from(userTriggers)
+          .where(eq(userTriggers.userId, userId))
+      : Promise.resolve([] as { triggerId: string }[]),
   ]);
+
   const heldNames = new Set<string>();
-  // Map held trigger ids → names via reqRows is insufficient; fetch names.
   if (held.length > 0) {
     const heldRows = await db
       .select({ name: triggers.name })
@@ -139,6 +157,371 @@ export async function listLibraryTracks(
       tags: tagsByTrack.get(r.id) ?? [],
     };
   });
+}
+
+/** All published tracks + privately-granted ones, annotated per subject. */
+export async function listLibraryTracks(
+  userId: string,
+  accessLevel: number,
+): Promise<LibraryTrack[]> {
+  const granted = await grantedTrackIds(userId);
+  const rows = await fetchBaseTrackRows(granted);
+  return annotateTracks(rows, { userId, accessLevel, granted });
+}
+
+// ── Public catalog + smart search (R2a) ─────────────────────────────────────
+
+export interface CatalogViewer {
+  /** null when logged-out — the whole catalog is browsable, nothing plays. */
+  userId: string | null;
+  /** 0 for anonymous / frozen viewers. */
+  accessLevel: number;
+}
+
+export interface CatalogQuery {
+  q?: string;
+  /** Selected tag ids: AND across kinds, OR within a kind. */
+  tagIds?: string[];
+}
+
+export interface CatalogResult {
+  tracks: CatalogTrack[];
+  /** Non-null → the query found nothing exact; `tracks` is a soft shelf. */
+  fallback: "related" | "popular" | null;
+}
+
+/** pg_trgm similarity floor for "similar words" fuzzy matching. */
+const SIMILARITY_THRESHOLD = 0.25;
+const POPULAR_LIMIT = 12;
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Escape ILIKE wildcards so a subject's literal % or _ stays literal. */
+function likeContains(q: string): string {
+  return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
+/** Track ids whose (admin-only) transcript speaks the query. Never returns text. */
+async function transcriptMatchIds(
+  ids: string[],
+  q: string,
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ trackId: transcripts.trackId })
+    .from(transcripts)
+    .innerJoin(tracks, eq(tracks.id, transcripts.trackId))
+    .where(
+      and(
+        inArray(transcripts.trackId, ids),
+        eq(tracks.visibility, "published"),
+        sql`(${transcripts.fullText} ILIKE ${likeContains(q)} OR similarity(${transcripts.fullText}, ${q}) > ${SIMILARITY_THRESHOLD})`,
+      ),
+    );
+  return new Set(rows.map((r) => r.trackId));
+}
+
+/** Track ids fuzzily matching title/description, best similarity first. */
+async function fuzzyMatchOrderedIds(
+  ids: string[],
+  q: string,
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const score = sql<number>`GREATEST(similarity(${tracks.title}, ${q}), similarity(COALESCE(${tracks.description}, ''), ${q}))`;
+  const rows = await db
+    .select({ id: tracks.id, score })
+    .from(tracks)
+    .where(and(inArray(tracks.id, ids), sql`${score} > ${SIMILARITY_THRESHOLD}`))
+    .orderBy(desc(score));
+  return rows.map((r) => r.id);
+}
+
+/** Play counts for a set of tracks (drives the most-played fallback shelf). */
+async function playCountsFor(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({
+      trackId: listenSessions.trackId,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(listenSessions)
+    .where(inArray(listenSessions.trackId, ids))
+    .groupBy(listenSessions.trackId);
+  return new Map(rows.map((r) => [r.trackId, r.n]));
+}
+
+function matchesText(t: LibraryTrack, ql: string): boolean {
+  if (t.title.toLowerCase().includes(ql)) return true;
+  if (t.description && t.description.toLowerCase().includes(ql)) return true;
+  return t.tags.some((tag) => tag.value.toLowerCase().includes(ql));
+}
+
+/**
+ * The public catalog with tag filters + progressive-fallback smart search.
+ * Order: exact/ILIKE → pg_trgm fuzzy → transcript-only → related/popular so
+ * results are effectively never empty. Runs identically logged-out.
+ */
+export async function listCatalogTracks(
+  viewer: CatalogViewer,
+  query: CatalogQuery = {},
+): Promise<CatalogResult> {
+  const granted = viewer.userId
+    ? await grantedTrackIds(viewer.userId)
+    : new Set<string>();
+  const rows = await fetchBaseTrackRows(granted);
+  const baseAll = await annotateTracks(rows, {
+    userId: viewer.userId,
+    accessLevel: viewer.accessLevel,
+    granted,
+  });
+
+  // Tag filter: AND across kinds, OR within a kind. Ignore non-uuid ids so a
+  // hand-crafted ?tags= never reaches an invalid uuid cast.
+  const tagIds = (query.tagIds ?? []).filter((id) => UUID_RE.test(id));
+  const selectedByKind = new Map<string, Set<string>>();
+  if (tagIds.length > 0) {
+    const selected = await db
+      .select({ kind: tags.kind, value: tags.value })
+      .from(tags)
+      .where(inArray(tags.id, tagIds));
+    for (const s of selected) {
+      const set = selectedByKind.get(s.kind) ?? new Set<string>();
+      set.add(s.value);
+      selectedByKind.set(s.kind, set);
+    }
+  }
+  const hasTagFilter = selectedByKind.size > 0;
+  const tagFiltered = hasTagFilter
+    ? baseAll.filter((t) =>
+        [...selectedByKind.entries()].every(([kind, values]) =>
+          t.tags.some((tag) => tag.kind === kind && values.has(tag.value)),
+        ),
+      )
+    : baseAll;
+
+  const withFlag = (
+    list: LibraryTrack[],
+    matchedOnlyTranscript: boolean,
+  ): CatalogTrack[] => list.map((t) => ({ ...t, matchedOnlyTranscript }));
+
+  const q = (query.q ?? "").trim();
+
+  // No free-text: just the tag-filtered set (fall to popular if it's empty).
+  if (q === "") {
+    if (tagFiltered.length > 0) {
+      return { tracks: withFlag(tagFiltered, false), fallback: null };
+    }
+    const playCountsCache = await playCountsFor(baseAll.map((t) => t.id));
+    const sorted = [...baseAll].sort(
+      (a, b) => (playCountsCache.get(b.id) ?? 0) - (playCountsCache.get(a.id) ?? 0),
+    );
+    if (sorted.length === 0) return { tracks: [], fallback: null };
+    return {
+      tracks: withFlag(sorted.slice(0, POPULAR_LIMIT), false),
+      fallback: "popular",
+    };
+  }
+
+  const pool = tagFiltered;
+  const poolIds = pool.map((t) => t.id);
+  const ql = q.toLowerCase();
+
+  // Transcript matches (published only) augment whatever metadata match wins.
+  const transcriptIds = await transcriptMatchIds(poolIds, q);
+  const augmentTranscriptOnly = (primary: LibraryTrack[]): CatalogTrack[] => {
+    const primaryIds = new Set(primary.map((t) => t.id));
+    const extra = pool.filter(
+      (t) => transcriptIds.has(t.id) && !primaryIds.has(t.id),
+    );
+    return [...withFlag(primary, false), ...withFlag(extra, true)];
+  };
+
+  // (a) exact / ILIKE on title + description + tag values.
+  const exact = pool.filter((t) => matchesText(t, ql));
+  if (exact.length > 0) {
+    return { tracks: augmentTranscriptOnly(exact), fallback: null };
+  }
+
+  // (b) pg_trgm fuzzy on title + description.
+  const fuzzyIds = await fuzzyMatchOrderedIds(poolIds, q);
+  if (fuzzyIds.length > 0) {
+    const byId = new Map(pool.map((t) => [t.id, t]));
+    const fuzzy = fuzzyIds
+      .map((id) => byId.get(id))
+      .filter((t): t is LibraryTrack => !!t);
+    return { tracks: augmentTranscriptOnly(fuzzy), fallback: null };
+  }
+
+  // (c) transcript-only matches stand on their own.
+  if (transcriptIds.size > 0) {
+    const spoken = pool.filter((t) => transcriptIds.has(t.id));
+    return { tracks: withFlag(spoken, true), fallback: null };
+  }
+
+  // (d) nothing exact → related tags, then most-played.
+  if (hasTagFilter && tagFiltered.length > 0) {
+    return { tracks: withFlag(tagFiltered, false), fallback: "related" };
+  }
+  const playCountsCache = await playCountsFor(baseAll.map((t) => t.id));
+  const sorted = [...baseAll].sort(
+    (a, b) => (playCountsCache.get(b.id) ?? 0) - (playCountsCache.get(a.id) ?? 0),
+  );
+  if (sorted.length === 0) return { tracks: [], fallback: null };
+  return {
+    tracks: withFlag(sorted.slice(0, POPULAR_LIMIT), false),
+    fallback: "popular",
+  };
+}
+
+export interface TagGroup {
+  kind: string;
+  tags: { id: string; value: string }[];
+}
+
+/** Filter chips: tags actually used by published tracks, grouped by kind. */
+export async function listTagGroups(): Promise<TagGroup[]> {
+  const rows = await db
+    .selectDistinct({ id: tags.id, kind: tags.kind, value: tags.value })
+    .from(tags)
+    .innerJoin(trackTags, eq(trackTags.tagId, tags.id))
+    .innerJoin(tracks, eq(tracks.id, trackTags.trackId))
+    .where(
+      and(
+        eq(tracks.visibility, "published"),
+        inArray(tags.kind, ["purpose", "theme", "format", "intensity"]),
+      ),
+    )
+    .orderBy(asc(tags.kind), asc(tags.value));
+
+  const order = ["purpose", "theme", "format", "intensity"];
+  const byKind = new Map<string, { id: string; value: string }[]>();
+  for (const r of rows) {
+    const list = byKind.get(r.kind) ?? [];
+    list.push({ id: r.id, value: r.value });
+    byKind.set(r.kind, list);
+  }
+  return order
+    .filter((k) => byKind.has(k))
+    .map((kind) => ({ kind, tags: byKind.get(kind)! }));
+}
+
+// ── Series segment (R2a) ────────────────────────────────────────────────────
+
+export interface SeriesCard {
+  kind: "training" | "series";
+  id: string;
+  title: string;
+  count: number;
+  cadence: "ongoing" | "weekly" | "ended" | null;
+  href: string;
+}
+
+async function countByProgram(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: programItems.programId, n: sql<number>`count(*)::int` })
+    .from(programItems)
+    .where(inArray(programItems.programId, ids))
+    .groupBy(programItems.programId);
+  return new Map(rows.map((r) => [r.id, r.n]));
+}
+
+async function countByPlaylist(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: playlistItems.playlistId, n: sql<number>`count(*)::int` })
+    .from(playlistItems)
+    .where(inArray(playlistItems.playlistId, ids))
+    .groupBy(playlistItems.playlistId);
+  return new Map(rows.map((r) => [r.id, r.n]));
+}
+
+/**
+ * Series segment cards: published trainings (programs) + published curated
+ * series (playlists). Titles/counts are public; nothing is hidden. Trainings
+ * link to /programs; series link to their R2a stub page.
+ */
+export async function listSeriesCards(): Promise<SeriesCard[]> {
+  const [progs, pls] = await Promise.all([
+    db
+      .select()
+      .from(programs)
+      .where(eq(programs.visibility, "published"))
+      .orderBy(asc(programs.createdAt)),
+    db
+      .select()
+      .from(playlists)
+      .where(
+        and(
+          eq(playlists.visibility, "published"),
+          eq(playlists.kind, "curated"),
+        ),
+      )
+      .orderBy(desc(playlists.createdAt)),
+  ]);
+
+  const [progCounts, plCounts] = await Promise.all([
+    countByProgram(progs.map((p) => p.id)),
+    countByPlaylist(pls.map((p) => p.id)),
+  ]);
+
+  const trainingCards: SeriesCard[] = progs.map((p) => ({
+    kind: "training",
+    id: p.id,
+    title: p.title,
+    count: progCounts.get(p.id) ?? 0,
+    cadence: p.cadence,
+    href: "/programs",
+  }));
+  const seriesCards: SeriesCard[] = pls.map((p) => ({
+    kind: "series",
+    id: p.id,
+    title: p.title,
+    count: plCounts.get(p.id) ?? 0,
+    cadence: null,
+    href: `/library/series/${p.id}`,
+  }));
+  return [...trainingCards, ...seriesCards];
+}
+
+/** A single published curated series with its tracks (R4 stub, R2a). */
+export async function getSeriesStub(
+  playlistId: string,
+  viewer: CatalogViewer,
+): Promise<{ title: string; description: string | null; tracks: LibraryTrack[] } | null> {
+  const [pl] = await db
+    .select()
+    .from(playlists)
+    .where(
+      and(
+        eq(playlists.id, playlistId),
+        eq(playlists.visibility, "published"),
+      ),
+    )
+    .limit(1);
+  if (!pl) return null;
+
+  const items = await db
+    .select({ track: tracks, sort: playlistItems.sort })
+    .from(playlistItems)
+    .innerJoin(tracks, eq(tracks.id, playlistItems.trackId))
+    .where(eq(playlistItems.playlistId, playlistId));
+
+  const granted = viewer.userId
+    ? await grantedTrackIds(viewer.userId)
+    : new Set<string>();
+  const ordered = items
+    .sort((a, b) => a.sort - b.sort)
+    .map((i) => i.track)
+    .filter((t) => t.visibility === "published" || granted.has(t.id));
+
+  const annotated = await annotateTracks(ordered, {
+    userId: viewer.userId,
+    accessLevel: viewer.accessLevel,
+    granted,
+  });
+  return { title: pl.title, description: pl.description, tracks: annotated };
 }
 
 /** A single track if the subject may access it, else null (for the stream endpoint). */

@@ -38,8 +38,9 @@ export const authConfig = {
       // `/` (the Whispers feed) and `/about` stay public — not listed here, so
       // they fall through to the public `return true` below. `/whispers` is a
       // public redirect to `/`, so it is intentionally NOT gated either.
+      // `/library` is the public catalog (R2a): browsable logged-out, with
+      // streaming (`/api/tracks`, `/api/stream`) still gated at the endpoints.
       const subjectPrefixes = [
-        "/library",
         "/programs",
         "/inbox",
         "/asks",

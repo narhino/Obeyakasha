@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import type { LibraryTrack } from "@/lib/library/queries";
-import { Badge } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { IconLock, IconPlay } from "@/components/ui/icons";
 import { KeepButton } from "@/components/offline/KeepButton";
 import { copy, fill } from "@/copy/copy";
+
+type CardTrack = LibraryTrack & { matchedOnlyTranscript?: boolean };
 
 function toQueueTrack(t: LibraryTrack): QueueTrack {
   return {
@@ -23,153 +25,169 @@ function fmt(s: number | null): string {
   return `${m} min`;
 }
 
-const PURPOSES = ["induction", "deepening", "conditioning", "trigger", "maintenance", "sleep"];
-
+/**
+ * The catalog list (R2a). Three card states per track:
+ *  - entitled (signed-in, level allows): Play + queue;
+ *  - locked (signed-in, level too low): sealed veil + Upgrade → Patreon;
+ *  - anonymous: sealed veil + Enter with Patreon → /signin.
+ * Titles/artwork are never hidden. Reused by the catalog page and the series
+ * stub page.
+ */
 export function LibraryClient({
   tracks,
-  continueRow,
+  signedIn,
+  patreonPageUrl,
+  fallback = null,
 }: {
-  tracks: LibraryTrack[];
-  continueRow: { track: LibraryTrack; positionS: number }[];
+  tracks: CardTrack[];
+  signedIn: boolean;
+  patreonPageUrl: string;
+  fallback?: "related" | "popular" | null;
 }) {
   const playNow = usePlayer((s) => s.playNow);
   const addToQueue = usePlayer((s) => s.addToQueue);
-  const [purpose, setPurpose] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    return tracks.filter((t) => {
-      if (purpose && !t.tags.some((tag) => tag.kind === "purpose" && tag.value === purpose))
-        return false;
-      if (query && !t.title.toLowerCase().includes(query.toLowerCase()))
-        return false;
-      return true;
-    });
-  }, [tracks, purpose, query]);
+  const entitled = tracks.filter((t) => signedIn && t.unlocked);
 
-  const unlocked = filtered.filter((t) => t.unlocked);
-
-  function playFrom(list: LibraryTrack[], index: number) {
-    const queue = list.filter((t) => t.unlocked).map(toQueueTrack);
-    const startId = list[index]?.id;
+  function playFrom(index: number) {
+    const startId = tracks[index]?.id;
+    const queue = tracks
+      .filter((t) => signedIn && t.unlocked)
+      .map(toQueueTrack);
     const startIndex = queue.findIndex((q) => q.id === startId);
     if (startIndex >= 0) playNow(queue, startIndex);
   }
 
   return (
     <div>
-      {continueRow.length > 0 ? (
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm uppercase tracking-wide text-text-dim">
-            {copy.library.continueRow}
-          </h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {continueRow.map(({ track }) => (
-              <button
-                key={track.id}
-                onClick={() => track.unlocked && playNow([toQueueTrack(track)], 0)}
-                className="w-40 shrink-0 rounded-[var(--radius-lg)] border border-line bg-surface p-3 text-left"
-              >
-                <p className="truncate text-sm text-text">{track.title}</p>
-                <p className="text-xs text-text-dim">{fmt(track.durationS)}</p>
-              </button>
-            ))}
-          </div>
-        </section>
+      {fallback ? (
+        <p className="mb-4 font-[family-name:var(--font-display)] text-base italic text-text-dim">
+          {copy.library.nothingExact}
+        </p>
       ) : null}
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search…"
-          className="rounded-[var(--radius)] border border-line bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
-        />
-        <button
-          onClick={() => setPurpose(null)}
-          className={`rounded-[var(--radius-full)] border px-3 py-1 text-xs ${
-            purpose === null ? "border-gold text-gold" : "border-line text-text-dim"
-          }`}
-        >
-          all
-        </button>
-        {PURPOSES.map((p) => (
-          <button
-            key={p}
-            onClick={() => setPurpose(purpose === p ? null : p)}
-            className={`rounded-[var(--radius-full)] border px-3 py-1 text-xs ${
-              purpose === p ? "border-gold text-gold" : "border-line text-text-dim"
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      {filtered.length === 0 ? (
+      {tracks.length === 0 ? (
         <p className="text-sm text-text-dim">{copy.library.empty}</p>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((t, i) => (
-            <li
-              key={t.id}
-              className={`flex items-center gap-3 rounded-[var(--radius-lg)] border border-line p-3 ${
-                t.unlocked ? "bg-surface" : "bg-surface/40"
-              }`}
-            >
-              <button
-                disabled={!t.unlocked}
-                onClick={() => playFrom(filtered, i)}
-                aria-label={`Play ${t.title}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep disabled:bg-surface-raised disabled:text-text-dim/60"
+          {tracks.map((t, i) => {
+            const state: "entitled" | "locked" | "anon" = !signedIn
+              ? "anon"
+              : t.unlocked
+                ? "entitled"
+                : "locked";
+            const sealed = state !== "entitled";
+            return (
+              <li
+                key={t.id}
+                className={`flex items-center gap-3 rounded-[var(--radius-lg)] border p-3 ${
+                  sealed
+                    ? "border-accent/20 bg-accent-soft/40"
+                    : "border-line bg-surface"
+                }`}
               >
-                {t.unlocked ? <IconPlay size={16} /> : <IconLock size={16} />}
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-text">
-                  {t.title}
-                  {t.madeForYou ? (
-                    <span className="ml-2 text-xs text-gold">{copy.library.madeForYou}</span>
-                  ) : null}
-                </p>
-                <p className="text-xs text-text-dim">
-                  {fmt(t.durationS)}
-                  {t.tags.length > 0
-                    ? " · " + t.tags.slice(0, 2).map((tag) => tag.value).join(", ")
-                    : ""}
-                </p>
-                {t.unlocked && t.prereqMissing.length > 0 ? (
-                  <p className="text-xs text-accent">
-                    requires: {t.prereqMissing.join(", ")} — earn it first
-                  </p>
-                ) : null}
-              </div>
-              {t.unlocked ? (
-                <div className="flex shrink-0 items-center gap-3">
-                  {t.downloadable ? <KeepButton trackId={t.id} /> : null}
+                {state === "entitled" ? (
                   <button
-                    onClick={() => addToQueue(toQueueTrack(t))}
-                    className="text-xs text-text-dim hover:text-gold"
+                    onClick={() => playFrom(i)}
+                    aria-label={`Play ${t.title}`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep"
                   >
-                    + queue
+                    <IconPlay size={16} />
                   </button>
+                ) : (
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-text-dim/70"
+                  >
+                    <IconLock size={16} />
+                  </span>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-text">
+                    {t.title}
+                    {t.madeForYou ? (
+                      <span className="ml-2 text-xs text-gold">
+                        {copy.library.madeForYou}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-text-dim">
+                    {fmt(t.durationS)}
+                    {t.tags.length > 0
+                      ? " · " +
+                        t.tags
+                          .slice(0, 2)
+                          .map((tag) => tag.value)
+                          .join(", ")
+                      : ""}
+                  </p>
+                  {t.matchedOnlyTranscript ? (
+                    <p className="mt-0.5 text-xs italic text-gold/80">
+                      {copy.library.spokenMatch}
+                    </p>
+                  ) : null}
+                  {sealed ? (
+                    <p className="mt-0.5 text-xs text-text-dim/80">
+                      {state === "locked"
+                        ? fill(copy.library.sealed, {
+                            level: `level ${t.minAccessLevel}`,
+                          })
+                        : copy.library.sealedAnon}
+                    </p>
+                  ) : null}
+                  {state === "entitled" && t.prereqMissing.length > 0 ? (
+                    <p className="text-xs text-accent">
+                      {fill(copy.library.sealedByPrereq, {
+                        track: t.prereqMissing.join(", "),
+                      })}
+                    </p>
+                  ) : null}
                 </div>
-              ) : (
-                <Badge tone="sealed">
-                  {fill(copy.library.sealed, { level: `level ${t.minAccessLevel}` })}
-                </Badge>
-              )}
-            </li>
-          ))}
+
+                {state === "entitled" ? (
+                  <div className="flex shrink-0 items-center gap-3">
+                    {t.downloadable ? <KeepButton trackId={t.id} /> : null}
+                    <button
+                      onClick={() => addToQueue(toQueueTrack(t))}
+                      className="text-xs text-text-dim hover:text-gold"
+                    >
+                      {copy.library.queue}
+                    </button>
+                  </div>
+                ) : state === "locked" ? (
+                  <a
+                    href={patreonPageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0"
+                  >
+                    <Button size="sm" variant="gold">
+                      {copy.library.unlockCta}
+                    </Button>
+                  </a>
+                ) : (
+                  <Link href="/signin" className="shrink-0">
+                    <Button size="sm" variant="gold">
+                      {copy.auth.signInButton}
+                    </Button>
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {unlocked.length > 1 ? (
+      {signedIn && entitled.length > 1 ? (
         <button
-          onClick={() => playFrom(filtered, filtered.findIndex((t) => t.unlocked))}
+          onClick={() => {
+            const first = tracks.findIndex((t) => t.unlocked);
+            if (first >= 0) playFrom(first);
+          }}
           className="mt-6 rounded-[var(--radius)] bg-accent px-5 py-2.5 text-sm text-text"
         >
-          Play all
+          {copy.library.playAll}
         </button>
       ) : null}
     </div>

@@ -65,6 +65,25 @@ export async function toggleSetting(formData: FormData) {
   revalidatePath("/sanctum/access");
 }
 
+const patreonUrlSchema = z.object({
+  url: z.string().trim().url().max(500),
+});
+
+/** Set the Patreon page URL used by the public catalog's Upgrade CTA (R2a). */
+export async function setPatreonPageUrl(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = patreonUrlSchema.safeParse({ url: formData.get("url") });
+  if (!parsed.success) {
+    throw new Error("Invalid Patreon page URL");
+  }
+  const { setRawSetting } = await import("@/lib/settings");
+  await setRawSetting("patreon_page_url", parsed.data.url);
+  await logAudit(session.user.id, "setting.patreon_page_url", {
+    url: parsed.data.url,
+  });
+  revalidatePath("/sanctum/access");
+}
+
 /** Set how much of the organize proposal auto-applies (ROADMAP C1.3). */
 export async function setOrganizeAutoApply(formData: FormData) {
   const session = await requireGoddess();

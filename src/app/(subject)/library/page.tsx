@@ -1,46 +1,311 @@
-import { requireSubject } from "@/lib/auth-helpers";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements/resolve";
-import { continueListening, listLibraryTracks } from "@/lib/library/queries";
+import {
+  continueListening,
+  listCatalogTracks,
+  listSeriesCards,
+  listTagGroups,
+  type CatalogTrack,
+  type LibraryTrack,
+  type SeriesCard,
+  type TagGroup,
+} from "@/lib/library/queries";
+import { getRawSetting } from "@/lib/settings";
 import { LibraryClient } from "@/components/library/LibraryClient";
-import { Badge, Card, Display, Whisper } from "@/components/ui";
-import { copy } from "@/copy/copy";
+import { ContinueShelf } from "@/components/library/ContinueShelf";
+import { Badge, Button, Card, Display, Input, Ornament, Whisper } from "@/components/ui";
+import { copy, fill } from "@/copy/copy";
 
-export default async function LibraryPage() {
-  const session = await requireSubject();
-  const access = await resolveAccess(session.user.id);
-  const [tracks, continueRow] = await Promise.all([
-    listLibraryTracks(session.user.id, access.accessLevel),
-    continueListening(session.user.id, access.accessLevel),
-  ]);
+// Reads the session + DB per request; the catalog is public but per-viewer.
+export const dynamic = "force-dynamic";
+
+function toArray(v: string | string[] | undefined): string[] {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
+/** Build a /library URL preserving search + filters + segment. */
+function libraryHref(params: {
+  q?: string;
+  tags?: string[];
+  segment?: string;
+}): string {
+  const sp = new URLSearchParams();
+  if (params.segment && params.segment !== "files")
+    sp.set("segment", params.segment);
+  if (params.q) sp.set("q", params.q);
+  for (const id of params.tags ?? []) sp.append("tags", id);
+  const qs = sp.toString();
+  return qs ? `/library?${qs}` : "/library";
+}
+
+const KIND_LABELS = copy.library.tagKinds as Record<string, string>;
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    tags?: string | string[];
+    segment?: string;
+  }>;
+}) {
+  const sp = await searchParams;
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+  const signedIn = Boolean(userId);
+  const access = userId
+    ? await resolveAccess(userId)
+    : { accessLevel: 0, inGrace: false, frozen: false, unmappedTierIds: [] };
+
+  const segment = sp.segment === "series" ? "series" : "files";
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const activeTags = toArray(sp.tags);
+
+  const patreonPageUrl = await getRawSetting<string>(
+    "patreon_page_url",
+    "https://www.patreon.com",
+  );
+
+  let content: ReactNode;
+  if (segment === "series") {
+    const cards = await listSeriesCards();
+    content = <SeriesGrid cards={cards} />;
+  } else {
+    const [tagGroups, catalog, continueRow] = await Promise.all([
+      listTagGroups(),
+      listCatalogTracks(
+        { userId, accessLevel: access.accessLevel },
+        { q, tagIds: activeTags },
+      ),
+      signedIn && userId
+        ? continueListening(userId, access.accessLevel)
+        : Promise.resolve(
+            [] as { track: LibraryTrack; positionS: number }[],
+          ),
+    ]);
+    content = (
+      <FilesSegment
+        tagGroups={tagGroups}
+        tracks={catalog.tracks}
+        fallback={catalog.fallback}
+        continueRow={continueRow}
+        signedIn={signedIn}
+        patreonPageUrl={patreonPageUrl}
+        q={q}
+        activeTags={activeTags}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <Display className="text-3xl">{copy.library.title}</Display>
-        {access.frozen ? (
-          <Badge tone="danger">frozen</Badge>
-        ) : access.inGrace ? (
-          <Badge tone="gold">grace · {access.accessLevel}</Badge>
-        ) : (
-          <Badge tone="gold">level {access.accessLevel}</Badge>
-        )}
+        {signedIn ? (
+          access.frozen ? (
+            <Badge tone="danger">frozen</Badge>
+          ) : access.inGrace ? (
+            <Badge tone="gold">grace · {access.accessLevel}</Badge>
+          ) : (
+            <Badge tone="gold">level {access.accessLevel}</Badge>
+          )
+        ) : null}
       </div>
-      {access.frozen ? (
+
+      {!signedIn ? (
+        <>
+          <Ornament className="mb-4 w-40" />
+          <Whisper className="mb-6 max-w-md font-[family-name:var(--font-display)] text-base italic">
+            {copy.library.publicIntro}
+          </Whisper>
+        </>
+      ) : null}
+
+      {signedIn && access.frozen ? (
         <Card className="mb-6 border-danger/40">
           <Whisper className="text-base text-text">{copy.lapse.frozen}</Whisper>
           <a
-            href="https://www.patreon.com/Akasha8"
+            href={patreonPageUrl}
             className="mt-3 inline-block text-sm text-gold underline"
           >
             {copy.lapse.resubscribe}
           </a>
         </Card>
-      ) : access.inGrace ? (
+      ) : signedIn && access.inGrace ? (
         <Card className="mb-6 border-gold/40">
           <Whisper className="text-text">{copy.lapse.grace}</Whisper>
         </Card>
       ) : null}
-      <LibraryClient tracks={tracks} continueRow={continueRow} />
+
+      <nav className="mb-5 flex gap-5 border-b border-line/70" aria-label="Library segments">
+        {(
+          [
+            ["files", copy.library.segFiles],
+            ["series", copy.library.segSeries],
+          ] as const
+        ).map(([seg, label]) => {
+          const active = segment === seg;
+          const href =
+            seg === "files"
+              ? libraryHref({ q, tags: activeTags, segment: "files" })
+              : libraryHref({ segment: "series" });
+          return (
+            <Link
+              key={seg}
+              href={href}
+              className={`-mb-px border-b-2 pb-2 text-xs uppercase tracking-[0.18em] transition-colors duration-[var(--dur-med)] ${
+                active
+                  ? "border-gold text-gold"
+                  : "border-transparent text-text-dim hover:text-text"
+              }`}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {content}
     </main>
+  );
+}
+
+/** Search box + tag-chip filters + the catalog list (server-driven). */
+function FilesSegment({
+  tagGroups,
+  tracks,
+  fallback,
+  continueRow,
+  signedIn,
+  patreonPageUrl,
+  q,
+  activeTags,
+}: {
+  tagGroups: TagGroup[];
+  tracks: CatalogTrack[];
+  fallback: "related" | "popular" | null;
+  continueRow: { track: LibraryTrack; positionS: number }[];
+  signedIn: boolean;
+  patreonPageUrl: string;
+  q: string;
+  activeTags: string[];
+}) {
+  const filtersActive = q !== "" || activeTags.length > 0;
+  return (
+    <div>
+      {continueRow.length > 0 ? <ContinueShelf rows={continueRow} /> : null}
+
+      <form
+        method="get"
+        action="/library"
+        className="mb-4 flex flex-wrap items-center gap-2"
+      >
+        <input type="hidden" name="segment" value="files" />
+        {activeTags.map((id) => (
+          <input key={id} type="hidden" name="tags" value={id} />
+        ))}
+        <Input
+          name="q"
+          defaultValue={q}
+          placeholder={copy.library.searchPlaceholder}
+          aria-label={copy.library.searchPlaceholder}
+          className="min-w-0 flex-1"
+        />
+        <Button type="submit" size="sm" variant="ghost">
+          {copy.library.searchAction}
+        </Button>
+        {filtersActive ? (
+          <Link
+            href="/library"
+            className="text-xs text-text-dim hover:text-gold"
+          >
+            {copy.library.clearSearch}
+          </Link>
+        ) : null}
+      </form>
+
+      {tagGroups.length > 0 ? (
+        <div className="mb-6 space-y-3">
+          {tagGroups.map((group) => (
+            <div key={group.kind}>
+              <p className="label-caps mb-1.5 text-text-dim/70">
+                {KIND_LABELS[group.kind] ?? group.kind}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {group.tags.map((tag) => {
+                  const on = activeTags.includes(tag.id);
+                  const nextTags = on
+                    ? activeTags.filter((x) => x !== tag.id)
+                    : [...activeTags, tag.id];
+                  return (
+                    <Link
+                      key={tag.id}
+                      href={libraryHref({ q, tags: nextTags, segment: "files" })}
+                      className={`rounded-[var(--radius-full)] border px-3 py-1 text-xs transition-colors duration-[var(--dur-med)] ${
+                        on
+                          ? "border-gold text-gold"
+                          : "border-line text-text-dim hover:text-text"
+                      }`}
+                    >
+                      {tag.value}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <LibraryClient
+        tracks={tracks}
+        signedIn={signedIn}
+        patreonPageUrl={patreonPageUrl}
+        fallback={fallback}
+      />
+    </div>
+  );
+}
+
+/** Series segment: trainings + curated series as cover cards. */
+function SeriesGrid({ cards }: { cards: SeriesCard[] }) {
+  if (cards.length === 0) {
+    return <p className="text-sm text-text-dim">{copy.library.seriesEmpty}</p>;
+  }
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {cards.map((c) => (
+        <Link
+          key={`${c.kind}-${c.id}`}
+          href={c.href}
+          className="flex flex-col rounded-[var(--radius-lg)] border border-line bg-surface p-4 transition-colors duration-[var(--dur-med)] hover:border-gold/40"
+        >
+          <p className="font-[family-name:var(--font-display)] text-lg leading-tight text-text">
+            {c.title}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {c.cadence ? (
+              <span
+                className={`rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] ${
+                  c.cadence === "ended"
+                    ? "border-line text-text-dim"
+                    : c.cadence === "weekly"
+                      ? "border-gold/30 text-gold"
+                      : "border-accent/30 text-text-dim"
+                }`}
+              >
+                {copy.library.cadence[c.cadence]}
+              </span>
+            ) : null}
+            <span className="text-xs text-text-dim">
+              {fill(copy.library.seriesCount, { n: c.count })}
+            </span>
+          </div>
+        </Link>
+      ))}
+    </div>
   );
 }
