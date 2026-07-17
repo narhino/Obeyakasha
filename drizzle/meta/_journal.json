@@ -43,6 +43,13 @@
       "when": 1783872545306,
       "tag": "0005_program_cadence",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784293307708,
+      "tag": "0006_whispers_v2",
+      "breakpoints": true
     }
   ]
 }

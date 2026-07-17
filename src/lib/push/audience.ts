@@ -10,6 +10,10 @@ export function audienceMatches(
   userId: string,
 ): boolean {
   switch (audience.type) {
+    case "public":
+      // Visible to everyone, logged-out visitors included; a signed-in
+      // subject sees it too.
+      return true;
     case "all":
       return true;
     case "level":
@@ -28,6 +32,10 @@ export function audienceMatches(
  */
 export async function expandAudience(audience: Audience): Promise<string[]> {
   switch (audience.type) {
+    // `public` is the most permissive audience: for push it reaches every
+    // active subject, exactly like `all`. Its only difference from `all` is
+    // that logged-out visitors may also read it in the feed.
+    case "public":
     case "all": {
       const rows = await db
         .select({ id: users.id })

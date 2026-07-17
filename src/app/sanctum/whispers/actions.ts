@@ -2,34 +2,46 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { whispers } from "@/lib/db/schema";
+import { polls, whispers } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
+import { createPollRecord } from "@/lib/polls/ops";
+import type { PollOption } from "@/lib/polls/tally";
 
 const schema = z.object({
-  body: z.string().min(1).max(500),
-  audienceType: z.enum(["all", "level", "user"]),
+  body: z.string().max(500).optional(),
+  audienceType: z.enum(["public", "all", "level", "user"]),
   level: z.coerce.number().int().min(0).max(99).optional(),
   userId: z.string().uuid().optional(),
+  pollMode: z.enum(["none", "existing", "new"]).default("none"),
+  existingPollId: z.string().uuid().optional(),
+  pollQuestion: z.string().max(200).optional(),
+  pollOptions: z.string().optional(), // newline-separated, 2–6
 });
 
-/** Post a whisper (A11) → feed + push. */
+/** Post a whisper (A11 / R1) → feed + push. May carry a poll. */
 export async function publishWhisper(formData: FormData) {
   const session = await requireGoddess();
   const parsed = schema.safeParse({
-    body: formData.get("body"),
+    body: formData.get("body") || undefined,
     audienceType: formData.get("audienceType"),
     level: formData.get("level") || undefined,
     userId: formData.get("userId") || undefined,
+    pollMode: formData.get("pollMode") || "none",
+    existingPollId: formData.get("existingPollId") || undefined,
+    pollQuestion: formData.get("pollQuestion") || undefined,
+    pollOptions: formData.get("pollOptions") || undefined,
   });
   if (!parsed.success) throw new Error("Invalid whisper");
   const d = parsed.data;
 
   let audience: Audience;
-  if (d.audienceType === "all") audience = { type: "all" };
+  if (d.audienceType === "public") audience = { type: "public" };
+  else if (d.audienceType === "all") audience = { type: "all" };
   else if (d.audienceType === "level")
     audience = { type: "level", level: d.level ?? 1 };
   else {
@@ -37,16 +49,59 @@ export async function publishWhisper(formData: FormData) {
     audience = { type: "users", userIds: [d.userId] };
   }
 
+  // Resolve an attached poll: an existing open one, or a fresh inline poll.
+  let pollId: string | null = null;
+  if (d.pollMode === "existing") {
+    if (!d.existingPollId) throw new Error("Pick a poll");
+    const [p] = await db
+      .select({ id: polls.id, status: polls.status })
+      .from(polls)
+      .where(eq(polls.id, d.existingPollId))
+      .limit(1);
+    if (!p || p.status !== "open") throw new Error("That poll isn't open");
+    pollId = p.id;
+  } else if (d.pollMode === "new") {
+    if (!d.pollQuestion || d.pollQuestion.trim().length === 0)
+      throw new Error("The poll needs a question");
+    const options: PollOption[] = (d.pollOptions ?? "")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((label, i) => ({ id: `o${i + 1}`, label }));
+    if (options.length < 2) throw new Error("The poll needs at least 2 options");
+    pollId = await createPollRecord({
+      question: d.pollQuestion.trim(),
+      options,
+      audience,
+    });
+  }
+
+  const body = d.body?.trim() || null;
+  if (!body && !pollId) throw new Error("Say something, or attach a poll");
+
   await db.insert(whispers).values({
-    body: d.body,
+    body,
     audience,
+    pollId,
     publishedAt: new Date(),
   });
 
+  // Push: prefer the whisper text; fall back to the poll question.
+  let pushBody = body ? body.slice(0, 120) : undefined;
+  if (!pushBody && pollId) {
+    const [pq] = await db
+      .select({ question: polls.question })
+      .from(polls)
+      .where(eq(polls.id, pollId))
+      .limit(1);
+    pushBody = pq?.question;
+  }
+
   await broadcast({
-    title: "She whispered.",
-    body: d.body.slice(0, 120),
-    deepLink: "/whispers",
+    title: pollId ? "She's asking. Answer." : "She whispered.",
+    body: pushBody,
+    deepLink: "/",
     audience,
     kind: "manual",
     createdBy: session.user.id,
@@ -54,6 +109,37 @@ export async function publishWhisper(formData: FormData) {
 
   await logAudit(session.user.id, "whisper.published", {
     audience: d.audienceType,
+    poll: d.pollMode,
   });
   revalidatePath("/sanctum/whispers");
+  revalidatePath("/");
+}
+
+const pinSchema = z.object({
+  whisperId: z.string().uuid(),
+  pinned: z.enum(["true", "false"]),
+});
+
+/** Pin / unpin a whisper — pinned whispers sort first everywhere (R1). */
+export async function setWhisperPinned(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = pinSchema.safeParse({
+    whisperId: formData.get("whisperId"),
+    pinned: formData.get("pinned"),
+  });
+  if (!parsed.success) throw new Error("Invalid pin");
+  const pinned = parsed.data.pinned === "true";
+
+  await db
+    .update(whispers)
+    .set({ pinned })
+    .where(eq(whispers.id, parsed.data.whisperId));
+
+  await logAudit(
+    session.user.id,
+    pinned ? "whisper.pinned" : "whisper.unpinned",
+    { whisperId: parsed.data.whisperId },
+  );
+  revalidatePath("/sanctum/whispers");
+  revalidatePath("/");
 }

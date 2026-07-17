@@ -5,6 +5,42 @@ import type { Audience } from "@/lib/db/schema/relationship";
 import { audienceMatches } from "@/lib/push/audience";
 import { tallyVotes, type PollOption } from "./tally";
 
+/**
+ * Insert an open poll and return its id. Shared creation core so both the
+ * Sanctum polls page and the whisper composer (R1 inline poll) create polls
+ * the same way.
+ */
+export async function createPollRecord(input: {
+  question: string;
+  options: PollOption[];
+  audience: Audience;
+  anonymousToAdmin?: boolean;
+}): Promise<string> {
+  const [poll] = await db
+    .insert(polls)
+    .values({
+      question: input.question,
+      options: input.options,
+      audience: input.audience,
+      anonymousToAdmin: input.anonymousToAdmin ?? false,
+      status: "open",
+    })
+    .returning({ id: polls.id });
+  return poll!.id;
+}
+
+/** Open polls, newest first — for the whisper composer's "attach a poll" list. */
+export async function listOpenPolls(): Promise<
+  { id: string; question: string }[]
+> {
+  return db
+    .select({ id: polls.id, question: polls.question })
+    .from(polls)
+    .where(eq(polls.status, "open"))
+    .orderBy(desc(polls.createdAt))
+    .limit(50);
+}
+
 /** Open polls this subject may vote in, with their current choice. */
 export async function openPollsForSubject(
   userId: string,

@@ -35,11 +35,13 @@ export const authConfig = {
         return role === "goddess";
       }
       // Subject area requires a session; public routes handled by matcher.
+      // `/` (the Whispers feed) and `/about` stay public — not listed here, so
+      // they fall through to the public `return true` below. `/whispers` is a
+      // public redirect to `/`, so it is intentionally NOT gated either.
       const subjectPrefixes = [
         "/library",
         "/programs",
         "/inbox",
-        "/whispers",
         "/asks",
         "/orders",
         "/messages",

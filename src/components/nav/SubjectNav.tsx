@@ -18,10 +18,15 @@ import {
 const TABS = [
   { href: "/library", label: "Library", icon: IconLibrary },
   { href: "/programs", label: "Trainings", icon: IconDescend },
-  { href: "/whispers", label: "Whispers", icon: IconSpark },
+  { href: "/", label: "Whispers", icon: IconSpark },
   { href: "/messages", label: "Speak", icon: IconSpeak },
   { href: "/me", label: "You", icon: IconCollar },
 ];
+
+/** Home (`/`) matches exactly; other tabs match by prefix. */
+function isActive(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -33,7 +38,7 @@ export function BottomNav() {
     >
       <div className="mx-auto grid h-14 max-w-lg grid-cols-5">
         {TABS.map((t) => {
-          const active = pathname.startsWith(t.href);
+          const active = isActive(pathname, t.href);
           const Icon = t.icon;
           return (
             <Link
@@ -58,7 +63,7 @@ export function BottomNav() {
 const DESKTOP_LINKS = [
   { href: "/library", label: "Library" },
   { href: "/programs", label: "Trainings" },
-  { href: "/whispers", label: "Whispers" },
+  { href: "/", label: "Whispers" },
   { href: "/asks", label: "Asks" },
   { href: "/orders", label: "Orders" },
   { href: "/messages", label: "Speak" },
@@ -70,7 +75,7 @@ export function DesktopNav() {
   return (
     <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
       {DESKTOP_LINKS.map((l) => {
-        const active = pathname.startsWith(l.href);
+        const active = isActive(pathname, l.href);
         return (
           <Link
             key={l.href}

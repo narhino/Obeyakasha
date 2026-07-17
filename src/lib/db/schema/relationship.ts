@@ -30,6 +30,7 @@ import {
 
 /** Audience selector shape used across whispers / orders / polls / notifications. */
 export type Audience =
+  | { type: "public" } // visible to logged-out visitors too (R1 public front door)
   | { type: "all" }
   | { type: "level"; level: number }
   | { type: "segment"; rule: Record<string, unknown> }
@@ -44,13 +45,20 @@ export const whispers = pgTable(
     audioTrackId: uuid("audio_track_id").references(() => tracks.id),
     imageKey: text("image_key"),
     audience: jsonb("audience").$type<Audience>().notNull(),
+    // R1: pinned whispers sort first everywhere (her toggle in the Sanctum).
+    pinned: boolean("pinned").notNull().default(false),
+    // R1: a whisper may carry a poll, rendered + voted inline in the feed.
+    pollId: uuid("poll_id").references(() => polls.id),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("whispers_published_idx").on(t.publishedAt)],
+  (t) => [
+    index("whispers_published_idx").on(t.publishedAt),
+    index("whispers_pinned_idx").on(t.pinned, t.publishedAt),
+  ],
 );
 
 export const whisperReceipts = pgTable(

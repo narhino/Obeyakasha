@@ -9,7 +9,7 @@ import type { Audience } from "@/lib/db/schema/relationship";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
-import { closePoll, pollResults } from "@/lib/polls/ops";
+import { closePoll, createPollRecord, pollResults } from "@/lib/polls/ops";
 
 const createSchema = z.object({
   question: z.string().min(1).max(200),
@@ -44,12 +44,11 @@ export async function createPoll(formData: FormData) {
       ? { type: "all" }
       : { type: "level", level: d.level ?? 1 };
 
-  await db.insert(polls).values({
+  await createPollRecord({
     question: d.question,
     options,
     audience,
     anonymousToAdmin: d.anonymous === "on",
-    status: "open",
   });
 
   await broadcast({
@@ -90,7 +89,7 @@ export async function shareResultsAction(formData: FormData) {
   await broadcast({
     title: "You chose together.",
     body,
-    deepLink: "/whispers",
+    deepLink: "/",
     audience: poll.audience as Audience,
     kind: "manual",
     createdBy: session.user.id,

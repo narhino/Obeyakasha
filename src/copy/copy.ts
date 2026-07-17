@@ -104,12 +104,23 @@ export const copy = {
     reclaim: "You slipped. The chain slackened. Come back down to me.",
   },
 
-  // ── Whispers ───────────────────────────────────────────────────────────
+  // ── Whispers (the feed — Home) ─────────────────────────────────────────
   whispers: {
     title: "Whispers",
     empty: "I haven't whispered yet. Wait for me.",
+    publicEmpty:
+      "I keep my voice for those who enter. Come through, and you'll hear me.",
+    pinnedLabel: "Held",
     kneel: "Kneel",
     knelt: "You knelt.",
+  },
+
+  // ── Home feed header (public front door) ───────────────────────────────
+  home: {
+    aboutLink: "The threshold",
+    libraryLink: "Your library",
+    publicIntro:
+      "This is where I speak. Read a while. When you're ready to be known, come in.",
   },
 
   // ── Polls ──────────────────────────────────────────────────────────────
@@ -118,6 +129,8 @@ export const copy = {
     voted: "Noted. I heard you.",
     results: "You chose together. Here's what won.",
     closed: "This one's closed.",
+    connectCta: "Enter to answer",
+    connectWhisper: "Only the claimed may choose. Come in, and your voice counts.",
   },
 
   // ── Commissions ────────────────────────────────────────────────────────
