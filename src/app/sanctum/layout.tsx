@@ -10,6 +10,7 @@ const nav = [
   { href: "/sanctum/import", label: "Import" },
   { href: "/sanctum/organize", label: "Organize" },
   { href: "/sanctum/programs", label: "Programs" },
+  { href: "/sanctum/series", label: "Series" },
   { href: "/sanctum/commissions", label: "Commissions" },
   { href: "/sanctum/wishes", label: "Wishes" },
   { href: "/sanctum/broadcast", label: "Broadcast" },

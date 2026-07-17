@@ -480,17 +480,26 @@ export async function listSeriesCards(): Promise<SeriesCard[]> {
     id: p.id,
     title: p.title,
     count: plCounts.get(p.id) ?? 0,
-    cadence: null,
+    cadence: p.cadence,
     href: `/library/series/${p.id}`,
   }));
   return [...trainingCards, ...seriesCards];
 }
 
-/** A single published curated series with its tracks (R4 stub, R2a). */
-export async function getSeriesStub(
+export interface SeriesPage {
+  title: string;
+  description: string | null;
+  cadence: "ongoing" | "weekly" | "ended";
+  /** Signed, short-lived cover URL (never a raw storage key); null if none. */
+  artworkUrl: string | null;
+  tracks: LibraryTrack[];
+}
+
+/** A single published curated series with its cover + tracks (R4). */
+export async function getSeriesPage(
   playlistId: string,
   viewer: CatalogViewer,
-): Promise<{ title: string; description: string | null; tracks: LibraryTrack[] } | null> {
+): Promise<SeriesPage | null> {
   const [pl] = await db
     .select()
     .from(playlists)
@@ -522,7 +531,13 @@ export async function getSeriesStub(
     accessLevel: viewer.accessLevel,
     granted,
   });
-  return { title: pl.title, description: pl.description, tracks: annotated };
+  return {
+    title: pl.title,
+    description: pl.description,
+    cadence: pl.cadence,
+    artworkUrl: await signArtworkUrl(pl.artworkKey),
+    tracks: annotated,
+  };
 }
 
 /** A single track if the subject may access it, else null (for the stream endpoint). */

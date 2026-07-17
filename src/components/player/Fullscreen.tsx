@@ -10,8 +10,12 @@ import {
   IconPause,
   IconPlay,
   IconPrev,
+  IconQueue,
+  IconSkipBack15,
+  IconSkipForward15,
 } from "@/components/ui/icons";
 import { Spiral } from "./Spiral";
+import { ScrubBar } from "./ScrubBar";
 
 const endModes: { key: EndMode; label: string }[] = [
   { key: "continue", label: copy.player.endMode.continue },
@@ -26,12 +30,7 @@ const spiralVariants = [
   { key: "tunnel", label: "Tunnel" },
 ] as const;
 
-function fmt(s: number): string {
-  if (!Number.isFinite(s)) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${String(sec).padStart(2, "0")}`;
-}
+const SKIP_S = 15;
 
 function Chip({
   active,
@@ -62,13 +61,18 @@ export function Fullscreen() {
   const playing = usePlayer((s) => s.playing);
   const positionS = usePlayer((s) => s.positionS);
   const durationS = usePlayer((s) => s.durationS);
+  const bufferedS = usePlayer((s) => s.bufferedS);
+  const volume = usePlayer((s) => s.volume);
   const endMode = usePlayer((s) => s.endMode);
   const sleepTimerMin = usePlayer((s) => s.sleepTimerMin);
 
   const toggle = usePlayer((s) => s.toggle);
   const next = usePlayer((s) => s.next);
   const prev = usePlayer((s) => s.prev);
+  const seekTo = usePlayer((s) => s.seekTo);
+  const setVolume = usePlayer((s) => s.setVolume);
   const setFullscreen = usePlayer((s) => s.setFullscreen);
+  const setQueueOpen = usePlayer((s) => s.setQueueOpen);
   const setEndMode = usePlayer((s) => s.setEndMode);
   const setSleepTimer = usePlayer((s) => s.setSleepTimer);
   const beginGrounding = usePlayer((s) => s.beginGrounding);
@@ -78,6 +82,8 @@ export function Fullscreen() {
   const [speed, setSpeed] = useState(0.5);
 
   if (!current || !fullscreen) return null;
+
+  const dur = durationS > 0 ? durationS : (current.durationS ?? 0);
 
   function ground() {
     const s = usePlayer.getState();
@@ -111,13 +117,22 @@ export function Fullscreen() {
         className="flex items-center justify-between px-4 pt-3"
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <button
-          onClick={() => setFullscreen(false)}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line/60 text-text-dim transition-colors hover:text-text"
-          aria-label="Minimize"
-        >
-          <IconChevronDown size={18} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setFullscreen(false)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line/60 text-text-dim transition-colors hover:text-text"
+            aria-label={copy.player.controls.minimize}
+          >
+            <IconChevronDown size={18} />
+          </button>
+          <button
+            onClick={() => setQueueOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line/60 text-text-dim transition-colors hover:text-gold"
+            aria-label={copy.player.controls.queue}
+          >
+            <IconQueue size={18} />
+          </button>
+        </div>
         <div className="flex gap-1.5">
           {spiralVariants.map((v) => (
             <Chip
@@ -132,21 +147,34 @@ export function Fullscreen() {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="label-caps mb-3 text-gold/80">Now under</p>
+        <p className="label-caps mb-3 text-gold/80">{copy.player.queue.now}</p>
         <h2 className="max-w-md font-[family-name:var(--font-display)] text-3xl leading-tight text-text [text-shadow:0_2px_24px_rgba(11,8,18,0.9)]">
           {current.title}
         </h2>
-        <p className="mt-2 text-xs tracking-[0.14em] text-text-dim">
-          {fmt(positionS)} · {fmt(durationS)}
-        </p>
 
-        <div className="mt-9 flex items-center gap-7">
+        <div className="mt-8 w-full max-w-md">
+          <ScrubBar
+            positionS={positionS}
+            durationS={dur}
+            bufferedS={bufferedS}
+            onSeek={seekTo}
+          />
+        </div>
+
+        <div className="mt-7 flex items-center gap-5">
           <button
             onClick={prev}
             className="text-text-dim transition-colors hover:text-text"
             aria-label="Previous"
           >
-            <IconPrev size={24} />
+            <IconPrev size={22} />
+          </button>
+          <button
+            onClick={() => seekTo(Math.max(0, positionS - SKIP_S))}
+            className="text-text-dim transition-colors hover:text-gold"
+            aria-label={copy.player.controls.back15}
+          >
+            <IconSkipBack15 size={26} />
           </button>
           <button
             onClick={toggle}
@@ -156,11 +184,20 @@ export function Fullscreen() {
             {playing ? <IconPause size={26} /> : <IconPlay size={26} />}
           </button>
           <button
+            onClick={() =>
+              seekTo(dur > 0 ? Math.min(dur, positionS + SKIP_S) : positionS + SKIP_S)
+            }
+            className="text-text-dim transition-colors hover:text-gold"
+            aria-label={copy.player.controls.forward15}
+          >
+            <IconSkipForward15 size={26} />
+          </button>
+          <button
             onClick={next}
             className="text-text-dim transition-colors hover:text-text"
             aria-label="Next"
           >
-            <IconNext size={24} />
+            <IconNext size={22} />
           </button>
         </div>
       </div>
@@ -196,6 +233,21 @@ export function Fullscreen() {
             </Chip>
           ))}
         </div>
+
+        {/* Volume — desktop only (phones use hardware buttons). */}
+        <label className="hidden items-center gap-3 md:flex">
+          <span className="label-caps">{copy.player.controls.volume}</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            className="h-1 flex-1"
+            aria-label={copy.player.controls.volume}
+          />
+        </label>
 
         <div className="flex items-center justify-between gap-4">
           <label className="flex flex-1 items-center gap-3">

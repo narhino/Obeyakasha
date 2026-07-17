@@ -57,6 +57,13 @@
       "when": 1784294452127,
       "tag": "0007_pg_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784297029597,
+      "tag": "0008_series_v2",
+      "breakpoints": true
     }
   ]
 }

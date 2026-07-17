@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
+import { toast } from "@/lib/player/toast";
 import { Button } from "@/components/ui";
 import { IconPlay } from "@/components/ui/icons";
-import { copy } from "@/copy/copy";
+import { copy, fill } from "@/copy/copy";
 
 /**
  * The file page's primary action (R3), reusing R2a's three-state logic:
@@ -36,7 +37,10 @@ export function FilePlayAction({
           {copy.library.filePage.play}
         </button>
         <button
-          onClick={() => addToQueue(track)}
+          onClick={() => {
+            addToQueue(track);
+            toast(fill(copy.player.queue.queued, { title: track.title }));
+          }}
           className="text-xs text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold"
         >
           {copy.library.queue}

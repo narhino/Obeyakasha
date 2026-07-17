@@ -204,8 +204,11 @@ export const playlists = pgTable("playlists", {
   id: uuid("id").defaultRandom().primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  artworkKey: text("artwork_key"),
   visibility: trackVisibility("visibility").notNull().default("draft"),
   kind: playlistKind("kind").notNull().default("curated"),
+  // Cadence shown to subjects on a series (R4) — reuses the program enum.
+  cadence: programCadence("cadence").notNull().default("ongoing"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

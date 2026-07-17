@@ -7,6 +7,22 @@ import { offlineBlobUrl } from "@/lib/offline/store";
 import { MiniBar } from "./MiniBar";
 import { Fullscreen } from "./Fullscreen";
 import { DropPrompt } from "./DropPrompt";
+import { QueueSheet } from "./QueueSheet";
+import { Toaster } from "./Toaster";
+
+/** Seconds buffered ahead of (and covering) the playhead. */
+function bufferedAheadOf(audio: HTMLAudioElement): number {
+  try {
+    const ranges = audio.buffered;
+    const ct = audio.currentTime;
+    for (let i = 0; i < ranges.length; i++) {
+      if (ct >= ranges.start(i) - 0.25 && ct <= ranges.end(i)) return ranges.end(i);
+    }
+    return ranges.length > 0 ? ranges.end(ranges.length - 1) : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * The single audio engine (PLAN §9), mounted once in the subject layout.
@@ -28,6 +44,8 @@ export function PlayerRoot() {
   const endMode = usePlayer((s) => s.endMode);
   const sleepTimerMin = usePlayer((s) => s.sleepTimerMin);
   const grounding = usePlayer((s) => s.grounding);
+  const volume = usePlayer((s) => s.volume);
+  const seekRequest = usePlayer((s) => s.seekRequest);
 
   // Load a new track's signed URL when `current` changes.
   useEffect(() => {
@@ -77,6 +95,23 @@ export function PlayerRoot() {
     else audio.pause();
   }, [playing, grounding]);
 
+  // Seek bridge: the UI never touches the element — it posts a seek request and
+  // PlayerRoot (the engine) applies it, then clears it (R4/P1).
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !seekRequest) return;
+    const dur = Number.isFinite(audio.duration) ? audio.duration : Infinity;
+    audio.currentTime = Math.max(0, Math.min(seekRequest.positionS, dur));
+    usePlayer.getState().clearSeek();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekRequest?.seq]);
+
+  // Volume reconciliation (desktop slider).
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) audio.volume = volume;
+  }, [volume]);
+
   // Sleep timer.
   useEffect(() => {
     if (sleepTimerMin == null) {
@@ -98,11 +133,36 @@ export function PlayerRoot() {
     ms.setActionHandler("pause", () => usePlayer.getState().setPlaying(false));
     ms.setActionHandler("previoustrack", () => usePlayer.getState().prev());
     ms.setActionHandler("nexttrack", () => usePlayer.getState().next());
+    // ±15s + lock-screen scrubber (R4/P1) — hypno listeners re-hear passages.
+    ms.setActionHandler("seekbackward", (d) => {
+      const a = audioRef.current;
+      if (!a) return;
+      const off = d.seekOffset ?? 15;
+      usePlayer.getState().seekTo(Math.max(0, a.currentTime - off));
+    });
+    ms.setActionHandler("seekforward", (d) => {
+      const a = audioRef.current;
+      if (!a) return;
+      const off = d.seekOffset ?? 15;
+      const dur = Number.isFinite(a.duration) ? a.duration : a.currentTime + off;
+      usePlayer.getState().seekTo(Math.min(dur, a.currentTime + off));
+    });
+    ms.setActionHandler("seekto", (d) => {
+      if (d.seekTime == null) return;
+      if (d.fastSeek && audioRef.current?.fastSeek) {
+        audioRef.current.fastSeek(d.seekTime);
+        return;
+      }
+      usePlayer.getState().seekTo(d.seekTime);
+    });
     return () => {
       ms.setActionHandler("play", null);
       ms.setActionHandler("pause", null);
       ms.setActionHandler("previoustrack", null);
       ms.setActionHandler("nexttrack", null);
+      ms.setActionHandler("seekbackward", null);
+      ms.setActionHandler("seekforward", null);
+      ms.setActionHandler("seekto", null);
     };
   }, [current]);
 
@@ -136,10 +196,33 @@ export function PlayerRoot() {
     });
   }
 
+  function onProgress() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    usePlayer.getState().setBuffered(bufferedAheadOf(audio));
+  }
+
   function onTimeUpdate() {
     const audio = audioRef.current;
     if (!audio || !current) return;
     usePlayer.getState().setProgress(audio.currentTime, audio.duration || 0);
+    usePlayer.getState().setBuffered(bufferedAheadOf(audio));
+
+    // Keep the lock-screen scrubber in sync (best-effort).
+    if ("mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
+      const duration = audio.duration;
+      if (Number.isFinite(duration) && duration > 0) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration,
+            position: Math.min(audio.currentTime, duration),
+            playbackRate: audio.playbackRate || 1,
+          });
+        } catch {
+          // some engines throw mid-load; ignore
+        }
+      }
+    }
 
     // Sleep timer check.
     if (
@@ -207,11 +290,14 @@ export function PlayerRoot() {
       <audio
         ref={audioRef}
         onTimeUpdate={onTimeUpdate}
+        onProgress={onProgress}
         onEnded={onEnded}
         preload="metadata"
       />
       <MiniBar />
       <Fullscreen />
+      <QueueSheet />
+      <Toaster />
       <DropPrompt />
     </>
   );

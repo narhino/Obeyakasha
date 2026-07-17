@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
+import { toast } from "@/lib/player/toast";
 import type { LibraryTrack } from "@/lib/library/queries";
 import { Button } from "@/components/ui";
 import { IconLock, IconPlay } from "@/components/ui/icons";
@@ -46,6 +47,11 @@ export function LibraryClient({
 }) {
   const playNow = usePlayer((s) => s.playNow);
   const addToQueue = usePlayer((s) => s.addToQueue);
+
+  function queueTrack(t: LibraryTrack) {
+    addToQueue(toQueueTrack(t));
+    toast(fill(copy.player.queue.queued, { title: t.title }));
+  }
 
   const entitled = tracks.filter((t) => signedIn && t.unlocked);
 
@@ -155,7 +161,7 @@ export function LibraryClient({
                   <div className="flex shrink-0 items-center gap-3">
                     {t.downloadable ? <KeepButton trackId={t.id} /> : null}
                     <button
-                      onClick={() => addToQueue(toQueueTrack(t))}
+                      onClick={() => queueTrack(t)}
                       className="text-xs text-text-dim hover:text-gold"
                     >
                       {copy.library.queue}

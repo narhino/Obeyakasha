@@ -145,6 +145,29 @@ export const copy = {
     dropScale: ["Barely", "Drifting", "Under", "Deep", "Gone"],
     dropNote: "Tell me what you felt. I'm listening.",
     dropSkip: "Not now",
+    // R4 — transport control labels (screen-reader + tooltips)
+    controls: {
+      back15: "Back fifteen",
+      forward15: "Forward fifteen",
+      scrub: "Move through it",
+      volume: "How loud I am",
+      queue: "What comes next",
+      minimize: "Let me rest below",
+    },
+    // R4 — the Spotify-style queue sheet
+    queue: {
+      now: "Now under",
+      nextManual: "Next, by your hand",
+      nextFrom: "Next from {source}",
+      upNext: "Still to come",
+      clear: "Empty what waits",
+      empty: "Nothing waits. Choose what owns you next.",
+      queued: "Waiting for you — {title}",
+      remove: "Take it out",
+      up: "Sooner",
+      down: "Later",
+      jump: "Take me here",
+    },
   },
 
   // ── Chain of Obedience ─────────────────────────────────────────────────

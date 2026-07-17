@@ -286,3 +286,32 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
 - Pipeline transitions + the transcribe→organize chaining live in the job
   handlers (one visible state machine); triggers still never auto-apply under
   `tags_only`, preserving the safety posture for anything trigger-related.
+
+## 2026-07-17 — R4 (series collections + Spotify queue)
+
+- **Split queue model in the player store.** `manualQueue` (explicitly queued,
+  always first, consumed on play) vs `sourceQueue` + `sourceName` + `sourceIndex`
+  (the series/shelf started). `playNow` is retained as a thin wrapper over the
+  new `playSource(tracks, name, startIndex)` with a null name, so every prior
+  caller (library, file page, continue shelf, programs) keeps working unchanged.
+  End-modes / sleep / grounding / telemetry heartbeats / resume are untouched.
+- **Seek is bridged, not direct.** UI calls `seekTo(positionS)`, which bumps a
+  `seekRequest {positionS, seq}`; PlayerRoot (the sole audio owner) applies it to
+  the element and clears it. Media Session `seekbackward/seekforward/seekto` +
+  `setPositionState` route through the same path. As a side effect, prev-to-
+  restart now issues a real seek to 0 (the old code only reset store position, a
+  latent no-op on the element).
+- **Queue-sheet rows show a sigil placeholder, not per-row artwork.** `QueueTrack`
+  carries only a raw `artworkKey`, which is never signable on the client and must
+  never be exposed as a raw storage URL (CLAUDE.md privacy). Rather than issue N
+  per-row signing round-trips, queue rows render the 888 mark (the "Now" row
+  breathes while playing). Series/file cover art is still signed server-side.
+- **`jumpTo` semantics (Spotify parity).** Tapping ahead in the manual queue
+  plays that item and discards the ones above it; tapping a "Next from: <source>"
+  item moves the source pointer and leaves the manual queue intact.
+- **`playlists` gained `artworkKey` + `cadence`** (reusing the `program_cadence`
+  enum, default `ongoing`) in `0008_series_v2.sql`. Curated series are now first-
+  class in Sanctum (`/sanctum/series`): cover upload via a raw-body route
+  (`POST /api/sanctum/series-art`, ≤5MB, webp/jpeg/png, keyed `art/<playlistId>.webp`),
+  details edit, add/remove tracks, and Up/Down reorder (sequential-sort rewrite —
+  no drag dependency). The series-segment cards now surface the real cadence.

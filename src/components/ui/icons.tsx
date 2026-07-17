@@ -162,3 +162,55 @@ export function IconWarn({ size, ...p }: P) {
     </svg>
   );
 }
+
+export function IconSkipBack15({ size, ...p }: P) {
+  // A rewind ring with a left-pointing arrowhead + the "15" offset.
+  return (
+    <svg {...base(size)} {...p}>
+      <path d="M12 6a6 6 0 1 1-5.7 4.2" />
+      <path d="M12 3 8.4 6 12 9Z" fill="currentColor" stroke="none" />
+      <text
+        x="12"
+        y="15"
+        textAnchor="middle"
+        fontSize="6.5"
+        fontWeight={600}
+        fill="currentColor"
+        stroke="none"
+      >
+        15
+      </text>
+    </svg>
+  );
+}
+
+export function IconSkipForward15({ size, ...p }: P) {
+  // Mirror of the rewind: forward ring + right-pointing arrowhead.
+  return (
+    <svg {...base(size)} {...p}>
+      <path d="M12 6a6 6 0 1 0 5.7 4.2" />
+      <path d="M12 3 15.6 6 12 9Z" fill="currentColor" stroke="none" />
+      <text
+        x="12"
+        y="15"
+        textAnchor="middle"
+        fontSize="6.5"
+        fontWeight={600}
+        fill="currentColor"
+        stroke="none"
+      >
+        15
+      </text>
+    </svg>
+  );
+}
+
+export function IconQueue({ size, ...p }: P) {
+  // A tracklist with a small play glyph — "what's next / the queue".
+  return (
+    <svg {...base(size)} {...p}>
+      <path d="M4 7h16M4 12h16M4 17h9" />
+      <path d="M16.5 15.2v3.6l3-1.8-3-1.8Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
