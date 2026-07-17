@@ -143,6 +143,12 @@ export function LibraryClient({
                       })}
                     </p>
                   ) : null}
+                  <Link
+                    href={`/library/track/${t.slug}`}
+                    className="mt-1 inline-block text-xs text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold"
+                  >
+                    {copy.library.filePage.cardLink}
+                  </Link>
                 </div>
 
                 {state === "entitled" ? (

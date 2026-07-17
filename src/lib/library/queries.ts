@@ -17,6 +17,7 @@ import {
   userTriggers,
 } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
+import { mediaProvider } from "@/lib/media";
 
 /** Track ids granted directly to a user (commission deliveries, gifts). */
 export async function grantedTrackIds(userId: string): Promise<Set<string>> {
@@ -620,4 +621,265 @@ export async function listPlaylistsWithTracks(accessLevel: number) {
         unlocked: canAccess(accessLevel, i.track.minAccessLevel),
       })),
   }));
+}
+
+// ── Public file page (R3) ───────────────────────────────────────────────────
+
+export interface FilePageTag {
+  id: string;
+  kind: string;
+  value: string;
+}
+
+export interface FilePageTrigger {
+  name: string;
+  relation: "installs" | "reinforces" | "requires";
+}
+
+export interface FilePageCollection {
+  kind: "series" | "training";
+  id: string;
+  title: string;
+  href: string;
+}
+
+export interface TrackFilePage {
+  /** Card-state annotation (unlocked / prereqs / madeForYou), reused from R2a. */
+  track: LibraryTrack;
+  /** Goddess-only: the track isn't published (draft/archived preview). */
+  isDraftPreview: boolean;
+  publishedAt: Date | null;
+  /** Signed, short-lived artwork URL (never a raw storage key); null if none. */
+  artworkUrl: string | null;
+  /** Approved tag chips, grouped by kind (incl. custom), each linkable by id. */
+  tagGroups: { kind: string; tags: FilePageTag[] }[];
+  /** Names + relation only — never timestamps or evidence (privacy). */
+  triggers: FilePageTrigger[];
+  /** Series (curated playlists) + trainings (programs) it belongs to. */
+  collections: FilePageCollection[];
+  /** "After this": next-in-series (by sort) first, then shared-tag neighbours. */
+  afterThis: LibraryTrack[];
+}
+
+const TAG_KIND_ORDER = ["purpose", "theme", "format", "intensity", "custom"];
+const ARTWORK_TTL_S = 6 * 60 * 60;
+const RAIL_NEXT_LIMIT = 4;
+const RAIL_SHARED_LIMIT = 4;
+
+/** Sign the artwork key with the existing media pattern; never expose the key. */
+async function signArtworkUrl(artworkKey: string | null): Promise<string | null> {
+  if (!artworkKey) return null;
+  try {
+    return await mediaProvider().signStreamUrl(artworkKey, ARTWORK_TTL_S);
+  } catch {
+    return null;
+  }
+}
+
+/** Published title/description for generateMetadata — safe public fields only. */
+export async function getTrackMetaBySlug(
+  slug: string,
+): Promise<{ title: string; description: string | null } | null> {
+  const [row] = await db
+    .select({
+      title: tracks.title,
+      description: tracks.description,
+      visibility: tracks.visibility,
+    })
+    .from(tracks)
+    .where(eq(tracks.slug, slug))
+    .limit(1);
+  if (!row || row.visibility !== "published") return null;
+  return { title: row.title, description: row.description };
+}
+
+/**
+ * The public per-file page (R3), shibbydex-shaped but approved-data-only.
+ * Published tracks are visible to everyone (logged-out included); the goddess
+ * may preview a draft. Never returns transcripts, analysis, salience,
+ * evidence timestamps, or any other subject's data.
+ */
+export async function getTrackFilePage(
+  slug: string,
+  viewer: CatalogViewer,
+  opts: { isGoddess?: boolean } = {},
+): Promise<TrackFilePage | null> {
+  const [row] = await db
+    .select()
+    .from(tracks)
+    .where(eq(tracks.slug, slug))
+    .limit(1);
+  if (!row) return null;
+
+  const isDraftPreview = row.visibility !== "published";
+  if (isDraftPreview && !opts.isGoddess) return null;
+
+  const granted = viewer.userId
+    ? await grantedTrackIds(viewer.userId)
+    : new Set<string>();
+
+  // Primary track card-state (reuses the R2a annotation).
+  const [track] = await annotateTracks([row], {
+    userId: viewer.userId,
+    accessLevel: viewer.accessLevel,
+    granted,
+  });
+  if (!track) return null;
+
+  // Tag chips (with ids, so each links to /library?tags=), grouped by kind.
+  const tagRows = await db
+    .select({ id: tags.id, kind: tags.kind, value: tags.value })
+    .from(trackTags)
+    .innerJoin(tags, eq(tags.id, trackTags.tagId))
+    .where(eq(trackTags.trackId, row.id))
+    .orderBy(asc(tags.value));
+  const tagsByKind = new Map<string, FilePageTag[]>();
+  for (const t of tagRows) {
+    const list = tagsByKind.get(t.kind) ?? [];
+    list.push({ id: t.id, kind: t.kind, value: t.value });
+    tagsByKind.set(t.kind, list);
+  }
+  const tagGroups = TAG_KIND_ORDER.filter((k) => tagsByKind.has(k)).map(
+    (kind) => ({ kind, tags: tagsByKind.get(kind)! }),
+  );
+
+  // Triggers mentioned — names + relation only (no timestamps, no evidence).
+  const triggerRows = await db
+    .select({ name: triggers.name, relation: trackTriggers.relation })
+    .from(trackTriggers)
+    .innerJoin(triggers, eq(triggers.id, trackTriggers.triggerId))
+    .where(eq(trackTriggers.trackId, row.id));
+  const triggersList: FilePageTrigger[] = triggerRows.map((t) => ({
+    name: t.name,
+    relation: t.relation,
+  }));
+
+  // Belongs-to: published curated series + published trainings.
+  const [seriesRows, programRows] = await Promise.all([
+    db
+      .select({ id: playlists.id, title: playlists.title })
+      .from(playlistItems)
+      .innerJoin(playlists, eq(playlists.id, playlistItems.playlistId))
+      .where(
+        and(
+          eq(playlistItems.trackId, row.id),
+          eq(playlists.visibility, "published"),
+          eq(playlists.kind, "curated"),
+        ),
+      ),
+    db
+      .select({ id: programs.id, title: programs.title })
+      .from(programItems)
+      .innerJoin(programs, eq(programs.id, programItems.programId))
+      .where(
+        and(
+          eq(programItems.trackId, row.id),
+          eq(programs.visibility, "published"),
+        ),
+      ),
+  ]);
+  const collections: FilePageCollection[] = [];
+  const seenSeries = new Set<string>();
+  for (const s of seriesRows) {
+    if (seenSeries.has(s.id)) continue;
+    seenSeries.add(s.id);
+    collections.push({
+      kind: "series",
+      id: s.id,
+      title: s.title,
+      href: `/library/series/${s.id}`,
+    });
+  }
+  const seenProgram = new Set<string>();
+  for (const p of programRows) {
+    if (seenProgram.has(p.id)) continue;
+    seenProgram.add(p.id);
+    collections.push({
+      kind: "training",
+      id: p.id,
+      title: p.title,
+      href: "/programs",
+    });
+  }
+
+  // "After this" rail — next-in-series (by sort) first, then shared-tag cuts.
+  const seriesIds = [...seenSeries];
+  const nextInSeries: string[] = [];
+  if (seriesIds.length > 0) {
+    const items = await db
+      .select({
+        playlistId: playlistItems.playlistId,
+        trackId: playlistItems.trackId,
+        sort: playlistItems.sort,
+        visibility: tracks.visibility,
+      })
+      .from(playlistItems)
+      .innerJoin(tracks, eq(tracks.id, playlistItems.trackId))
+      .where(inArray(playlistItems.playlistId, seriesIds));
+    for (const pid of seriesIds) {
+      const group = items
+        .filter((i) => i.playlistId === pid)
+        .sort((a, b) => a.sort - b.sort);
+      const selfIdx = group.findIndex((i) => i.trackId === row.id);
+      if (selfIdx < 0) continue;
+      for (const it of group.slice(selfIdx + 1)) {
+        if (it.visibility === "published" && it.trackId !== row.id) {
+          nextInSeries.push(it.trackId);
+        }
+      }
+    }
+  }
+  const nextInSeriesIds = [...new Set(nextInSeries)].slice(0, RAIL_NEXT_LIMIT);
+
+  const myTagIds = tagRows.map((t) => t.id);
+  const excluded = new Set<string>([row.id, ...nextInSeriesIds]);
+  let sharedTagIds: string[] = [];
+  if (myTagIds.length > 0) {
+    const sharedRows = await db
+      .select({ trackId: trackTags.trackId, n: sql<number>`count(*)::int` })
+      .from(trackTags)
+      .innerJoin(tracks, eq(tracks.id, trackTags.trackId))
+      .where(
+        and(
+          inArray(trackTags.tagId, myTagIds),
+          eq(tracks.visibility, "published"),
+        ),
+      )
+      .groupBy(trackTags.trackId)
+      .orderBy(desc(sql`count(*)`))
+      .limit(24);
+    sharedTagIds = sharedRows
+      .map((r) => r.trackId)
+      .filter((id) => !excluded.has(id))
+      .slice(0, RAIL_SHARED_LIMIT);
+  }
+
+  const railIds = [...nextInSeriesIds, ...sharedTagIds];
+  let afterThis: LibraryTrack[] = [];
+  if (railIds.length > 0) {
+    const railRows = await db
+      .select()
+      .from(tracks)
+      .where(inArray(tracks.id, railIds));
+    const annotated = await annotateTracks(railRows, {
+      userId: viewer.userId,
+      accessLevel: viewer.accessLevel,
+      granted,
+    });
+    const byId = new Map(annotated.map((t) => [t.id, t]));
+    afterThis = railIds
+      .map((id) => byId.get(id))
+      .filter((t): t is LibraryTrack => !!t);
+  }
+
+  return {
+    track,
+    isDraftPreview,
+    publishedAt: row.publishedAt,
+    artworkUrl: await signArtworkUrl(row.artworkKey),
+    tagGroups,
+    triggers: triggersList,
+    collections,
+    afterThis,
+  };
 }

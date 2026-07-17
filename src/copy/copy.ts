@@ -99,11 +99,34 @@ export const copy = {
       theme: "Theme",
       format: "Format",
       intensity: "Intensity",
+      custom: "Marks",
     },
     cadence: {
       ongoing: "Ongoing",
       weekly: "Weekly",
       ended: "Complete",
+    },
+    // R3 — the public per-file page
+    filePage: {
+      cardLink: "Look closer",
+      draftBadge: "Draft — only your eyes.",
+      duration: "{n} min",
+      play: "Let it take you",
+      triggersTitle: "What it works in you",
+      relation: {
+        installs: "I plant this in you here.",
+        reinforces: "I deepen what you already carry.",
+        requires: "You must already carry this.",
+      },
+      belongsTitle: "Where it lives",
+      seriesLabel: "Series",
+      trainingLabel: "Training",
+      afterThisTitle: "Where I take you next",
+      railSealed: "Sealed",
+      metaTitle: "{title} — Akasha",
+      metaFallbackTitle: "The Library — Akasha",
+      metaFallbackDesc:
+        "A recording of mine. Look all you like — only the claimed may play.",
     },
   },
 
