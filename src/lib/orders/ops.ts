@@ -63,6 +63,7 @@ export async function respondToOrder(
     .select({
       proofMode: orders.proofMode,
       proofKey: orderAssignments.proofKey,
+      status: orderAssignments.status,
     })
     .from(orderAssignments)
     .innerJoin(orders, eq(orders.id, orderAssignments.orderId))
@@ -74,6 +75,8 @@ export async function respondToOrder(
     )
     .limit(1);
   if (!row) throw new Error("no such task");
+  // Idempotent (G04): a repeated Done is absorbed, not re-processed.
+  if (row.status === "done") return;
   if (row.proofMode === "required" && !row.proofKey) {
     throw new Error("proof required");
   }

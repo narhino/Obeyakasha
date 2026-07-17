@@ -34,6 +34,9 @@ export const copy = {
     signInTitle: "You found your way back.",
     signInBody: "Come in through Patreon. I'll know you the moment you do.",
     signInButton: "Enter with Patreon",
+    // Compact variant for tight rows (library cards at 390px) — the full
+    // invitation stays in headers (F14 residual).
+    signInShort: "Enter",
     signingIn: "Letting you in…",
     signInError: "Something held the door. Try once more.",
     signOut: "Step out",
@@ -289,7 +292,7 @@ export const copy = {
     sealedTitle: "Commissions are sealed.",
     submit: "Petition me",
     submitted: "I have your request. I'll decide.",
-    sealed: "Commissions are sealed. Petition for a slot and wait to be called.",
+    sealed: "For now, the door is closed. Petition for a slot and wait to be called.",
     waitlistJoin: "Add me to the waitlist",
     waitlistWhisper: "No slots open right now. Put your name down and I'll call you when one does.",
     waitlisted: "You're on my waitlist. Wait — I'll call you when a slot opens.",

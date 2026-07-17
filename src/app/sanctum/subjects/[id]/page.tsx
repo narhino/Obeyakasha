@@ -18,6 +18,10 @@ export default async function SubjectProfile({
 }) {
   await requireGoddess();
   const { id } = await params;
+  // A hand-typed non-UUID would throw 22P02 in Postgres — treat as not-found.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    notFound();
+  }
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 

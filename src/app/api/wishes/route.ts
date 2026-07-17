@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { withSubject } from "@/lib/api";
 import { db } from "@/lib/db";
@@ -20,6 +21,21 @@ export async function POST(req: NextRequest) {
   }
   const title = parsed.data.title?.trim() || null;
   return withSubject(async (userId) => {
+    // Dedup (G04): an identical petition inside a minute is a double-submit,
+    // not a second wish — absorb it silently.
+    const [dupe] = await db
+      .select({ id: wishes.id })
+      .from(wishes)
+      .where(
+        and(
+          eq(wishes.userId, userId),
+          eq(wishes.body, parsed.data.body),
+          gt(wishes.createdAt, new Date(Date.now() - 60_000)),
+        ),
+      )
+      .limit(1);
+    if (dupe) return { ok: true, deduped: true };
+
     const [wish] = await db
       .insert(wishes)
       .values({

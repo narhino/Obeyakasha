@@ -178,8 +178,10 @@ export function LibraryClient({
                   </a>
                 ) : (
                   <Link href="/signin" className="shrink-0">
+                    {/* Compact label so the title keeps its width at 390px
+                        (F14 residual); the full invitation lives in the header. */}
                     <Button size="sm" variant="primary">
-                      {copy.auth.signInButton}
+                      {copy.auth.signInShort}
                     </Button>
                   </Link>
                 )}

@@ -43,7 +43,7 @@ function Row({
       >
         <ArtTile />
         <span className="min-w-0">
-          <span className="block truncate text-sm text-text">{track.title}</span>
+          <span className="line-clamp-2 text-sm leading-snug text-text">{track.title}</span>
           {formatDuration(track.durationS) ? (
             <span className="block text-xs text-text-dim">
               {formatDuration(track.durationS)}
@@ -166,7 +166,7 @@ export function QueueSheet() {
               <div className="flex items-center gap-3 rounded-[var(--radius)] border border-gold/20 bg-accent-soft/25 px-2 py-2">
                 <ArtTile pulsing={playing} />
                 <span className="min-w-0">
-                  <span className="block truncate font-[family-name:var(--font-display)] text-[0.95rem] text-text">
+                  <span className="line-clamp-2 font-[family-name:var(--font-display)] text-[0.95rem] leading-snug text-text">
                     {current.title}
                   </span>
                   {formatDuration(current.durationS) ? (
