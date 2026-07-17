@@ -457,16 +457,34 @@ stays reachable from You.
   proposes pairs → she confirms/fixes via dropdown → attach streams file to
   shell → full pipeline runs. Per-shell single attach too.
 
-### R-QA — Full flow audit (runs AFTER R8, BEFORE R9)
-- A dedicated agent drives the real app in the bundled Chromium (Playwright)
-  as three personas — anonymous visitor, subject, the goddess — through every
-  tab and flow (land → connect → gate → browse → search → file page → play →
-  queue → series → task → ask → you → secret mode; plus Sanctum core loops).
-- Screenshots every screen (mobile + desktop); flags dead ends, inconsistent
-  shells/navigation (known: whispers home header vs app shell), copy drift,
-  confusing states, broken affordances.
-- Output: a findings report + prioritized fix list → review with Akasha →
-  fix pass. Only then R9.
+### R-QA — Full functional + design teardown (runs AFTER R8, BEFORE R9)
+
+Two audits over the real running app (bundled Chromium/Playwright, seeded
+DB, mobile 390px + desktop 1440px), as three personas — anonymous visitor,
+subject, the goddess. Mandate: **spot every issue**, functional and visual.
+
+**A. Functionality — exercise EVERYTHING.** Every tab, every button, every
+state: land → connect → gate → intake → feed (kneel, poll vote, pins) →
+library (search, filters, segments, locked/entitled/anon cards) → file page →
+play → seek → queue (add/reorder/remove) → series play-all → playlists →
+tasks (done, proof, deadline, flashing) → ask → messages → you (stats, rank,
+collar, secret-mode toggle + disguised notification) → settings → offline →
+commission request→progress; Sanctum: upload→pipeline→dossier→approve→
+publish, import shells→bulk attach, whisper+poll+pin, orders+proof review,
+commissions stages, series/trainings mgmt, access dials. Log every dead end,
+error, silent failure, broken affordance, missing loading state.
+
+**B. Design critique — judge every screen like a product designer.** Against
+the bar of Spotify-grade polish AND the editorial-occult identity
+(docs/DESIGN.md): player bar positioning/layering vs nav (known complaint),
+controls that look old/static/generic instead of dynamic and specific (known:
+player buttons), shell/navigation inconsistencies (known: whispers home
+header), spacing/alignment/hierarchy, touch-target sizes, motion & feedback
+(does every tap respond?), empty states, active states, contrast, safe
+areas, scroll behavior, transitions. Screenshot evidence for each finding.
+
+**Output:** one prioritized findings report (severity × effort), reviewed
+with Akasha → approved fix pass(es) → re-audit until clean. Only then R9.
 
 ### R9 — Creative additions (approved; build AFTER R1–R8)
 1. "She sees you" — Sanctum live now-under view; one-tap line drops into the
