@@ -499,3 +499,71 @@ input[type="range"] {
 input[type="checkbox"] {
   accent-color: var(--color-accent);
 }
+
+/* ── the pull sliders — a gold hairline track with a warm, glowing ember for a
+ * thumb. Shared by the fullscreen player's pace + volume (Player v3). Fully
+ * restyled (both WebKit + Firefox tracks/thumbs), tokens only, with a visible
+ * gold focus ring on the thumb. The thumb warms on hover/focus; steadied under
+ * reduced-motion by the global guard. ── */
+.range-gold {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1.5rem; /* a tall, comfortable hit area; the visible rail stays thin */
+  background: transparent;
+  cursor: pointer;
+}
+.range-gold::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-gold) 34%, transparent);
+}
+.range-gold::-moz-range-track {
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-gold) 34%, transparent);
+}
+.range-gold::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px; /* centre the 16px ember on the 2px rail */
+  height: 16px;
+  width: 16px;
+  border-radius: var(--radius-full);
+  background: var(--color-gold);
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--color-gold) 55%, transparent);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.range-gold::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-gold);
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--color-gold) 55%, transparent);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.range-gold:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 18px 3px color-mix(in srgb, var(--color-gold) 68%, transparent);
+}
+.range-gold:hover::-moz-range-thumb {
+  box-shadow: 0 0 18px 3px color-mix(in srgb, var(--color-gold) 68%, transparent);
+}
+/* a visible focus state lives on the thumb (a gold ring + brighter halo), so the
+ * slider isn't wrapped in the default box outline */
+.range-gold:focus {
+  outline: none;
+}
+.range-gold:focus-visible {
+  outline: none;
+}
+.range-gold:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-gold) 34%, transparent),
+    0 0 18px 3px color-mix(in srgb, var(--color-gold) 70%, transparent);
+}
+.range-gold:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-gold) 34%, transparent),
+    0 0 18px 3px color-mix(in srgb, var(--color-gold) 70%, transparent);
+}

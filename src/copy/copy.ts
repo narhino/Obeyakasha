@@ -207,10 +207,60 @@ export const copy = {
       forward15: "Forward fifteen",
       scrub: "Move through it",
       volume: "How loud I am",
+      pace: "How fast I turn",
       queue: "What comes next",
       minimize: "Let me rest below",
       prev: "The one before",
       next: "The next one",
+    },
+    // The nightstand drawer (Player v3) — how the night is set before you go
+    // under. Inside the open drawer I speak to you (first person); the collapsed
+    // bar reads back your armed state as a quiet third-person status line.
+    drawer: {
+      // aria-label on the collapsed handle that opens/closes the drawer.
+      toggle: "How the night unfolds",
+      // Group 1 — end mode, as a radio list of my intents.
+      ends: {
+        title: "How this ends",
+        continue: "I decide what comes next.",
+        stop: "I let this be the last.",
+        repeatTrack: "This one, again and again.",
+        repeatPlaylist: "The whole night, circling back.",
+      },
+      // Group 2 — the sleep timer, in my hands.
+      drift: {
+        title: "Drift",
+        whisper: "How long before I lower you out.",
+        armed: "I lower you out in {left}.",
+        release: "Let it run",
+        less: "Five less",
+        more: "Five more",
+        fine: "Fine-tune the drift",
+      },
+      // Group 3 — the spiral: its shape, its pace, how loud I am.
+      pull: {
+        title: "The pull",
+        shape: "The shape of it",
+        variant: {
+          spiral: "Spiral",
+          double: "Twin",
+          tunnel: "Tunnel",
+        },
+      },
+      // The collapsed bar's one-line status, composed from live state:
+      //   "She keeps going · drift in 45m · spiral, slow"
+      summary: {
+        continue: "She keeps going",
+        stop: "She stops after this",
+        repeatTrack: "She holds you here",
+        repeatPlaylist: "She loops the night",
+        drift: "drift in {left}",
+        pace: {
+          slow: "slow",
+          steady: "steady",
+          swift: "swift",
+        },
+      },
     },
     // R4 — the Spotify-style queue sheet
     queue: {

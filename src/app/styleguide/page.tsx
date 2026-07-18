@@ -190,6 +190,22 @@ export default function StyleGuide() {
               <option>Akasha</option>
             </Select>
           </Field>
+          <div>
+            <Label className="mb-2">Range — the pull sliders</Label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              defaultValue={0.4}
+              className="range-gold w-full"
+              aria-label="A gold hairline with a glowing ember thumb"
+            />
+            <Whisper className="mt-1">
+              A gold hairline with a warm, glowing ember for a thumb — the
+              fullscreen player&rsquo;s pace and volume (.range-gold).
+            </Whisper>
+          </div>
         </div>
       </section>
 

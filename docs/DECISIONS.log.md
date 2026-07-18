@@ -804,3 +804,61 @@ change; the player store and its 23 tests are untouched. Notable decisions:
 
 Gate green: typecheck · lint (0 warnings) · **291 tests** · build (39/39 pages).
 Curated screenshots replace `docs/qa-shots/d5/` with `docs/qa-shots/final/` (29).
+
+---
+
+## 2026-07-18 — Player v3: the nightstand (fullscreen rebuild)
+
+Rebuilds `src/components/player/Fullscreen.tsx` only. The store
+(`src/lib/player/store.ts`) is untouched — its 23 tests stay green.
+
+- **Root cause of the cut-off options (confirmed + fixed).** The old fullscreen
+  was `fixed inset-0 flex flex-col` with a fixed-px cover (`w-56 sm:w-64`) and a
+  tall bottom `glass elev-3` block carrying every control, with no
+  `overflow-y-auto` and no height compression. On short viewports (≈≤700px tall:
+  a laptop with chrome, a landscape phone) the column's natural height exceeded
+  the viewport and the bottom block slid off-screen, unreachable. Fixed two ways:
+  the cover medallion is now capped in viewport-height terms
+  (`w-[min(62vw,30vh,16rem)]` + `aspect-square`) so the whole stage always fits,
+  and the tall control block is lifted out of flow into a **drawer** — collapsed
+  it's a slim bar; expanded it's an absolutely-positioned sheet that floats over
+  a still-mounted stage, so it never competes for column height. Verified at
+  1440×900, 1366×768, 1280×660, 390×844 and 844×390 landscape: entire stage +
+  grounding + drawer handle visible, zero scrolling.
+- **Grounding stays on the stage, never in the drawer.** "Bring me back" is a
+  safety control, so it lives permanently top-right as a quiet outlined-danger
+  button, and is z-lifted above the drawer scrim so it's one tap away even with
+  the drawer open. The spiral-variant chips that used to sit top-right moved
+  *into* the drawer ("The pull"), freeing that corner.
+- **Voice split: drawer speaks, bar reports.** Inside the open drawer everything
+  is Akasha's first person ("I decide what comes next.", "How long before I lower
+  you out.") — she's setting the night with you. The collapsed bar is a
+  third-person status readout ("She keeps going · drift in 45m · spiral, slow"),
+  matching the codebase's existing third-person announcement register (whispers /
+  polls / commissions). The brief's illustrative "she lowers you out" became
+  first person in-drawer for this reason.
+- **Live drift countdown without touching the store.** The store keeps only
+  `sleepTimerMin`; PlayerRoot owns the wall-clock deadline. A component-local
+  `armedAt` timestamp (set in an effect off `sleepTimerMin`, reset on re-arm) plus
+  a 1s tick derives the same countdown for the summary, the group's armed line,
+  and a crescent "drift" ember by the scrub bar. It disarms itself when the store
+  clears the timer. No store/engine change.
+- **Fine-tune stepper arms on step.** Presets (10/20/30/45/60/90) toggle
+  `setSleepTimer`; the ±5m stepper (5–180) arms the exact value immediately and
+  highlights gold when a non-preset value is armed, with a "Let it run" release to
+  disarm — the simplest mapping onto the frozen `setSleepTimer(min|null)` API.
+- **Play button shrinks only on very short heights.** `h-[min(4rem,12vh)]` keeps
+  the 64px control everywhere except a ≈390px-tall landscape phone (≈47px), where
+  it buys the transport clean clearance above the drawer bar. Nothing else changes
+  size.
+- **`.range-gold` slider utility (globals.css).** The pace + volume sliders are
+  restyled as gold hairline tracks with a warm glowing ember thumb (both WebKit +
+  Firefox tracks/thumbs, a gold focus ring on the thumb), tokens only. Demoed on
+  `/styleguide`. Variant + pace labels moved out of JSX into `copy.ts`
+  (`player.drawer.*`, `player.controls.pace`) — closing the last inline-copy gap
+  on this surface.
+
+Gate green: typecheck · lint (0 warnings) · **291 tests** (store untouched) ·
+build (39/39 pages). Player screenshots in `docs/qa-shots/final/player-*`
+replace the old `player-fs*` / `player-queue` set (collapsed + expanded at five
+viewports, a reduced-motion pass, a drift-armed pass, and "The pull").
