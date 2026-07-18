@@ -65,10 +65,31 @@ for (const item of manifest.items) {
   const buf = Buffer.from(await res.arrayBuffer());
   await mkdir(path.dirname(outPath), { recursive: true });
   if (sharp) {
-    await sharp(buf)
-      .resize({ width: item.max, height: item.max, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 82, mozjpeg: true })
-      .toFile(outPath);
+    // The generator matted every piece in a white gallery border — trim it,
+    // then covers/empty get an exact square center-crop, wide art keeps ratio.
+    const square = /\/covers\/|\/empty\.jpg$/.test(item.out);
+    let img = sharp(await sharp(buf).trim({ threshold: 25 }).toBuffer());
+    // Shave a few px more in case the trim left a sliver of matte.
+    const meta = await img.metadata();
+    const inset = 4;
+    img = sharp(
+      await img
+        .extract({
+          left: inset,
+          top: inset,
+          width: meta.width - inset * 2,
+          height: meta.height - inset * 2,
+        })
+        .toBuffer(),
+    );
+    const w = meta.width - inset * 2;
+    const h = meta.height - inset * 2;
+    const pipe = square
+      ? img.resize(Math.min(item.max, w, h), Math.min(item.max, w, h), {
+          fit: "cover",
+        })
+      : img.resize({ width: Math.min(item.max, w) });
+    await pipe.jpeg({ quality: 82, mozjpeg: true }).toFile(outPath);
   } else {
     await writeFile(outPath.replace(/\.jpg$/, ".png"), buf);
   }
