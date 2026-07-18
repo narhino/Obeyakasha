@@ -7,9 +7,9 @@ import {
   Badge,
   Button,
   Card,
-  Display,
   Input,
   Label,
+  PageHeading,
   Select,
   Whisper,
 } from "@/components/ui";
@@ -54,7 +54,7 @@ export default async function SanctumOrders() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Tasks</Display>
+      <PageHeading eyebrow="Duties">Tasks</PageHeading>
       <Whisper className="mt-1">
         Tell them to do something. Completion feeds their chain.
       </Whisper>

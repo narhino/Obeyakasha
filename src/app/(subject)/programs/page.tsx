@@ -14,7 +14,7 @@ export default async function ProgramsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <Display className="text-3xl">Trainings</Display>
+      <Display size="opener">Trainings</Display>
       <p className="mb-6 mt-1 text-sm text-text-dim">
         Built in order. Finish one to open the next.
       </p>

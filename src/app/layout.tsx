@@ -3,6 +3,7 @@ import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { auth } from "@/auth";
 import { PlayerRoot } from "@/components/player/PlayerRoot";
+import { PageGlow } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 /**
@@ -47,7 +48,10 @@ export default async function RootLayout({
   const session = await auth();
   return (
     <html lang="en" className={cormorant.variable}>
-      <body className="min-h-dvh bg-bg text-text antialiased">
+      <body className="min-h-dvh text-text antialiased">
+        {/* Ambient candlelight behind the whole app — one instance, never
+            per-page (D2). Sits at a negative z; content paints above it. */}
+        <PageGlow />
         {children}
         {/* The single audio engine + mini-player, mounted once so playback and
             the Spotify-style mini-player persist across every route (including

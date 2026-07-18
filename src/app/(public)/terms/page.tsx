@@ -5,7 +5,7 @@ export const metadata = { title: "Terms" };
 export default function Terms() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <Display className="text-3xl">Terms</Display>
+      <Display size="opener">Terms</Display>
       <Whisper className="mt-1">The plain truth of what this is.</Whisper>
 
       <div className="mt-8 space-y-4 text-sm leading-relaxed text-text-dim">

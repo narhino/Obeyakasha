@@ -12,7 +12,7 @@ export default async function SanctumLive() {
   const initial = await liveListeners();
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Now, under</Display>
+      <Display size="opener">Now, under</Display>
       <Whisper className="mt-1">
         Who is listening this moment. Reach in — she&apos;ll feel your hand on
         the back of her neck, no notification, just your voice surfacing.

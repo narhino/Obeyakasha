@@ -9,7 +9,7 @@ import {
 } from "@/lib/feed/whispers";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
 import { SubjectShell } from "@/components/nav/SubjectShell";
-import { Button, Display, Ornament, Whisper } from "@/components/ui";
+import { Button, Display, Ornament, Voice } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 // Reads the session + DB per request; never prerender at build.
@@ -50,7 +50,7 @@ export default async function Home() {
     return (
       <SubjectShell>
         <main className="mx-auto max-w-2xl px-4 pt-8">
-          <Display className="text-3xl">{copy.whispers.title}</Display>
+          <Display size="opener">{copy.whispers.title}</Display>
           <WhispersFeed items={items} signedIn />
         </main>
       </SubjectShell>
@@ -94,11 +94,11 @@ export default async function Home() {
       </header>
 
       <section className="pt-8">
-        <Display className="text-3xl">{copy.whispers.title}</Display>
+        <Display size="opener">{copy.whispers.title}</Display>
         <Ornament className="mt-4 w-40" />
-        <Whisper className="mt-4 max-w-md font-[family-name:var(--font-display)] text-base italic leading-relaxed">
+        <Voice className="mt-4 max-w-md leading-relaxed">
           {copy.home.publicIntro}
-        </Whisper>
+        </Voice>
         <WhispersFeed items={items} signedIn={false} />
       </section>
     </main>

@@ -637,3 +637,51 @@ Deviations from / refinements to `docs/PLAN.md` made during the build. Newest la
   `tracks.premiere_announced_at`). Gate green: typecheck · lint · 216 tests
   (190 + 26 new pure oath/premiere tests) · build. DB-backed flows additionally
   smoke-tested end-to-end (17 checks) against `obeyakasha_test`.
+
+---
+
+## 2026-07-18 — Candlelit Atelier D2 (light & depth) + D3 (typography)
+
+Implements `docs/DESIGN-DIRECTION.md` §D2 and §D3 only. Token-layer + primitive
+work, applied surgically; D1 (art), D4 (motion), D5 (signature surfaces), D6
+(audit) left untouched.
+
+- **PageGlow stacking — base colour moved to `<html>`.** The ambient glow is a
+  single fixed `<PageGlow/>` at `z-index:-10`. A negative-z layer is covered by
+  an opaque `<body>` background, so the base near-black now lives on `html`
+  (propagates to the canvas) and `body` is transparent. Chosen over
+  `background-attachment: fixed` on body, which is janky/ignored on iOS Safari
+  (this is a mobile-first PWA). One implementation, mounted once in the root
+  layout — never per page.
+- **`.breathes` (the gold breath) applied to the collar medallion only.** The
+  utility exists, is reduced-motion-gated, and is demonstrated on `/styleguide`.
+  Of its three intended homes (player artwork, collar card, premiere seal) only
+  the collared `OathCard` medallion is a real surface today; player artwork and
+  the premiere seal are built by their D5 rebuilds ("cover art with breathing
+  aura", "gold seal"), so wiring `.breathes` onto today's placeholder markup
+  would be thrown away. Deferred to D5 by design, not omission.
+- **Eyebrows are content-true, not universal.** D3 asks page openers to carry an
+  eyebrow "content-true, not decoration". Sanctum titles get their nav **wing**
+  as the eyebrow (Catalog / People / Voice / Duties / System) — genuinely true
+  structural info, and admin-only literals matching the existing `SanctumNav`
+  convention (Sanctum is not subject-facing, so no `copy.ts` entry). Subject
+  pages receive the **huge-opener scale** but no forced eyebrow: their only
+  candid labels (e.g. Tasks → "What I want of you") already render as section
+  `<Label>`s inside the page, so an eyebrow would duplicate them. Restraint over
+  a redundant accessory. The full eyebrow+opener pattern is still shown live on
+  `/styleguide` and across ~15 Sanctum pages.
+- **Detail/splash openers left at their bespoke scale.** signin + threshold
+  (ritual splashes with their own composition), the track/series detail pages
+  (D5's "File page" hero rebuild), and Sanctum detail/sub-flows
+  (`tracks/[id]`, `subjects/[id]`, `import`) keep `text-3xl` — a detail page
+  reading a step below its section is correct hierarchy, and the detail heroes
+  are D5's to rebuild.
+- **Card `raised` now maps to `--elev-2`; MiniBar to glass + `--elev-3`.** No
+  behaviour change — the mini-player keeps its layout, backdrop-blur, and every
+  handler; only its surface treatment is now token-driven (`.glass .elev-3`).
+- New tokens: `--elev-1/2/3`, `--glass-bg`, `--glass-blur`, `--page-glow-top`,
+  `--page-vignette`, `--display-1`, `--display-2`, `--voice-size`. New
+  primitives: `PageGlow`, `Eyebrow`, `Voice`, `PageHeading`, and a `size` prop
+  on `Display`. All demonstrated on `/styleguide`. Gate green: typecheck · lint
+  · 216 tests · build (39/39 pages). No schema, server-logic, player-store, or
+  test-behaviour changes; no new dependencies.

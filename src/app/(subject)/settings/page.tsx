@@ -38,7 +38,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <Display className="text-3xl">Settings</Display>
+      <Display size="opener">Settings</Display>
       <SettingsClient
         timezone={me?.timezone ?? "UTC"}
         quietStart={me?.qs ?? 22}

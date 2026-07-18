@@ -109,7 +109,7 @@ export default async function MePage() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       {/* Identity */}
       <div className="flex items-center justify-between gap-3">
-        <Display className="text-3xl">
+        <Display size="opener" className="min-w-0">
           {card.honorific ? `${card.honorific}'s ` : ""}
           {card.chosenName ?? copy.you.fallbackName}
         </Display>

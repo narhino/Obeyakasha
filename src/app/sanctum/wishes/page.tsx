@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, wishes } from "@/lib/db/schema";
-import { Badge, Button, Card, Display, Select, Whisper } from "@/components/ui";
+import { Badge, Button, Card, PageHeading, Select, Whisper } from "@/components/ui";
 import { replyToWish, setWishStatus } from "./actions";
 
 const STATUSES = ["new", "planned", "shipped", "declined"];
@@ -19,7 +19,7 @@ export default async function SanctumWishes() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Asks</Display>
+      <PageHeading eyebrow="Duties">Asks</PageHeading>
       <Whisper className="mt-1">
         What they crave — a demand-ranked roadmap. Answer one and only that
         subject hears back.

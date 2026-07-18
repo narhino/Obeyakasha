@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { users, whispers } from "@/lib/db/schema";
 import { whisperStats } from "@/lib/feed/whispers";
 import { listOpenPolls } from "@/lib/polls/ops";
-import { Badge, Button, Card, Display, Label, Whisper } from "@/components/ui";
+import { Badge, Button, Card, Label, PageHeading, Whisper } from "@/components/ui";
 import { WhisperComposer } from "./WhisperComposer";
 import { PollsPanel } from "./PollsPanel";
 import { cancelScheduledWhisper, setWhisperPinned } from "./actions";
@@ -36,7 +36,7 @@ export default async function SanctumWhispers() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Whispers</Display>
+      <PageHeading eyebrow="Voice">Whispers</PageHeading>
       <Whisper className="mt-1">
         A one-way drop only you can post to. They can only kneel.
       </Whisper>

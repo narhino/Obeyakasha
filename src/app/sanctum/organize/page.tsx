@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { reviewQueue } from "@/lib/db/schema";
 import { llmConfigured } from "@/lib/llm/organize";
-import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Button, Card, PageHeading, Whisper } from "@/components/ui";
 import type { OrganizeProposal } from "@/lib/organize/types";
 import {
   approveReviewAction,
@@ -20,7 +20,7 @@ export default async function OrganizePage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Review</Display>
+      <PageHeading eyebrow="Catalog">Review</PageHeading>
       <Whisper className="mt-1">
         The agent reads each transcript and proposes tags, triggers, and
         playlists. Nothing applies until you approve it.

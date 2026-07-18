@@ -1,7 +1,7 @@
 import { desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLog } from "@/lib/db/schema";
-import { Card, Display, Whisper } from "@/components/ui";
+import { Card, PageHeading, Whisper } from "@/components/ui";
 
 export default async function AuditPage() {
   const entries = await db
@@ -12,7 +12,7 @@ export default async function AuditPage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Audit</Display>
+      <PageHeading eyebrow="System">Audit</PageHeading>
       <Whisper className="mt-1">
         Every mutation in the Sanctum, most recent first.
       </Whisper>

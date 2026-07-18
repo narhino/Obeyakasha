@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { tierMappings, tracks } from "@/lib/db/schema";
 import { getRawSetting, getSetting } from "@/lib/settings";
 import type { PatreonTier } from "@/lib/patreon/client";
-import { Badge, Button, Card, Display, Input, Select, Whisper } from "@/components/ui";
+import { Badge, Button, Card, Input, PageHeading, Select, Whisper } from "@/components/ui";
 import {
   saveTierMapping,
   setOathGiftTrack,
@@ -73,7 +73,7 @@ export default async function AccessPage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Settings</Display>
+      <PageHeading eyebrow="System">Settings</PageHeading>
       <Whisper className="mt-1">
         Map each Patreon tier to an access level. Level 0 is the free Threshold;
         higher levels unlock more of the Library.

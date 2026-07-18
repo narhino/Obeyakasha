@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { mediaProvider } from "@/lib/media";
 import { copy } from "@/copy/copy";
-import { Display, Whisper } from "@/components/ui";
+import { PageHeading, Whisper } from "@/components/ui";
 import { SeriesSection } from "./SeriesSection";
 import { TrainingsSection } from "./TrainingsSection";
 
@@ -92,7 +92,7 @@ export default async function SanctumCollections() {
 
   return (
     <div className="max-w-3xl">
-      <Display className="text-3xl">Collections</Display>
+      <PageHeading eyebrow="Catalog">Collections</PageHeading>
       <Whisper className="mt-1">
         The two ways you shape a queue: curated Series and sequential Trainings.
       </Whisper>

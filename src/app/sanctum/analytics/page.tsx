@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Card, Display, Whisper } from "@/components/ui";
+import { Card, Display, PageHeading, Whisper } from "@/components/ui";
 
 /** Internal-only analytics (A21) — no third-party trackers. */
 export default async function SanctumAnalytics() {
@@ -44,7 +44,7 @@ export default async function SanctumAnalytics() {
 
   return (
     <div className="max-w-3xl">
-      <Display className="text-3xl">Analytics</Display>
+      <PageHeading eyebrow="System">Analytics</PageHeading>
       <Whisper className="mt-1">Yours only. Nothing leaves this server.</Whisper>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

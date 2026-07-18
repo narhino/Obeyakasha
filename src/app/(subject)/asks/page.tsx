@@ -15,7 +15,7 @@ export default async function AsksPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <Display className="text-3xl">She&apos;s asking</Display>
+      <Display size="opener">She&apos;s asking</Display>
       {polls.length === 0 && questions.length === 0 ? (
         <Whisper className="mt-6">Nothing right now. Wait for her.</Whisper>
       ) : (

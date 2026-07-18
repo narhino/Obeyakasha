@@ -2,7 +2,7 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chains, users } from "@/lib/db/schema";
-import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Card, PageHeading, Whisper } from "@/components/ui";
 
 export default async function SanctumSubjects() {
   const rows = await db
@@ -22,7 +22,7 @@ export default async function SanctumSubjects() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Subjects</Display>
+      <PageHeading eyebrow="People">Subjects</PageHeading>
       <Whisper className="mt-1">{rows.length} claimed.</Whisper>
 
       <div className="mt-6 space-y-2">

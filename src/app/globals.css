@@ -46,20 +46,94 @@
   --ease-trance: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-slow: 700ms;
   --dur-med: 400ms;
+
+  /* ── D2 · light & depth ──
+     A near-black room lit by one warm gold source. Three elevation tiers plus a
+     glass treatment for floating chrome. Elevation reads as warm top edge-light
+     + a soft violet-black cast (never a flat drop shadow). */
+  --elev-1: none;
+  --elev-2:
+    inset 0 1px 0 0 rgba(234, 227, 214, 0.05),
+    0 10px 24px -14px rgba(6, 3, 14, 0.8);
+  --elev-3:
+    inset 0 1px 0 0 rgba(234, 227, 214, 0.07),
+    0 20px 52px -18px rgba(4, 2, 10, 0.88);
+
+  /* glass — translucent raised surface for the mini-player, sheets, modals */
+  --glass-bg: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  --glass-blur: 14px;
+
+  /* the page glow: one large soft gold source from the top + an edge vignette,
+     painted once behind the whole app (never per-page). */
+  --page-glow-top: radial-gradient(
+    72% 46% at 50% -8%,
+    color-mix(in srgb, var(--color-gold) 6%, transparent),
+    transparent 62%
+  );
+  --page-vignette: radial-gradient(
+    120% 120% at 50% 24%,
+    transparent 56%,
+    color-mix(in srgb, #000 55%, transparent) 100%
+  );
+
+  /* ── D3 · fluid display scale ──
+     Page openers set huge and confident; section heads a step down; her voice a
+     larger italic set apart from functional text. */
+  --display-1: clamp(2.25rem, 6vw, 4rem);
+  --display-2: clamp(1.75rem, 4vw, 2.75rem);
+  --voice-size: clamp(1.0625rem, 2.2vw, 1.375rem);
 }
 
 :root {
   color-scheme: dark;
 }
 
+/* Base near-black lives on <html> (propagates to the canvas) so the fixed
+ * .page-glow layer — painted behind content at a negative z — is never covered
+ * by an opaque <body> background. */
+html {
+  background: var(--color-bg);
+}
 html,
 body {
-  background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   letter-spacing: 0.01em;
+}
+body {
+  background: transparent;
+}
+
+/* ── the page glow (D2): ambient candlelight behind the whole app ──
+ * One <PageGlow/> is mounted once in the root layout. Fixed to the viewport,
+ * inert, and pinned behind content; surfaces with their own fill cover it, the
+ * gaps between them let the room light through. */
+.page-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background: var(--page-glow-top), var(--page-vignette);
+}
+
+/* ── elevation tiers (D2) ── */
+.elev-1 {
+  box-shadow: var(--elev-1);
+}
+.elev-2 {
+  box-shadow: var(--elev-2);
+}
+.elev-3 {
+  box-shadow: var(--elev-3);
+}
+
+/* ── glass — floating chrome: translucent surface over a backdrop blur ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 /* iOS PWA: paint under the notch/home bar */
@@ -117,6 +191,23 @@ body {
   animation: breathe 9s var(--ease-trance) infinite;
 }
 
+/* ── the gold breath (D2 signature) — a slow luminance pulse in the light
+ * itself, reserved for the few surfaces that matter most (collar medallion,
+ * player artwork, premiere seal). Rare by design: noticeable because nothing
+ * else moves. Steady under reduced-motion (rule below). ── */
+@keyframes breathe-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px -6px color-mix(in srgb, var(--color-gold) 22%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 42px 1px color-mix(in srgb, var(--color-gold) 46%, transparent);
+  }
+}
+.breathes {
+  animation: breathe-glow 7s var(--ease-trance) infinite;
+}
+
 /* ── the slow wheel — decorative spiral disc (landing, gate) ── */
 @keyframes turn {
   to {
@@ -166,6 +257,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .breathe,
+  .breathes,
   .turn-slow,
   .pulse-alert,
   .marquee-move {
@@ -208,6 +300,27 @@ body {
   font-size: 0.6875rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* ── page-opener eyebrow (D3) — a content-true label above a huge title.
+ * Tracked wider than a section label so the two never read the same. ── */
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* ── her voice (D3) — an italic display treatment for whisper/quote moments.
+ * Set apart from functional UI text: this is her speaking, not the app. ── */
+.voice {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--voice-size);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
   color: var(--color-text-dim);
 }
 

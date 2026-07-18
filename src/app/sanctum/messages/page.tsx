@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { inboxThreads } from "@/lib/messages/ops";
-import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Card, PageHeading, Whisper } from "@/components/ui";
 
 export default async function SanctumMessages() {
   const threads = await inboxThreads();
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Messages</Display>
+      <PageHeading eyebrow="People">Messages</PageHeading>
       <Whisper className="mt-1">
         Flagged first, then unread. Their profile sits beside every thread.
       </Whisper>

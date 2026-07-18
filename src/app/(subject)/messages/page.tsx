@@ -7,7 +7,7 @@ export default async function MessagesPage() {
   await requireSubject();
   return (
     <main className="mx-auto flex max-w-2xl flex-col px-4 py-8">
-      <Display className="text-3xl">{copy.messages.title}</Display>
+      <Display size="opener">{copy.messages.title}</Display>
       <Whisper className="mt-1">She reads everything.</Whisper>
       <MessageThread />
     </main>

@@ -12,6 +12,7 @@ import {
   Card,
   Display,
   Input,
+  PageHeading,
   Select,
   Whisper,
 } from "@/components/ui";
@@ -46,7 +47,7 @@ export default async function BroadcastPage() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Broadcast</Display>
+      <PageHeading eyebrow="Voice">Broadcast</PageHeading>
       <Whisper className="mt-1">
         Speak to all of them, a tier, or one subject. {"{name}"} and{" "}
         {"{honorific}"} personalize per subject.

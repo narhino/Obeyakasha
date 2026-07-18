@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { questionAnswers, questions, users } from "@/lib/db/schema";
-import { Button, Card, Display, Input, Select, Whisper } from "@/components/ui";
+import { Button, Card, Input, PageHeading, Select, Whisper } from "@/components/ui";
 import { createQuestion } from "./actions";
 
 export default async function SanctumQuestions() {
@@ -28,7 +28,7 @@ export default async function SanctumQuestions() {
 
   return (
     <div className="max-w-2xl">
-      <Display className="text-3xl">Questions</Display>
+      <PageHeading eyebrow="Voice">Questions</PageHeading>
       <Whisper className="mt-1">
         Ask them something. Their answers land on their profiles.
       </Whisper>

@@ -124,7 +124,9 @@ export function MiniBar() {
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-40 md:bottom-0">
-      <div className="border-t border-line/70 bg-surface-raised/95 shadow-[0_-8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md">
+      {/* Floating glass chrome (D2): translucent raised surface + backdrop blur
+          (.glass) lifted on --elev-3. Docked flush over the deeper nav. */}
+      <div className="glass elev-3 border-t border-line/70">
         {/* ultra-thin tap-to-seek line along the TOP edge (buffered + played) */}
         <button
           type="button"

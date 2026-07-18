@@ -5,7 +5,7 @@ export const metadata = { title: "Privacy" };
 export default function Privacy() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <Display className="text-3xl">Privacy</Display>
+      <Display size="opener">Privacy</Display>
       <Whisper className="mt-1">What is kept, and what is never shared.</Whisper>
 
       <div className="mt-8 space-y-4 text-sm leading-relaxed text-text-dim">

@@ -74,28 +74,49 @@ export function Card({
   className = "",
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & { raised?: boolean }) {
+  // Elevation tiers (D2): a resting card sits flat (--elev-1); `raised` lifts it
+  // to --elev-2 (warm top edge-light + a soft violet-black cast). Floating chrome
+  // (--elev-3, glass) is applied at the surface, not here.
   return (
     <div
       className={`rounded-[var(--radius-lg)] border border-line/80 ${
-        raised
-          ? "bg-surface-raised shadow-[0_1px_0_0_rgba(234,227,214,0.04)_inset]"
-          : "bg-surface"
+        raised ? "bg-surface-raised elev-2" : "bg-surface elev-1"
       } p-5 ${className}`}
       {...props}
     />
   );
 }
 
+/**
+ * The ambient page glow (D2): one warm gold source from the top + an edge
+ * vignette, painted once behind the whole app. Mount a single instance in the
+ * root layout — never per page. Inert and decorative.
+ */
+export function PageGlow() {
+  return <div aria-hidden className="page-glow" />;
+}
+
+// Fluid display sizes (D3) — huge, confident page openers; section heads a step
+// down. Omit `size` to keep a bespoke scale via className (unchanged default).
+const displaySizes: Record<"opener" | "section", string> = {
+  opener: "text-[length:var(--display-1)]",
+  section: "text-[length:var(--display-2)]",
+};
+
 export function Display({
   className = "",
   as: Tag = "h1",
+  size,
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement> & {
   as?: "h1" | "h2" | "h3";
+  size?: "opener" | "section";
 }) {
   return (
     <Tag
-      className={`font-[family-name:var(--font-display)] font-medium leading-[1.08] tracking-[0.01em] text-text ${className}`}
+      className={`font-[family-name:var(--font-display)] font-medium leading-[1.08] tracking-[0.01em] text-text ${
+        size ? displaySizes[size] : ""
+      } ${className}`}
       {...props}
     />
   );
@@ -113,12 +134,68 @@ export function Whisper({
   );
 }
 
+/**
+ * Her voice (D3) — an italic display treatment for whisper and quote moments,
+ * set apart from functional UI text. This is her speaking, not the app.
+ */
+export function Voice({
+  className = "",
+  as: Tag = "p",
+  ...props
+}: React.HTMLAttributes<HTMLElement> & {
+  as?: "p" | "blockquote" | "span";
+}) {
+  return <Tag className={`voice ${className}`} {...props} />;
+}
+
 /** Letterspaced small-caps section label. */
 export function Label({
   className = "",
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return <p className={`label-caps ${className}`} {...props} />;
+}
+
+/**
+ * Page-opener eyebrow (D3) — a small-caps, tracked, dim line above a huge
+ * title. Content-true labels only (never decoration).
+ */
+export function Eyebrow({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={`eyebrow ${className}`} {...props} />;
+}
+
+/**
+ * The page-opener pattern (D3): a content-true eyebrow above a huge display
+ * title, with an optional trailing slot for a badge or action. One primitive so
+ * every header wears the same structure — swap a bare <Display> for this.
+ */
+export function PageHeading({
+  eyebrow,
+  trailing,
+  as = "h1",
+  className = "",
+  children,
+}: {
+  eyebrow?: React.ReactNode;
+  trailing?: React.ReactNode;
+  as?: "h1" | "h2";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex items-end justify-between gap-4 ${className}`}>
+      <div className="min-w-0">
+        {eyebrow ? <Eyebrow className="mb-2">{eyebrow}</Eyebrow> : null}
+        <Display as={as} size="opener">
+          {children}
+        </Display>
+      </div>
+      {trailing ? <div className="shrink-0 pb-1.5">{trailing}</div> : null}
+    </div>
+  );
 }
 
 /** Thin gold rule with a center sigil: ──── ✦ ──── */

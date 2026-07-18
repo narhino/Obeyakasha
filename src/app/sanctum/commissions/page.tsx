@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { commissions, tracks, users } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
-import { Badge, Button, Card, Display, Select, Whisper } from "@/components/ui";
+import { Badge, Button, Card, PageHeading, Select, Whisper } from "@/components/ui";
 import {
   COMMISSION_STAGES,
   commissionStatusLabel,
@@ -46,14 +46,18 @@ export default async function SanctumCommissions() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between">
-        <Display className="text-3xl">Commissions</Display>
-        <form action={toggleCommissions}>
-          <Button type="submit" variant={open ? "ghost" : "gold"} size="sm">
-            {open ? "Open — click to seal" : "Sealed — click to open"}
-          </Button>
-        </form>
-      </div>
+      <PageHeading
+        eyebrow="Duties"
+        trailing={
+          <form action={toggleCommissions}>
+            <Button type="submit" variant={open ? "ghost" : "gold"} size="sm">
+              {open ? "Open — click to seal" : "Sealed — click to open"}
+            </Button>
+          </form>
+        }
+      >
+        Commissions
+      </PageHeading>
       <Whisper className="mt-1">
         Requests come here. Deliver a finished track privately to the person who
         asked.

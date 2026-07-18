@@ -16,7 +16,16 @@ import { getRawSetting } from "@/lib/settings";
 import { LibraryClient } from "@/components/library/LibraryClient";
 import { ContinueShelf } from "@/components/library/ContinueShelf";
 import { SurrenderBand } from "@/components/library/SurrenderBand";
-import { Badge, Button, Card, Display, Input, Ornament, Whisper } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Display,
+  Input,
+  Ornament,
+  Voice,
+  Whisper,
+} from "@/components/ui";
 import { copy, fill } from "@/copy/copy";
 
 // Reads the session + DB per request; the catalog is public but per-viewer.
@@ -109,7 +118,7 @@ export default async function LibraryPage({
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 lg:max-w-5xl">
       <div className="mb-2 flex items-center justify-between">
-        <Display className="text-3xl">{copy.library.title}</Display>
+        <Display size="opener">{copy.library.title}</Display>
         {signedIn ? (
           access.frozen ? (
             <Badge tone="danger">frozen</Badge>
@@ -124,9 +133,7 @@ export default async function LibraryPage({
       {!signedIn ? (
         <>
           <Ornament className="mb-4 w-40" />
-          <Whisper className="mb-6 max-w-md font-[family-name:var(--font-display)] text-base italic">
-            {copy.library.publicIntro}
-          </Whisper>
+          <Voice className="mb-6 max-w-md">{copy.library.publicIntro}</Voice>
         </>
       ) : null}
 

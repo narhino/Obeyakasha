@@ -2,7 +2,7 @@ import Link from "next/link";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { trackTags, tracks, transcripts } from "@/lib/db/schema";
-import { Display, Whisper } from "@/components/ui";
+import { PageHeading, Whisper } from "@/components/ui";
 import { LibraryClient } from "./LibraryClient";
 import type { LibraryRow } from "./types";
 
@@ -78,7 +78,7 @@ export default async function SanctumLibrary() {
 
   return (
     <div className="max-w-3xl">
-      <Display className="text-3xl">Library</Display>
+      <PageHeading eyebrow="Catalog">Library</PageHeading>
       <Whisper className="mt-1">
         Drop audio, set its level, publish. Uploads show progress and the list
         stays live — no refreshing.

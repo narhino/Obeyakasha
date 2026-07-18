@@ -80,7 +80,7 @@ export default async function SanctumToday() {
 
   return (
     <div>
-      <Display className="text-3xl">Today</Display>
+      <Display size="opener">Today</Display>
       <Whisper className="mt-1">Everything that wants you.</Whisper>
 
       {/* R9.1: who is under right now — one-tap touch, fuller room one click away. */}
