@@ -48,7 +48,10 @@ export async function SubjectShell({
       <IntakeGuard done={intakeDone}>
         {/* bottom padding clears the tab bar + mini player on mobile */}
         <div className="min-h-dvh pb-44 md:pb-28">
-          <header className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 backdrop-blur-md">
+          <header
+            className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 backdrop-blur-md"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
               <Link
                 href="/library"

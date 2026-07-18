@@ -86,7 +86,10 @@ export default async function Home() {
   // ── Anonymous: the public front door ──
   return (
     <main className="relative min-h-dvh pb-24">
-      <header className="sticky top-0 z-30 border-b border-line/40 bg-bg/60 backdrop-blur-md">
+      <header
+        className="sticky top-0 z-30 border-b border-line/40 bg-bg/60 backdrop-blur-md"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
           <Link
             href="/"

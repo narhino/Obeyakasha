@@ -60,7 +60,10 @@ export default async function SanctumLayout({
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[230px_1fr]">
-      <aside className="border-b border-line/70 bg-surface md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-b-0 md:border-r">
+      <aside
+        className="border-b border-line/70 bg-surface md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-b-0 md:border-r"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="p-5 md:p-6">
           <p className="font-[family-name:var(--font-display)] text-xs tracking-[0.3em] text-text-dim">
             888
