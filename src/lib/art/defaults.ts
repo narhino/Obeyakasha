@@ -162,3 +162,19 @@ export const EMPTY_IMAGE = "/art/empty.jpg";
 export function defaultCoverFor(tags: readonly string[]): string {
   return `${COVERS}/${coverFamilyForTags(tags)}.jpg`;
 }
+
+/**
+ * Presentation-only <img> onError: swap a broken cover to the default sigil.
+ * Guards the one case a resolved cover URL can go stale — the player queue holds
+ * a *pre-signed* custom-art URL (D5) that outlives its ~6h TTL if the app stays
+ * open, and an expired token would otherwise render a broken box. Idempotent
+ * (won't loop if the default itself is unreachable). No effect on the resolver.
+ */
+export function fallbackToDefaultCover(e: {
+  currentTarget: HTMLImageElement;
+}): void {
+  const img = e.currentTarget;
+  if (img.dataset.coverFallback) return;
+  img.dataset.coverFallback = "1";
+  if (!img.src.endsWith(DEFAULT_COVER)) img.src = DEFAULT_COVER;
+}

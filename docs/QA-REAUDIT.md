@@ -110,3 +110,57 @@ Status: ✅ verified-fixed · ⚠️ still-broken · — not-testable
 - The whole **transcribe→analyse→approve→tag→subject-visible** loop works with the worker live, in-voice at every step.
 - Mini-player + nav as one docked unit (both viewports), signed-in Home shell, 2-col desktop grid, labelled commission stepper, calm badge tones, and the reference-quality fullscreen player (spiral, ±15s, end-modes, sleep timer, grounding) are all Spotify-grade.
 - Playback + queue engine is robust under thrash; middleware gating and input tampering are safe.
+
+---
+
+## D6 — Candlelit Atelier audit (2026-07-18)
+
+Final audit + fix pass of the D1–D5 visual elevation. Rig: seeded Postgres +
+app on `:3400`, bundled Chromium/Playwright, personas subject "moth" (L2) +
+goddess, both viewports (1440×900 · 390×844) + a reduced-motion pass. Every
+subject surface, the five signature surfaces, and the main Sanctum surfaces were
+shot, critiqued against `docs/DESIGN-DIRECTION.md` + the frontend-design skill,
+fixed, and re-shot. Curated evidence in `docs/qa-shots/final/`.
+
+**9 findings — 5 fixed, 4 left (out of scope / pre-existing / data-sparsity).**
+
+| id | surface | severity | finding | status |
+| --- | --- | --- | --- | --- |
+| D6-01 | Library (desktop) | **blocker** | Filter facets stacked one kind per row in a narrow left column + search capped at `max-w-2xl` on a `max-w-5xl` page → ~65% dead right-space, misaligned with the grid (the exact "filter column vs grid" flag) | **fixed** — facets are now one horizontal wrapping band (inline kind-groups), search fills the container; band collapses to 2 tidy rows at 390w |
+| D6-02 | Empty states (`/art/empty.jpg`) | **blocker** | The committed empty-state art was a broken **36×36** sliver — `fetch-art.mjs`'s `trim()` ate the entire "distant candle in vast darkness" (no white matte to stop it) down to the flame; would render as a pixelated smear in any EmptyState | **fixed** — re-fetched the 1024² source and reprocessed without the over-trim; hardened `fetch-art.mjs` with an over-trim guard so a full-bleed dark piece can't regress |
+| D6-03 | Sanctum · Today | polish | Zero counts in "Awaiting you" rendered as an ambiguous `()` — the display serif's oldstyle `0` at `text-dim/40` loses its thin curves; read as broken | **fixed** — zero → em-dash "none" at `text-dim/50`; non-zero stays gold serif |
+| D6-04 | Sign-in + Threshold (Gate) | polish | Both text-only on a plain glow though `gate.jpg` (parted velvet curtains, gold light) is committed and assigned to exactly these surfaces in D1 | **fixed** — added the dimmed `gate.jpg` backdrop under a legibility scrim; both are now image-led, text stays crisp |
+| D6-05 | Player chrome (MiniBar · QueueSheet · Fullscreen) | polish | The queue holds a *pre-resolved* cover URL (signed, ~6h TTL for custom art); a stale token past its TTL would render a broken `<img>` — no fallback | **fixed** — added a shared `fallbackToDefaultCover` onError (idempotent) on all 4 player cover imgs → default sigil |
+| D6-06 | File / Tasks / Asks / Messages | note | Empty lower area on sparse seed (afterThis/related/thread sections render only when populated — confirmed on the premiere file page, which shows a full "Where I take you next" rail) | **left** — data-sparsity, not a layout defect; no product change in scope |
+| D6-07 | You · sub-cards | note | Discretion / Chain / Vault / petition still use uniform bordered card grammar rather than "separated by light" | **left** — D5 explicitly scoped the SecretModeCard/TriggerVault/PetitionForm rebuilds out; the ceremonial collar plate + hairline stat band already break the rhythm |
+| D6-08 | Messages (empty) | note | Composer floats mid-viewport in the empty state | **left** — minor; fills upward with real messages, touching the thread layout was higher-risk than the payoff |
+| D6-09 | All pages | note | `/favicon.ico` 404 in console (no app icon) — pre-existing **G01** | **left** — missing static asset, outside the visual/CSS/layout fix scope |
+
+### Functional spot-checks (all pass)
+
+- **Play from grid → open file page while playing → art breathes:** confirmed —
+  the file hero's `.breathes` layer computes `animation-name: breathe-glow` only
+  while *that* track is the current one (read live from the store).
+- **Queue sheet:** opens from the mini-bar; now-playing row pinned + gold, "Next
+  from: Locked By Akasha" remainder, real resolved cover thumbnails.
+- **Filter toggle + search:** `?tags=` toggling lights the chip gold and narrows
+  the grid; searching "clicker" returns the transcript match tagged *"She speaks
+  it in this one."* — the match is surfaced **without** exposing the transcript.
+- **Reduced motion:** home + library render fully at rest — no element held
+  hidden by an entrance; cover/scroll/view transitions stilled.
+
+### Queue-art persistence (technical concern)
+
+The player store (`src/lib/player/store.ts`) is a plain `zustand` `create()` with
+**no persist middleware** — the queue lives in memory only. On a full page reload
+`current`/queues reset to empty, so a **stale signed URL cannot survive a
+reload**. The only real exposure is a single long-lived session (> the ~6h
+artwork TTL) where the in-memory queue still points at an expired custom-art
+token; bespoke default covers are static `/art/covers/*.jpg` and never expire.
+Added a presentation-only `onError` → default cover on every player cover img as
+the graceful net (D6-05). No store/state change.
+
+### Gate
+
+`pnpm typecheck` · `pnpm lint` (0 warnings) · `pnpm test` (**291 passed**) ·
+`pnpm build` (✓ compiled, 39/39 pages) — all green.

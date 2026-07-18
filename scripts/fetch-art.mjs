@@ -65,13 +65,23 @@ for (const item of manifest.items) {
   const buf = Buffer.from(await res.arrayBuffer());
   await mkdir(path.dirname(outPath), { recursive: true });
   if (sharp) {
-    // The generator matted every piece in a white gallery border — trim it,
+    // The generator matted most pieces in a white gallery border — trim it,
     // then covers/empty get an exact square center-crop, wide art keeps ratio.
     const square = /\/covers\/|\/empty\.jpg$/.test(item.out);
-    let img = sharp(await sharp(buf).trim({ threshold: 25 }).toBuffer());
+    const orig = await sharp(buf).metadata();
+    const trimmed = await sharp(buf).trim({ threshold: 25 }).toBuffer();
+    const tmeta = await sharp(trimmed).metadata();
+    // Guard: a full-bleed dark piece with NO white matte (e.g. empty.jpg — "one
+    // distant candle in vast darkness") has no border to remove; trim() would
+    // read the near-black corner as the background and eat the whole darkness
+    // down to a sliver around the flame. If trimming removed >55% of either
+    // side it wasn't matte — keep the original, un-inset.
+    const overTrimmed =
+      tmeta.width < orig.width * 0.45 || tmeta.height < orig.height * 0.45;
+    let img = sharp(overTrimmed ? buf : trimmed);
     // Shave a few px more in case the trim left a sliver of matte.
-    const meta = await img.metadata();
-    const inset = 4;
+    const meta = overTrimmed ? orig : tmeta;
+    const inset = overTrimmed ? 0 : 4;
     img = sharp(
       await img
         .extract({

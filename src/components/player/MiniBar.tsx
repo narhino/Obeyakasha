@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/lib/player/store";
+import { fallbackToDefaultCover } from "@/lib/art/defaults";
 import { formatDuration } from "@/lib/format/duration";
 import { copy } from "@/copy/copy";
 import { IconPause, IconPlay, IconQueue, IconSeal } from "@/components/ui/icons";
@@ -84,7 +85,12 @@ function ArtTile({ src, playing }: { src: string | null; playing: boolean }) {
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        <img
+          src={src}
+          alt=""
+          onError={fallbackToDefaultCover}
+          className="h-full w-full object-cover"
+        />
       ) : (
         <IconSeal size={20} className={playing ? "breathe" : undefined} />
       )}

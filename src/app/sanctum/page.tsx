@@ -164,10 +164,13 @@ export default async function SanctumToday() {
               >
                 <span
                   className={`nums-lining w-8 shrink-0 text-right font-[family-name:var(--font-display)] text-xl ${
-                    a.value > 0 ? "text-gold" : "text-text-dim/40"
+                    a.value > 0 ? "text-gold" : "text-text-dim/50"
                   }`}
                 >
-                  {a.value}
+                  {/* A zero in the display serif's oldstyle figures reads as an
+                      ambiguous "()" at this dim size — an em-dash says "none"
+                      cleanly and stays recessive. */}
+                  {a.value > 0 ? a.value : "—"}
                 </span>
                 <span
                   className={`flex-1 text-sm ${

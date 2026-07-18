@@ -223,7 +223,7 @@ function FilesSegment({
       <form
         method="get"
         action="/library"
-        className="mb-4 flex max-w-2xl flex-wrap items-center gap-2"
+        className="mb-4 flex flex-wrap items-center gap-2"
       >
         <input type="hidden" name="segment" value="files" />
         {activeTags.map((id) => (
@@ -250,14 +250,13 @@ function FilesSegment({
       </form>
 
       {tagGroups.length > 0 ? (
-        <div className="mb-6 space-y-3">
+        <div className="mb-6 flex flex-wrap items-baseline gap-x-6 gap-y-3">
           {tagGroups.map((group) => (
-            <div key={group.kind}>
-              <p className="label-caps mb-1.5 text-text-dim/70">
+            <div key={group.kind} className="flex flex-wrap items-center gap-2">
+              <p className="label-caps text-text-dim/70">
                 {KIND_LABELS[group.kind] ?? group.kind}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {group.tags.map((tag) => {
+              {group.tags.map((tag) => {
                   const on = activeTags.includes(tag.id);
                   const nextTags = on
                     ? activeTags.filter((x) => x !== tag.id)
@@ -276,7 +275,6 @@ function FilesSegment({
                     </Link>
                   );
                 })}
-              </div>
             </div>
           ))}
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePlayer, type EndMode } from "@/lib/player/store";
+import { fallbackToDefaultCover } from "@/lib/art/defaults";
 import { beacon } from "@/lib/player/telemetry";
 import { copy } from "@/copy/copy";
 import {
@@ -115,6 +116,7 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
           <img
             src={cover}
             alt=""
+            onError={fallbackToDefaultCover}
             className="h-full w-full object-cover"
             style={{
               filter: "blur(64px) brightness(0.42) saturate(1.15)",
@@ -182,7 +184,12 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
           <div className="aspect-square">
             {cover ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cover} alt="" className="h-full w-full object-cover" />
+              <img
+                src={cover}
+                alt=""
+                onError={fallbackToDefaultCover}
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-accent-soft/40 text-gold/80">
                 <IconSeal size={44} />

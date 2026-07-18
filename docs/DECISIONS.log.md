@@ -768,3 +768,39 @@ worker, push, or auth change; the player store and its 23 tests are untouched.
 Gate green: typecheck · lint · **291 tests** (216 + 75 new pure resolver tests) ·
 build (39/39 pages). Screenshots (desktop 1440×900 + mobile 390×844, signed-out
 + signed-in) committed to `docs/qa-shots/d5/`.
+
+## 2026-07-18 — Candlelit Atelier D6 (design audit + fix pass)
+
+Final audit of the D1–D5 elevation. 9 findings (`docs/QA-REAUDIT.md` §D6), 5
+fixed. Visual/CSS/layout/asset only — no schema, store, worker, auth, or copy
+change; the player store and its 23 tests are untouched. Notable decisions:
+
+- **`public/art/empty.jpg` was a broken 36×36 sliver — restored, not re-created.**
+  D1's "immutable art paths" held a corrupt file: `fetch-art.mjs` `trim()`s the
+  white gallery matte off each piece, but the empty-state art ("one distant
+  candle in vast darkness") has *no* matte, so trim read the near-black corner as
+  background and ate the whole frame down to the flame (44×57 → committed 36×36).
+  Re-fetched the same manifest source (1024²) and reprocessed *without* the
+  over-trim — the intended image, not a new generation. Also guarded the script:
+  if trim removes >55% of either side it's not a matte, keep the original.
+  Restoring the intended asset is faithful to D1, not a deviation from it.
+- **Library filter facets → one horizontal band.** The per-kind vertical stack +
+  a `max-w-2xl` search on a `max-w-5xl` page left ~65% of the catalog width dead
+  and misaligned with the grid. Facets are now inline kind-groups in a wrapping
+  flex band; search fills the container. Pure layout; wraps to 2 rows at 390w.
+- **Gate art wired to sign-in + threshold.** `gate.jpg` is committed and assigned
+  to "sign-in / Gate backdrop, empty-state hero moments" in the D1 table but the
+  auth surfaces (never part of the D5 five-surface rebuild) shipped text-only.
+  Added it as a dimmed backdrop under a legibility scrim — image-led per D1.
+- **Player cover imgs get an onError fallback (presentation-only).** The queue
+  carries a pre-resolved cover URL (D5) that, for custom art, is a signed ~6h
+  token. The store is not persisted (plain zustand), so a stale URL can't outlive
+  a reload — the only exposure is a session left open past the TTL. A shared,
+  idempotent `fallbackToDefaultCover` on the 4 player imgs swaps a broken cover
+  for the default sigil. No store/state change; the frozen player surface stands.
+- **Sanctum "Awaiting you" zero counts → em-dash.** The display serif's oldstyle
+  `0` at `text-dim/40` reads as an ambiguous `()`; a zero now shows "—" (none) at
+  `text-dim/50`, non-zero stays gold. A numeric empty-indicator, not prose.
+
+Gate green: typecheck · lint (0 warnings) · **291 tests** · build (39/39 pages).
+Curated screenshots replace `docs/qa-shots/d5/` with `docs/qa-shots/final/` (29).
