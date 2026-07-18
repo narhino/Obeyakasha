@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { resolveAccess } from "@/lib/entitlements/resolve";
@@ -7,9 +8,10 @@ import {
   whispersForSubject,
   type WhisperCard,
 } from "@/lib/feed/whispers";
+import { HERO_IMAGE } from "@/lib/art/defaults";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
 import { SubjectShell } from "@/components/nav/SubjectShell";
-import { Button, Display, Ornament, Voice } from "@/components/ui";
+import { Button, Display, Eyebrow, Voice } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 // Reads the session + DB per request; never prerender at build.
@@ -17,10 +19,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * Home = the Whispers feed (R1). The public front door.
- * - Logged-out: public-audience whispers only, pinned first, + Enter CTA, in
- *   the front-door shell (breathing hero, ornament, no app nav).
- * - Signed-in subject: their level-filtered feed inside the SAME subject shell
- *   as every tab (header + bottom nav + mini-player), Whispers tab active (F10).
+ * - Logged-out: a full-bleed cinematic hero (hero.jpg, gold scrim, the mark huge
+ *   in the display serif) over the public-audience feed + Enter CTA.
+ * - Signed-in subject: the SAME subject shell as every tab, opening on a slimmer
+ *   hero band, Whispers tab active (F10).
  * The feed is one-way — subjects never post.
  */
 export default async function Home() {
@@ -49,28 +51,43 @@ export default async function Home() {
   if (signedIn) {
     return (
       <SubjectShell>
-        <main className="mx-auto max-w-2xl px-4 pt-8">
-          <Display size="opener">{copy.whispers.title}</Display>
+        <main className="mx-auto max-w-2xl px-4 pt-6">
+          {/* Slim hero band — the same veiled presence, a quieter register. */}
+          <section className="relative -mx-4 h-40 overflow-hidden sm:h-48">
+            <Image
+              src={HERO_IMAGE}
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 640px) 100vw, 42rem"
+              className="object-cover object-[62%_30%] sm:object-[50%_28%]"
+            />
+            <div
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(to top, var(--color-bg), color-mix(in srgb, var(--color-bg) 30%, transparent) 45%, transparent 82%)",
+              }}
+            />
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-4">
+              <Eyebrow className="text-gold/80">{copy.brand.mark}</Eyebrow>
+              <Display size="opener" className="mt-1">
+                {copy.whispers.title}
+              </Display>
+            </div>
+          </section>
           <WhispersFeed items={items} signedIn />
         </main>
       </SubjectShell>
     );
   }
 
-  // ── Anonymous: the public front door (unchanged look) ──
+  // ── Anonymous: the public front door ──
   return (
-    <main className="relative mx-auto min-h-dvh max-w-2xl px-4 pb-20">
-      <div
-        aria-hidden
-        className="breathe pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem]"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 50% 0%, var(--color-accent-soft) 0%, transparent 72%)",
-        }}
-      />
-
-      <header className="sticky top-0 z-30 -mx-4 border-b border-line/70 bg-bg/85 px-4 py-3 backdrop-blur-md">
-        <div className="flex items-center justify-between gap-3">
+    <main className="relative min-h-dvh pb-24">
+      <header className="sticky top-0 z-30 border-b border-line/40 bg-bg/60 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
           <Link
             href="/"
             className="font-[family-name:var(--font-display)] text-xl tracking-[0.3em] text-gold"
@@ -93,12 +110,63 @@ export default async function Home() {
         </div>
       </header>
 
-      <section className="pt-8">
-        <Display size="opener">{copy.whispers.title}</Display>
-        <Ornament className="mt-4 w-40" />
-        <Voice className="mt-4 max-w-md leading-relaxed">
-          {copy.home.publicIntro}
-        </Voice>
+      {/* Full-bleed cinematic opener — hero.jpg under a header that floats over
+          its top edge, the mark set huge, her tagline beneath in-voice. Height
+          is inline (deterministic layout, independent of class generation). */}
+      <section
+        className="relative w-full overflow-hidden"
+        style={{ height: "80vh", minHeight: "30rem", marginTop: "-3.75rem" }}
+      >
+        <Image
+          src={HERO_IMAGE}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[64%_36%] sm:object-[50%_32%]"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, color-mix(in srgb, var(--color-bg) 50%, transparent), transparent 26%, transparent 40%, color-mix(in srgb, var(--color-bg) 82%, transparent) 84%, var(--color-bg))",
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(78% 52% at 50% 104%, color-mix(in srgb, var(--color-gold) 22%, transparent), transparent 62%)",
+          }}
+        />
+        <div className="enter absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-4 pb-10">
+          <Eyebrow className="text-gold/85">{copy.brand.mark}</Eyebrow>
+          <Display
+            as="h1"
+            className="mt-3 text-[clamp(2.75rem,13vw,5.75rem)] leading-[0.98] tracking-[0.16em]"
+          >
+            {copy.brand.name}
+          </Display>
+          <Voice className="mt-4 max-w-md leading-relaxed text-text/85">
+            {copy.brand.tagline}
+          </Voice>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-2xl px-4">
+        <div className="mt-10 flex items-end justify-between gap-4">
+          <Display size="section" as="h2">
+            {copy.whispers.title}
+          </Display>
+          <Link href="/signin">
+            <Button size="sm" variant="ghost">
+              {copy.auth.signInButton}
+            </Button>
+          </Link>
+        </div>
+        <Voice className="mt-3 max-w-md">{copy.home.publicIntro}</Voice>
         <WhispersFeed items={items} signedIn={false} />
       </section>
     </main>

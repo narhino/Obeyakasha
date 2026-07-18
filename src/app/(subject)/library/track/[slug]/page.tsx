@@ -7,7 +7,8 @@ import { getTrackFilePage, getTrackMetaBySlug } from "@/lib/library/queries";
 import { getRawSetting } from "@/lib/settings";
 import { isPremiereSealed } from "@/lib/premiere/logic";
 import { FilePlayAction } from "@/components/library/FilePlayAction";
-import { Badge, Display, Ornament } from "@/components/ui";
+import { FileArtwork } from "@/components/library/FileArtwork";
+import { Badge, Cover, Display } from "@/components/ui";
 import { IconSpark } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format/duration";
 import { formatDate, formatUntil } from "@/lib/format/when";
@@ -93,28 +94,29 @@ export default async function TrackFilePage({
         </div>
       ) : null}
 
-      {/* ── Hero: artwork + identity + primary action ── */}
-      <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-start">
-        <div className="w-full max-w-[220px] shrink-0">
-          <div className="aspect-square overflow-hidden rounded-[var(--radius-lg)] border border-line/80 bg-surface">
-            {page.artworkUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={page.artworkUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-accent-soft/30 px-8">
-                <Ornament className="w-full">{copy.brand.mark}</Ornament>
-              </div>
-            )}
+      {/* ── Hero: big breathing artwork + identity + primary action, over a warm
+          candlelight aura (shibby-style, D5). ── */}
+      <div className="relative mt-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-8 -top-12 -z-10 h-80"
+          style={{
+            background:
+              "radial-gradient(58% 100% at 22% 24%, color-mix(in srgb, var(--color-gold) 11%, transparent), transparent 72%)",
+          }}
+        />
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="w-full max-w-[280px] shrink-0 sm:w-64">
+            <FileArtwork
+              trackId={track.id}
+              cover={track.cover}
+              premiereSealed={premiereSealed}
+            />
           </div>
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <Display className="text-3xl">{track.title}</Display>
-          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tracking-[0.1em] text-text-dim">
+          <div className="min-w-0 flex-1">
+            <Display size="opener">{track.title}</Display>
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tracking-[0.1em] text-text-dim">
             {track.durationS != null ? (
               <span>{formatDuration(track.durationS)}</span>
             ) : null}
@@ -130,7 +132,7 @@ export default async function TrackFilePage({
                 id: track.id,
                 title: track.title,
                 durationS: track.durationS,
-                artworkKey: track.artworkKey,
+                artworkKey: track.cover,
               }}
               state={state}
               patreonPageUrl={patreonPageUrl}
@@ -153,6 +155,7 @@ export default async function TrackFilePage({
                 {copy.library.sealedAnon}
               </p>
             ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -245,21 +248,28 @@ export default async function TrackFilePage({
         </div>
       ) : null}
 
-      {/* ── "After this" rail ── */}
+      {/* ── "After this" rail — where she takes you next (cover cards, D5) ── */}
       {page.afterThis.length > 0 ? (
-        <div className="mt-10">
+        <div className="mt-12">
           <p className="label-caps mb-3 text-text-dim/70">
             {copy.library.filePage.afterThisTitle}
           </p>
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2">
             {page.afterThis.map((t) => (
               <Link
                 key={t.id}
                 href={`/library/track/${t.slug}`}
-                className="w-40 shrink-0 rounded-[var(--radius-lg)] border border-line bg-surface p-3 transition-colors duration-[var(--dur-med)] hover:border-gold/40"
+                className="group w-36 shrink-0 sm:w-40"
               >
-                <p className="truncate text-sm text-text">{t.title}</p>
-                <p className="mt-0.5 text-xs text-text-dim">
+                <Cover
+                  src={t.cover}
+                  dimmed={!t.unlocked}
+                  className="aspect-square"
+                />
+                <p className="mt-2 line-clamp-2 text-sm text-text transition-colors duration-[var(--dur-med)] group-hover:text-gold">
+                  {t.title}
+                </p>
+                <p className="text-xs text-text-dim">
                   {t.durationS != null ? formatDuration(t.durationS) : ""}
                   {!t.unlocked
                     ? `${t.durationS != null ? " · " : ""}${copy.library.filePage.railSealed}`

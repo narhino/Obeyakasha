@@ -4,9 +4,16 @@ import {
   listenSessions,
   programItems,
   programs,
+  tags,
+  trackTags,
   tracks,
 } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
+import { DEFAULT_COVER } from "@/lib/art/defaults";
+import {
+  resolveCollectionCover,
+  resolveTrackCover,
+} from "@/lib/art/resolve";
 import { computeGates, type Gating } from "./gating";
 
 export interface ProgramItemView {
@@ -19,6 +26,8 @@ export interface ProgramItemView {
   unlocked: boolean;
   unlocksAt: number | null;
   accessAllowed: boolean;
+  /** Resolved cover URL (D1) for the enqueue payload + row thumbnail. */
+  cover: string;
 }
 
 export interface ProgramView {
@@ -32,6 +41,8 @@ export interface ProgramView {
   accessAllowed: boolean;
   items: ProgramItemView[];
   completedCount: number;
+  /** Resolved collection cover URL (D1): custom upload (signed) → collection.jpg. */
+  cover: string;
 }
 
 /** Completed track ids for a user, mapped to their latest completion time. */
@@ -83,6 +94,7 @@ export async function listProgramsForSubject(
       title: tracks.title,
       durationS: tracks.durationS,
       minAccessLevel: tracks.minAccessLevel,
+      artworkKey: tracks.artworkKey,
     })
     .from(programItems)
     .innerJoin(tracks, eq(tracks.id, programItems.trackId))
@@ -93,10 +105,40 @@ export async function listProgramsForSubject(
       ),
     );
 
-  const completions = await completionsByTrack(
-    userId,
-    items.map((i) => i.trackId),
+  const itemTrackIds = items.map((i) => i.trackId);
+  const [completions, itemTagRows, programCovers] = await Promise.all([
+    completionsByTrack(userId, itemTrackIds),
+    itemTrackIds.length > 0
+      ? db
+          .select({ trackId: trackTags.trackId, value: tags.value })
+          .from(trackTags)
+          .innerJoin(tags, eq(tags.id, trackTags.tagId))
+          .where(inArray(trackTags.trackId, itemTrackIds))
+      : Promise.resolve([] as { trackId: string; value: string }[]),
+    Promise.all(progs.map((p) => resolveCollectionCover(p.artworkKey))),
+  ]);
+
+  const tagValuesByTrack = new Map<string, string[]>();
+  for (const t of itemTagRows) {
+    const list = tagValuesByTrack.get(t.trackId) ?? [];
+    list.push(t.value);
+    tagValuesByTrack.set(t.trackId, list);
+  }
+  const itemCoverByTrack = new Map<string, string>();
+  await Promise.all(
+    items.map(async (i) => {
+      if (itemCoverByTrack.has(i.trackId)) return;
+      itemCoverByTrack.set(
+        i.trackId,
+        await resolveTrackCover(
+          i.artworkKey,
+          tagValuesByTrack.get(i.trackId) ?? [],
+        ),
+      );
+    }),
   );
+  const coverByProgram = new Map<string, string>();
+  progs.forEach((p, i) => coverByProgram.set(p.id, programCovers[i] ?? DEFAULT_COVER));
 
   return progs.map((p) => {
     const own = items
@@ -126,6 +168,7 @@ export async function listProgramsForSubject(
         unlocked: gate.unlocked && accessAllowed,
         unlocksAt: gate.unlocksAt ?? null,
         accessAllowed,
+        cover: itemCoverByTrack.get(i.trackId) ?? DEFAULT_COVER,
       };
     });
 
@@ -140,6 +183,7 @@ export async function listProgramsForSubject(
       accessAllowed: canAccess(accessLevel, p.minAccessLevel),
       items: itemViews,
       completedCount: itemViews.filter((i) => i.completed).length,
+      cover: coverByProgram.get(p.id) ?? DEFAULT_COVER,
     };
   });
 }

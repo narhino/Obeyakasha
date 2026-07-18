@@ -11,6 +11,7 @@ import {
   IconPlay,
   IconPrev,
   IconQueue,
+  IconSeal,
   IconSkipBack15,
   IconSkipForward15,
 } from "@/components/ui/icons";
@@ -84,6 +85,9 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
   if (!current || !fullscreen) return null;
 
   const dur = durationS > 0 ? durationS : (current.durationS ?? 0);
+  // The enqueue payload carries a resolved, renderable cover (D1) — never a raw
+  // key — so the player can put it centre-stage and behind as room light.
+  const cover = current.artworkKey;
 
   function ground() {
     const s = usePlayer.getState();
@@ -103,14 +107,38 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg">
-      <div className="absolute inset-0 -z-10">
-        <Spiral speed={speed} intensity={0.6} variant={variant} />
-        {/* vignette keeps edges dark so type stays legible over the spiral */}
+      {/* Room light: the SAME cover, blurred + dimmed, filling the space behind
+          everything (a cheap CSS filter — no canvas). */}
+      <div aria-hidden className="absolute inset-0 -z-20 overflow-hidden">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cover}
+            alt=""
+            className="h-full w-full object-cover"
+            style={{
+              filter: "blur(64px) brightness(0.42) saturate(1.15)",
+              transform: "scale(1.25)",
+            }}
+          />
+        ) : null}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(75% 65% at 50% 45%, transparent 40%, rgba(11,8,18,0.82) 100%)",
+              "radial-gradient(75% 60% at 50% 42%, transparent 22%, color-mix(in srgb, var(--color-bg) 82%, transparent) 100%)",
+          }}
+        />
+      </div>
+      {/* The spiral, kept — variant + pace still drive it — ambient behind the
+          breathing cover medallion. */}
+      <div className="absolute inset-0 -z-10">
+        <Spiral speed={speed} intensity={0.6} variant={variant} />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(72% 62% at 50% 45%, transparent 42%, color-mix(in srgb, var(--color-bg) 80%, transparent) 100%)",
           }}
         />
       </div>
@@ -149,8 +177,27 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        {/* Cover centre-stage, breathing the D2 gold light (its signature home). */}
+        <div className="breathes relative mb-8 w-56 max-w-[60vw] overflow-hidden rounded-[var(--radius-lg)] border border-gold/25 sm:w-64">
+          <div className="aspect-square">
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={cover} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-accent-soft/40 text-gold/80">
+                <IconSeal size={44} />
+              </div>
+            )}
+          </div>
+        </div>
         <p className="label-caps mb-3 text-gold/80">{copy.player.queue.now}</p>
-        <h2 className="max-w-md font-[family-name:var(--font-display)] text-3xl leading-tight text-text [text-shadow:0_2px_24px_rgba(11,8,18,0.9)]">
+        <h2
+          className="max-w-md font-[family-name:var(--font-display)] text-[2rem] leading-tight text-text sm:text-4xl"
+          style={{
+            textShadow:
+              "0 2px 24px color-mix(in srgb, var(--color-bg) 90%, transparent)",
+          }}
+        >
           {current.title}
         </h2>
 
@@ -205,7 +252,7 @@ export function Fullscreen({ signedIn = true }: { signedIn?: boolean }) {
       </div>
 
       <div
-        className="space-y-4 border-t border-line/50 bg-surface/85 p-5 backdrop-blur-md"
+        className="glass elev-3 space-y-4 border-t border-line/60 p-5"
         style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
       >
         <div>

@@ -19,7 +19,9 @@ function toSurrender(t: LibraryTrack): SurrenderTrack {
     id: t.id,
     title: t.title,
     durationS: t.durationS,
-    artworkKey: t.artworkKey,
+    // The player chrome renders this as the cover thumbnail (D1/D5): a resolved,
+    // renderable URL (signed upload or bespoke default), never a raw key.
+    artworkKey: t.cover,
   };
 }
 

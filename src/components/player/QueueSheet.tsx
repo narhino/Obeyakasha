@@ -6,15 +6,27 @@ import { formatDuration } from "@/lib/format/duration";
 import { copy, fill } from "@/copy/copy";
 import { IconChevronDown, IconSeal } from "@/components/ui/icons";
 
-/** Sigil placeholder tile — queue rows carry only a raw art key we never sign
- *  client-side (privacy), so we render the mark instead of the artwork. */
-function ArtTile({ pulsing = false }: { pulsing?: boolean }) {
+/** Row artwork tile — the enqueue payload carries a resolved, renderable cover
+ *  URL (D1), never a raw key, so we show the real cover; the 888 sigil is the
+ *  fallback (breathing while now-playing, steady under reduced-motion). */
+function ArtTile({
+  src = null,
+  pulsing = false,
+}: {
+  src?: string | null;
+  pulsing?: boolean;
+}) {
   return (
     <span
       aria-hidden
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] border border-line/70 bg-accent-soft/40 text-gold/80"
+      className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] border border-line/70 bg-accent-soft/40 text-gold/80"
     >
-      <IconSeal size={18} className={pulsing ? "breathe" : undefined} />
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <IconSeal size={18} className={pulsing ? "breathe" : undefined} />
+      )}
     </span>
   );
 }
@@ -41,7 +53,7 @@ function Row({
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
         aria-label={copy.player.queue.jump}
       >
-        <ArtTile />
+        <ArtTile src={track.artworkKey} />
         <span className="min-w-0">
           <span className="line-clamp-2 text-sm leading-snug text-text">{track.title}</span>
           {formatDuration(track.durationS) ? (
@@ -164,7 +176,7 @@ export function QueueSheet() {
             <div className="mb-4">
               <p className="label-caps mb-2 text-gold/80">{copy.player.queue.now}</p>
               <div className="flex items-center gap-3 rounded-[var(--radius)] border border-gold/20 bg-accent-soft/25 px-2 py-2">
-                <ArtTile pulsing={playing} />
+                <ArtTile src={current.artworkKey} pulsing={playing} />
                 <span className="min-w-0">
                   <span className="line-clamp-2 font-[family-name:var(--font-display)] text-[0.95rem] leading-snug text-text">
                     {current.title}

@@ -14,7 +14,8 @@ function toQueueTrack(t: LibraryTrack): QueueTrack {
     id: t.id,
     title: t.title,
     durationS: t.durationS,
-    artworkKey: t.artworkKey,
+    // Carries the resolved cover (D1) so the player chrome shows real art.
+    artworkKey: t.cover,
   };
 }
 

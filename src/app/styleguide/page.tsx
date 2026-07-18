@@ -6,7 +6,9 @@ import {
   Badge,
   Button,
   Card,
+  Cover,
   Display,
+  EmptyState,
   Eyebrow,
   Field,
   Input,
@@ -17,6 +19,12 @@ import {
   Voice,
   Whisper,
 } from "@/components/ui";
+import {
+  COLLECTION_COVER,
+  DEFAULT_COVER,
+  EMPTY_IMAGE,
+  defaultCoverFor,
+} from "@/lib/art/defaults";
 import { copy } from "@/copy/copy";
 import {
   IconCheck,
@@ -252,6 +260,105 @@ export default function StyleGuide() {
             vignette, painted once behind the whole app by &lt;PageGlow/&gt;.
           </Whisper>
         </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">Cover art — the resolver (D1) + frame (D5)</Label>
+        <Whisper className="mb-4 max-w-lg">
+          Every track shows real art: a custom upload (signed) or the bespoke
+          default for its tags. The frame lifts + its aura brightens on hover;
+          `breathing` lights the gold breath; `dimmed` veils a sealed track.
+        </Whisper>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="group">
+            <Cover src={defaultCoverFor(["chastity"])} className="aspect-square" />
+            <span className="mt-1.5 block text-[0.625rem] tracking-wide text-text-dim">
+              denial (theme)
+            </span>
+          </div>
+          <div className="group">
+            <Cover src={defaultCoverFor(["collar"])} className="aspect-square" />
+            <span className="mt-1.5 block text-[0.625rem] tracking-wide text-text-dim">
+              collar
+            </span>
+          </div>
+          <div className="group">
+            <Cover src={COLLECTION_COVER} className="aspect-square" />
+            <span className="mt-1.5 block text-[0.625rem] tracking-wide text-text-dim">
+              collection
+            </span>
+          </div>
+          <div className="group">
+            <Cover
+              src={DEFAULT_COVER}
+              dimmed
+              className="aspect-square"
+              overlay={
+                <span
+                  aria-hidden
+                  className="glow-gold absolute inset-0 m-auto flex h-11 w-11 items-center justify-center rounded-full border border-gold/40 bg-bg/60 text-gold/90 backdrop-blur-sm"
+                >
+                  <IconLock size={18} />
+                </span>
+              }
+            />
+            <span className="mt-1.5 block text-[0.625rem] tracking-wide text-text-dim">
+              sealed
+            </span>
+          </div>
+        </div>
+        <div className="mt-5 max-w-[8rem]">
+          <Cover
+            src={defaultCoverFor(["worship"])}
+            breathing
+            className="aspect-square"
+          />
+          <span className="mt-1.5 block text-[0.625rem] tracking-wide text-text-dim">
+            breathing (player)
+          </span>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">Motion (D4)</Label>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <Eyebrow>.enter-stagger</Eyebrow>
+            <Whisper className="mt-1 mb-3 max-w-xs">
+              One orchestrated page-load entrance — children fade up 10px, 50ms
+              apart. CSS-only, fires once, stilled under reduced-motion.
+            </Whisper>
+            <div className="enter-stagger flex gap-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <span
+                  key={i}
+                  className="h-10 w-10 rounded-[var(--radius)] border border-line bg-surface-raised"
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <Eyebrow>.glow-gold · button sheen</Eyebrow>
+            <Whisper className="mt-1 mb-3 max-w-xs">
+              A static warm halo for gold controls + art; a quick warm sheen
+              rises on any button hover (150ms).
+            </Whisper>
+            <div className="flex items-center gap-4">
+              <span
+                aria-hidden
+                className="glow-gold flex h-10 w-10 items-center justify-center rounded-full bg-gold text-bg"
+              >
+                <IconSeal size={18} />
+              </span>
+              <Button variant="gold">Hover me</Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">Empty state (D5)</Label>
+        <EmptyState image={EMPTY_IMAGE}>{copy.library.empty}</EmptyState>
       </section>
 
       <section className="mt-10">

@@ -106,7 +106,7 @@ export default async function MePage() {
   ];
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="enter-stagger mx-auto max-w-2xl px-4 py-8">
       {/* Identity */}
       <div className="flex items-center justify-between gap-3">
         <Display size="opener" className="min-w-0">
@@ -158,20 +158,20 @@ export default async function MePage() {
         sinceLabel={oath.oathAt ? formatDate(oath.oathAt) : null}
       />
 
-      {/* Stats — tasks obeyed + hours under + devotion pieces */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* Stats — separated by light (hairlines), the numbers at display scale */}
+      <div className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-lg)] border border-line/60 bg-line/50 sm:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.label}>
-            <Whisper className="text-xs">{s.label}</Whisper>
-            <p className="nums-lining mt-1 text-2xl font-[family-name:var(--font-display)]">
+          <div key={s.label} className="bg-bg px-4 py-6 text-center">
+            <p className="nums-lining font-[family-name:var(--font-display)] text-4xl leading-none text-text sm:text-5xl">
               {s.value}
               {s.unit ? (
-                <span className="ml-0.5 font-[family-name:var(--font-body)] text-sm text-text-dim">
+                <span className="ml-0.5 align-baseline font-[family-name:var(--font-body)] text-base text-text-dim">
                   {s.unit}
                 </span>
               ) : null}
             </p>
-          </Card>
+            <p className="label-caps mt-2.5">{s.label}</p>
+          </div>
         ))}
       </div>
 

@@ -72,16 +72,22 @@ function TitleLine({ text }: { text: string }) {
   );
 }
 
-/** Sigil artwork tile — queue/mini rows carry only a raw art key we never sign
- *  client-side (privacy, D7), so we render the 888 mark. It breathes while she
- *  plays (steady under reduced-motion via the global rule). */
-function ArtTile({ playing }: { playing: boolean }) {
+/** Artwork tile — the enqueue payload carries a resolved, renderable cover URL
+ *  (D1: signed upload or bespoke default), never a raw storage key, so we show
+ *  the real cover. Falls back to the 888 sigil (breathing while she plays,
+ *  steady under reduced-motion via the global rule) when a track has none. */
+function ArtTile({ src, playing }: { src: string | null; playing: boolean }) {
   return (
     <span
       aria-hidden
       className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius)] border border-line/70 bg-accent-soft/50 text-gold/85"
     >
-      <IconSeal size={20} className={playing ? "breathe" : undefined} />
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <IconSeal size={20} className={playing ? "breathe" : undefined} />
+      )}
     </span>
   );
 }
@@ -151,7 +157,7 @@ export function MiniBar() {
             aria-label={current.title}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
-            <ArtTile playing={playing} />
+            <ArtTile src={current.artworkKey} playing={playing} />
             <span className="min-w-0 flex-1">
               <TitleLine text={current.title} />
               <span className="mt-0.5 block truncate text-[0.6875rem] tracking-[0.08em] text-text-dim">

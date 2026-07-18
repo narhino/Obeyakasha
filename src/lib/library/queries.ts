@@ -17,7 +17,12 @@ import {
   userTriggers,
 } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
-import { mediaProvider } from "@/lib/media";
+import { COLLECTION_COVER, DEFAULT_COVER } from "@/lib/art/defaults";
+import {
+  resolveCollectionCover,
+  resolveTrackCover,
+  signArtwork,
+} from "@/lib/art/resolve";
 
 /** Track ids granted directly to a user (commission deliveries, gifts). */
 export async function grantedTrackIds(userId: string): Promise<Set<string>> {
@@ -35,6 +40,9 @@ export interface LibraryTrack {
   description: string | null;
   durationS: number | null;
   artworkKey: string | null;
+  /** Resolved, renderable cover URL (D1): custom upload (signed) → bespoke
+   *  default for the track's tags → default.jpg. Never a raw storage key. */
+  cover: string;
   minAccessLevel: number;
   downloadable: boolean;
   kind: string;
@@ -143,6 +151,16 @@ async function annotateTracks(
     requiredByTrack.set(r.trackId, list);
   }
 
+  // Resolve every card's display cover once (D1): custom upload signed, else the
+  // bespoke default for its tags. Batched — signing is a cheap HMAC, no N+1.
+  const coverByTrack = new Map<string, string>();
+  await Promise.all(
+    rows.map(async (r) => {
+      const values = (tagsByTrack.get(r.id) ?? []).map((t) => t.value);
+      coverByTrack.set(r.id, await resolveTrackCover(r.artworkKey, values));
+    }),
+  );
+
   return rows.map((r) => {
     const isGranted = granted.has(r.id);
     const required = requiredByTrack.get(r.id) ?? [];
@@ -154,6 +172,7 @@ async function annotateTracks(
       description: r.description,
       durationS: r.durationS,
       artworkKey: r.artworkKey,
+      cover: coverByTrack.get(r.id) ?? DEFAULT_COVER,
       minAccessLevel: r.minAccessLevel,
       downloadable: r.downloadable,
       kind: r.kind,
@@ -450,6 +469,8 @@ export interface SeriesCard {
   count: number;
   cadence: "ongoing" | "weekly" | "ended" | null;
   href: string;
+  /** Resolved cover URL (D1): custom upload (signed) → collection.jpg. */
+  cover: string;
 }
 
 async function countByProgram(ids: string[]): Promise<Map<string, number>> {
@@ -496,26 +517,30 @@ export async function listSeriesCards(): Promise<SeriesCard[]> {
       .orderBy(desc(playlists.createdAt)),
   ]);
 
-  const [progCounts, plCounts] = await Promise.all([
+  const [progCounts, plCounts, progCovers, plCovers] = await Promise.all([
     countByProgram(progs.map((p) => p.id)),
     countByPlaylist(pls.map((p) => p.id)),
+    Promise.all(progs.map((p) => resolveCollectionCover(p.artworkKey))),
+    Promise.all(pls.map((p) => resolveCollectionCover(p.artworkKey))),
   ]);
 
-  const trainingCards: SeriesCard[] = progs.map((p) => ({
+  const trainingCards: SeriesCard[] = progs.map((p, i) => ({
     kind: "training",
     id: p.id,
     title: p.title,
     count: progCounts.get(p.id) ?? 0,
     cadence: p.cadence,
     href: "/programs",
+    cover: progCovers[i] ?? COLLECTION_COVER,
   }));
-  const seriesCards: SeriesCard[] = pls.map((p) => ({
+  const seriesCards: SeriesCard[] = pls.map((p, i) => ({
     kind: "series",
     id: p.id,
     title: p.title,
     count: plCounts.get(p.id) ?? 0,
     cadence: p.cadence,
     href: `/library/series/${p.id}`,
+    cover: plCovers[i] ?? COLLECTION_COVER,
   }));
   return [...trainingCards, ...seriesCards];
 }
@@ -526,6 +551,8 @@ export interface SeriesPage {
   cadence: "ongoing" | "weekly" | "ended";
   /** Signed, short-lived cover URL (never a raw storage key); null if none. */
   artworkUrl: string | null;
+  /** Resolved cover URL (D1): custom upload (signed) → collection.jpg. */
+  cover: string;
   tracks: LibraryTrack[];
 }
 
@@ -565,11 +592,13 @@ export async function getSeriesPage(
     accessLevel: viewer.accessLevel,
     granted,
   });
+  const artworkUrl = await signArtworkUrl(pl.artworkKey);
   return {
     title: pl.title,
     description: pl.description,
     cadence: pl.cadence,
-    artworkUrl: await signArtworkUrl(pl.artworkKey),
+    artworkUrl,
+    cover: artworkUrl ?? COLLECTION_COVER,
     tracks: annotated,
   };
 }
@@ -615,6 +644,31 @@ export async function continueListening(
     )
     .orderBy(desc(resumePoints.updatedAt))
     .limit(limit);
+  if (rows.length === 0) return [];
+
+  // Tags for the resume set → real cover art on the larger continue shelf (D5).
+  const ids = rows.map((r) => r.track.id);
+  const tagRows = await db
+    .select({ trackId: trackTags.trackId, kind: tags.kind, value: tags.value })
+    .from(trackTags)
+    .innerJoin(tags, eq(tags.id, trackTags.tagId))
+    .where(inArray(trackTags.trackId, ids));
+  const tagsByTrack = new Map<string, { kind: string; value: string }[]>();
+  for (const t of tagRows) {
+    const list = tagsByTrack.get(t.trackId) ?? [];
+    list.push({ kind: t.kind, value: t.value });
+    tagsByTrack.set(t.trackId, list);
+  }
+  const coverByTrack = new Map<string, string>();
+  await Promise.all(
+    rows.map(async (r) => {
+      const values = (tagsByTrack.get(r.track.id) ?? []).map((t) => t.value);
+      coverByTrack.set(
+        r.track.id,
+        await resolveTrackCover(r.track.artworkKey, values),
+      );
+    }),
+  );
 
   return rows.map((r) => ({
     positionS: r.positionS,
@@ -625,6 +679,7 @@ export async function continueListening(
       description: r.track.description,
       durationS: r.track.durationS,
       artworkKey: r.track.artworkKey,
+      cover: coverByTrack.get(r.track.id) ?? DEFAULT_COVER,
       minAccessLevel: r.track.minAccessLevel,
       downloadable: r.track.downloadable,
       kind: r.track.kind,
@@ -633,7 +688,7 @@ export async function continueListening(
       unlocked: canAccess(accessLevel, r.track.minAccessLevel),
       madeForYou: false,
       prereqMissing: [],
-      tags: [],
+      tags: tagsByTrack.get(r.track.id) ?? [],
     },
   }));
 }
@@ -734,18 +789,12 @@ export interface TrackFilePage {
 }
 
 const TAG_KIND_ORDER = ["purpose", "theme", "format", "intensity", "custom"];
-const ARTWORK_TTL_S = 6 * 60 * 60;
 const RAIL_NEXT_LIMIT = 4;
 const RAIL_SHARED_LIMIT = 4;
 
-/** Sign the artwork key with the existing media pattern; never expose the key. */
+/** Sign the artwork key with the shared media pattern; never expose the key. */
 async function signArtworkUrl(artworkKey: string | null): Promise<string | null> {
-  if (!artworkKey) return null;
-  try {
-    return await mediaProvider().signStreamUrl(artworkKey, ARTWORK_TTL_S);
-  } catch {
-    return null;
-  }
+  return signArtwork(artworkKey);
 }
 
 /** Published title/description for generateMetadata — safe public fields only. */

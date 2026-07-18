@@ -685,3 +685,86 @@ work, applied surgically; D1 (art), D4 (motion), D5 (signature surfaces), D6
   on `Display`. All demonstrated on `/styleguide`. Gate green: typecheck · lint
   · 216 tests · build (39/39 pages). No schema, server-logic, player-store, or
   test-behaviour changes; no new dependencies.
+
+---
+
+## 2026-07-18 — Candlelit Atelier D4 (motion) + D5 (five image-led surfaces)
+
+Implements `docs/DESIGN-DIRECTION.md` §D1 resolver, §D4, §D5, and closes the
+D2/D3 deferrals. Art resolver + display-chain wiring, token-level motion, and a
+visual/structural rebuild of the five signature surfaces. No schema, migration,
+worker, push, or auth change; the player store and its 23 tests are untouched.
+
+- **Art resolver is pure + value-keyed.** `coverFamilyForTags(tags: string[])`
+  matches lowercased tag *values* against the §D1 family table and returns the
+  highest-priority family. "Theme outranks format/purpose" is enforced *by the
+  priority order itself* — the three format/purpose families (sleep · ritual ·
+  trance) sit last, so any theme family wins. This is the faithful reading of a
+  `string[]` signature (no tag `kind` is passed), and it is exhaustively unit
+  -tested (75 cases). Custom uploads are signed server-side via the existing
+  media pattern; components never see a raw key.
+- **`QueueTrack.artworkKey` now carries a resolved cover URL, not a storage key.**
+  The store is frozen (23 tests), and the field was already an opaque,
+  never-read passenger. Every enqueue site (library/series/continue/programs/
+  surrender/file play) now resolves the cover (signed upload → bespoke default →
+  default.jpg) *before* enqueuing, so MiniBar/QueueSheet/Fullscreen render real
+  art with no client-side signing and no store change. Chosen over widening the
+  store type (would touch the frozen surface). The old "we never sign client
+  -side" placeholders are replaced by this pre-resolved value.
+- **Feed art = her attached image, signed.** Whispers carry no track reference in
+  the schema, so "art thumbnails where a track/poll is attached" is satisfied by
+  signing the whisper's own `imageKey` into a short-lived `imageUrl` (new
+  `WhisperCard` field) and rendering it as the card's editorial art; polls stay
+  inline. Additive — no feed logic, audience, or copy changed.
+- **View Transitions = CSS `@view-transition { navigation: auto }` + a token
+  cross-fade, reduced-motion-gated.** Deliberately NOT a hand-rolled client
+  router patch: Next 15 does not drive the SPA transition API without fragile
+  history/pushState hooks that would risk the router. The CSS opt-in is
+  dependency-free, degrades to nothing where unsupported, and covers full
+  -document navigations today; client hops adopt it automatically once the
+  framework drives the same API. Deviation from a literal client-side SPA
+  cross-fade, logged here.
+- **Entrance fill mode is `backwards`, not `both`.** `.enter`/`.enter-stagger`
+  end at `translateY(0)`; with `both` fill that non-`none` transform lingers and
+  turns every entered element into a containing block for `position:fixed`
+  descendants — which would misplace the oath confirm dialog and any future
+  fixed overlay inside an animated list. `backwards` holds the from-state through
+  the stagger delay yet retains nothing after, so the rest state is the clean
+  base (no transform). No scroll-triggered re-animation anywhere.
+- **Hero height is an inline layout style.** A Tailwind incremental build dropped
+  the arbitrary `h-[82svh]`/`min-h-[…]`/`-mt-[…]` utilities on the one full-bleed
+  hero (verified via computed style: the classes were present but ungenerated).
+  Height/min-height/negative-margin are layout, not design tokens (the "tokens
+  only" rule governs colour/font/duration/shadow), so the hero sizes via
+  `style={{ height, minHeight, marginTop }}` — deterministic, independent of
+  class generation. A clean rebuild also restores generation for the rest.
+- **Fullscreen player reconciles "cover centre-stage" with the kept spiral.** The
+  spiral (variant + pace, untouched) becomes the ambient layer *behind* a
+  breathing cover medallion; the same cover, blurred + dimmed via a cheap CSS
+  filter, is the room light behind everything; the settings panel floats on
+  `.glass .elev-3`. Grounding and all store logic are unchanged.
+- **D2/D3 deferrals closed.** `.breathes` now lives on its three intended homes —
+  the fullscreen player artwork, the file-page artwork (only while THAT track is
+  the one playing, read from the store; presentation-only), and the premiere
+  seal — plus the collar plate from D2. The track/series **detail openers** are
+  raised to the huge opener scale (`Display size="opener"`), as the D2/D3 entry
+  said the D5 hero rebuild would do.
+- **You page separates by light where it counts.** The collar plate is
+  ceremonial (collar-cover backdrop + the gold breath when collared) and the
+  stat numbers are at display scale on a hairline-separated grid (light, not
+  boxes). The Chain/Discretion/Vault groupings keep their existing card
+  treatment — rebuilding those sub-components (SecretModeCard, TriggerVault,
+  PetitionForm) is out of D5's scope and risks their behaviour.
+- **New tokens + primitives, all on `/styleguide`.** Tokens: `--ease-out`,
+  `--dur-enter`, `--dur-fast`, `--stagger`. Utilities: `.enter`/`.enter-stagger`,
+  `.cover-frame`/`.cover-aura` (art hover), `.btn-sheen` (150ms warm sheen on
+  `Button`), `.glow-gold`. Primitives: `Cover`, `EmptyState`. All motion is
+  reduced-motion-gated (entrance animation + its delays removed, cover transition
+  and view-transition stilled). No dependencies added.
+- **Programs** is not one of the five surfaces, so it was not visually rebuilt;
+  its enqueue payload + item covers were wired to the resolver for consistency
+  (real art in the player chrome).
+
+Gate green: typecheck · lint · **291 tests** (216 + 75 new pure resolver tests) ·
+build (39/39 pages). Screenshots (desktop 1440×900 + mobile 390×844, signed-out
++ signed-in) committed to `docs/qa-shots/d5/`.

@@ -70,7 +70,7 @@ export function ProgramsClient({ programs }: { programs: ProgramView[] }) {
                           id: it.trackId,
                           title: it.title,
                           durationS: it.durationS,
-                          artworkKey: null,
+                          artworkKey: it.cover,
                         },
                       ],
                       0,

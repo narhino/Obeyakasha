@@ -44,8 +44,14 @@
 
   /* ── motion — slow, hypnotic, deliberate; never bouncy ── */
   --ease-trance: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* D4 — a soft settle for entrances + hovers (no overshoot; never springy). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-slow: 700ms;
   --dur-med: 400ms;
+  /* D4 — one orchestrated page-load entrance; a quick warm sheen on controls. */
+  --dur-enter: 300ms;
+  --dur-fast: 150ms;
+  --stagger: 50ms;
 
   /* ── D2 · light & depth ──
      A near-black room lit by one warm gold source. Three elevation tiers plus a
@@ -134,6 +140,12 @@ body {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ── a static warm halo for gold controls + artwork (token-based, not a flat
+ *    drop shadow). The moving cousin is `.breathes`. ── */
+.glow-gold {
+  box-shadow: 0 0 24px -4px color-mix(in srgb, var(--color-gold) 34%, transparent);
 }
 
 /* iOS PWA: paint under the notch/home bar */
@@ -255,13 +267,154 @@ body {
   animation: pulse-alert 1.6s var(--ease-trance) infinite;
 }
 
+/* ── D4 · the entrance — one orchestrated page-load reveal ──
+ * Content fades up a hair (10px) and settles. On a parent, `.enter-stagger`
+ * cascades its direct children 50ms apart so a grid or feed unfurls in order.
+ * CSS-only (no per-page JS), fires once on load, never on scroll. Inert under
+ * reduced-motion (guard below removes the animation AND its delays). */
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* `backwards` (not `both`): the from-state holds through the stagger delay, but
+ * nothing is retained after — so no lingering transform turns an entered element
+ * into a containing block for fixed overlays (e.g. the oath confirm dialog). */
+.enter {
+  animation: enter-rise var(--dur-enter) var(--ease-out) backwards;
+}
+.enter-stagger > * {
+  animation: enter-rise var(--dur-enter) var(--ease-out) backwards;
+}
+.enter-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.enter-stagger > *:nth-child(2) {
+  animation-delay: calc(var(--stagger) * 1);
+}
+.enter-stagger > *:nth-child(3) {
+  animation-delay: calc(var(--stagger) * 2);
+}
+.enter-stagger > *:nth-child(4) {
+  animation-delay: calc(var(--stagger) * 3);
+}
+.enter-stagger > *:nth-child(5) {
+  animation-delay: calc(var(--stagger) * 4);
+}
+.enter-stagger > *:nth-child(6) {
+  animation-delay: calc(var(--stagger) * 5);
+}
+.enter-stagger > *:nth-child(7) {
+  animation-delay: calc(var(--stagger) * 6);
+}
+.enter-stagger > *:nth-child(8) {
+  animation-delay: calc(var(--stagger) * 7);
+}
+.enter-stagger > *:nth-child(9) {
+  animation-delay: calc(var(--stagger) * 8);
+}
+.enter-stagger > *:nth-child(10) {
+  animation-delay: calc(var(--stagger) * 9);
+}
+.enter-stagger > *:nth-child(11) {
+  animation-delay: calc(var(--stagger) * 10);
+}
+/* Cap the cascade so long lists don't hold the tail invisible for too long. */
+.enter-stagger > *:nth-child(n + 12) {
+  animation-delay: calc(var(--stagger) * 11);
+}
+
+/* ── D4 · art hover — the cover lifts (scale 1.02) and its gold aura brightens
+ * on hover of the enclosing card (.group). Presentation only. ── */
+.cover-frame {
+  position: relative;
+  overflow: hidden;
+}
+.cover-frame img {
+  transition: transform var(--dur-med) var(--ease-out);
+  will-change: transform;
+}
+.group:hover .cover-frame img {
+  transform: scale(1.02);
+}
+.cover-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-med) var(--ease-out);
+  background: radial-gradient(
+    120% 82% at 50% 100%,
+    color-mix(in srgb, var(--color-gold) 16%, transparent),
+    transparent 68%
+  );
+}
+.group:hover .cover-aura {
+  opacity: 1;
+}
+
+/* ── D4 · button sheen — a quick warm gold wash rises across a control on hover
+ * (150ms), then rests. Layered under the label; never shifts the box. ── */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-gold) 22%, transparent),
+    transparent 70%
+  );
+}
+.btn-sheen:hover:not(:disabled)::after {
+  opacity: 1;
+}
+
+/* ── D4 · page transitions — a soft cross-fade between navigations, where the
+ * browser supports it (progressive enhancement; ignored otherwise, and stilled
+ * under reduced-motion below). Covers full-document navigations today; SPA hops
+ * adopt it automatically once the framework drives the same API. ── */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-med);
+  animation-timing-function: var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .breathe,
   .breathes,
   .turn-slow,
   .pulse-alert,
-  .marquee-move {
+  .marquee-move,
+  .enter,
+  .enter-stagger > * {
     animation: none;
+  }
+  /* Kill the cascade's hold-invisible delays so nothing lingers hidden. */
+  .enter-stagger > * {
+    animation-delay: 0ms;
+  }
+  .cover-frame img {
+    transition: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
   * {
     animation-duration: 0.001ms !important;

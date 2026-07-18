@@ -13,6 +13,7 @@ import {
   type TagGroup,
 } from "@/lib/library/queries";
 import { getRawSetting } from "@/lib/settings";
+import { EMPTY_IMAGE } from "@/lib/art/defaults";
 import { LibraryClient } from "@/components/library/LibraryClient";
 import { ContinueShelf } from "@/components/library/ContinueShelf";
 import { SurrenderBand } from "@/components/library/SurrenderBand";
@@ -20,7 +21,9 @@ import {
   Badge,
   Button,
   Card,
+  Cover,
   Display,
+  EmptyState,
   Input,
   Ornament,
   Voice,
@@ -289,17 +292,15 @@ function FilesSegment({
   );
 }
 
-/** One cover card for a training or a series. */
+/** One cover card for a training or a series (record-shop tile, D5). */
 function SeriesCardTile({ c }: { c: SeriesCard }) {
   return (
-    <Link
-      href={c.href}
-      className="flex flex-col rounded-[var(--radius-lg)] border border-line bg-surface p-4 transition-colors duration-[var(--dur-med)] hover:border-gold/40"
-    >
-      <p className="font-[family-name:var(--font-display)] text-lg leading-tight text-text">
+    <Link href={c.href} className="group flex flex-col">
+      <Cover src={c.cover} className="aspect-square" />
+      <p className="mt-2.5 line-clamp-2 font-[family-name:var(--font-display)] text-base leading-tight text-text transition-colors duration-[var(--dur-med)] group-hover:text-gold">
         {c.title}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
         {c.kind === "training" ? (
           <span className="rounded-[var(--radius-sm)] border border-accent/40 px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] text-text-dim">
             {copy.library.trainingChip}
@@ -333,17 +334,21 @@ function SeriesCardTile({ c }: { c: SeriesCard }) {
  */
 function SeriesGrid({ cards }: { cards: SeriesCard[] }) {
   if (cards.length === 0) {
-    return <p className="text-sm text-text-dim">{copy.library.seriesEmpty}</p>;
+    return (
+      <EmptyState image={EMPTY_IMAGE} className="mt-10">
+        {copy.library.seriesEmpty}
+      </EmptyState>
+    );
   }
   const trainings = cards.filter((c) => c.kind === "training");
   const series = cards.filter((c) => c.kind === "series");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-9">
       {trainings.length > 0 ? (
         <section>
           <p className="label-caps mb-3">{copy.library.groupTrainings}</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="enter-stagger grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
             {trainings.map((c) => (
               <SeriesCardTile key={`${c.kind}-${c.id}`} c={c} />
             ))}
@@ -353,7 +358,7 @@ function SeriesGrid({ cards }: { cards: SeriesCard[] }) {
       {series.length > 0 ? (
         <section>
           <p className="label-caps mb-3">{copy.library.groupSeries}</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="enter-stagger grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
             {series.map((c) => (
               <SeriesCardTile key={`${c.kind}-${c.id}`} c={c} />
             ))}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { pollVotes, polls, whisperReceipts, whispers } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 import { audienceMatches } from "@/lib/push/audience";
+import { signArtwork } from "@/lib/art/resolve";
 import { tallyVotes, type PollOption, type Tally } from "@/lib/polls/tally";
 
 /** A poll attached to a whisper, rendered + voted inline in the feed (R1). */
@@ -24,10 +25,28 @@ export interface WhisperCard {
   id: string;
   body: string | null;
   imageKey: string | null;
+  /** Signed, short-lived URL for her attached image (never a raw key); null if
+   *  none. Renders as the card's editorial art (D5). */
+  imageUrl: string | null;
   pinned: boolean;
   publishedAt: Date | null;
   knelt: boolean;
   poll: WhisperPollView | null;
+}
+
+/** Sign the attached images for a batch of whispers (cheap HMAC, no N+1). */
+async function imageUrlsFor(
+  rows: { id: string; imageKey: string | null }[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  await Promise.all(
+    rows.map(async (w) => {
+      if (!w.imageKey) return;
+      const url = await signArtwork(w.imageKey);
+      if (url) map.set(w.id, url);
+    }),
+  );
+  return map;
 }
 
 /**
@@ -129,12 +148,16 @@ export async function whispersForSubject(
   const pollIds = visible
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
-  const pollViews = await pollViewsFor(pollIds, userId);
+  const [pollViews, imageUrls] = await Promise.all([
+    pollViewsFor(pollIds, userId),
+    imageUrlsFor(visible),
+  ]);
 
   return visible.map((w) => ({
     id: w.id,
     body: w.body,
     imageKey: w.imageKey,
+    imageUrl: imageUrls.get(w.id) ?? null,
     pinned: w.pinned,
     publishedAt: w.publishedAt,
     knelt: kneltSet.has(w.id),
@@ -164,12 +187,16 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
   // No userId → no personal vote; results still gated by resultsShared.
-  const pollViews = await pollViewsFor(pollIds, null);
+  const [pollViews, imageUrls] = await Promise.all([
+    pollViewsFor(pollIds, null),
+    imageUrlsFor(visible),
+  ]);
 
   return visible.map((w) => ({
     id: w.id,
     body: w.body,
     imageKey: w.imageKey,
+    imageUrl: imageUrls.get(w.id) ?? null,
     pinned: w.pinned,
     publishedAt: w.publishedAt,
     knelt: false,

@@ -5,7 +5,7 @@ import { resolveAccess } from "@/lib/entitlements/resolve";
 import { getSeriesPage } from "@/lib/library/queries";
 import { getRawSetting } from "@/lib/settings";
 import { SeriesClient } from "@/components/library/SeriesClient";
-import { Display, Ornament, Whisper } from "@/components/ui";
+import { Cover, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 // Public per-viewer series page (R4). Reads session + DB per request.
@@ -49,41 +49,40 @@ export default async function SeriesPage({
         {copy.library.backToLibrary}
       </Link>
 
-      {/* ── Cover + identity ── */}
-      <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-start">
-        <div className="w-full max-w-[220px] shrink-0">
-          <div className="aspect-square overflow-hidden rounded-[var(--radius-lg)] border border-line/80 bg-surface">
-            {series.artworkUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={series.artworkUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-accent-soft/30 px-8">
-                <Ornament className="w-full">{copy.brand.mark}</Ornament>
-              </div>
-            )}
+      {/* ── Cover + identity, over a warm aura (D5) ── */}
+      <div className="relative mt-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-8 -top-12 -z-10 h-80"
+          style={{
+            background:
+              "radial-gradient(58% 100% at 22% 24%, color-mix(in srgb, var(--color-gold) 11%, transparent), transparent 72%)",
+          }}
+        />
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="w-full max-w-[280px] shrink-0 sm:w-64">
+            <Cover src={series.cover} className="aspect-square" />
           </div>
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <span
-            className={`inline-block rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] ${
-              series.cadence === "ended"
-                ? "border-line text-text-dim"
-                : series.cadence === "weekly"
-                  ? "border-gold/30 text-gold"
-                  : "border-accent/30 text-text-dim"
-            }`}
-          >
-            {copy.library.cadence[series.cadence]}
-          </span>
-          <Display className="mt-3 text-3xl">{series.title}</Display>
-          {series.description ? (
-            <Whisper className="mt-2 max-w-md">{series.description}</Whisper>
-          ) : null}
+          <div className="min-w-0 flex-1">
+            <span
+              className={`inline-block rounded-[var(--radius-sm)] border px-2 py-0.5 text-[0.625rem] uppercase tracking-[0.08em] ${
+                series.cadence === "ended"
+                  ? "border-line text-text-dim"
+                  : series.cadence === "weekly"
+                    ? "border-gold/30 text-gold"
+                    : "border-accent/30 text-text-dim"
+              }`}
+            >
+              {copy.library.cadence[series.cadence]}
+            </span>
+            <Display size="opener" className="mt-3">
+              {series.title}
+            </Display>
+            {series.description ? (
+              <Whisper className="mt-3 max-w-md">{series.description}</Whisper>
+            ) : null}
+          </div>
         </div>
       </div>
 

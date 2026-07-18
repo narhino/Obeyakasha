@@ -56,15 +56,18 @@ export function Button({
     <button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius)] tracking-[0.08em] uppercase transition-all duration-[var(--dur-med)] disabled:cursor-not-allowed ${
+      className={`btn-sheen inline-flex items-center justify-center rounded-[var(--radius)] tracking-[0.08em] uppercase transition-all duration-[var(--dur-med)] disabled:cursor-not-allowed ${
         disabledLook
           ? "border border-line bg-surface-raised text-text-dim/45"
           : variants[variant]
       } ${loading ? "opacity-90" : ""} ${sizes[size]} ${className}`}
       {...props}
     >
-      {loading ? <Spinner /> : null}
-      {children}
+      {/* Label sits above the D4 warm-sheen ::after. */}
+      <span className="relative z-[1] inline-flex items-center gap-2">
+        {loading ? <Spinner /> : null}
+        {children}
+      </span>
     </button>
   );
 }
@@ -96,6 +99,62 @@ export function PageGlow() {
   return <div aria-hidden className="page-glow" />;
 }
 
+const coverRadius: Record<"sm" | "lg" | "full", string> = {
+  sm: "rounded-[var(--radius)]",
+  lg: "rounded-[var(--radius-lg)]",
+  full: "rounded-full",
+};
+
+/**
+ * Cover art frame (D1/D5) — the record-shop tile. Renders a resolved, renderable
+ * cover URL (signed upload or bespoke default; never a raw key) inside a fixed
+ * aspect box, with a gold aura that brightens and a 1.02 lift on hover of the
+ * enclosing card (`.group`). `breathing` lights the D2 gold breath around it
+ * (reserved for player artwork, the collar, premiere seals). `dimmed` veils a
+ * sealed track under its seal. Size the frame via `className` (e.g. aspect-square).
+ */
+export function Cover({
+  src,
+  alt = "",
+  rounded = "lg",
+  breathing = false,
+  dimmed = false,
+  bordered = true,
+  overlay,
+  className = "",
+  imgClassName = "",
+}: {
+  src: string;
+  alt?: string;
+  rounded?: "sm" | "lg" | "full";
+  breathing?: boolean;
+  dimmed?: boolean;
+  bordered?: boolean;
+  overlay?: React.ReactNode;
+  className?: string;
+  imgClassName?: string;
+}) {
+  return (
+    <div
+      className={`cover-frame ${coverRadius[rounded]} ${
+        bordered ? "border border-line/70" : ""
+      } bg-surface ${breathing ? "breathes" : ""} ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        className={`h-full w-full object-cover transition-[opacity,filter] duration-[var(--dur-med)] ${
+          dimmed ? "opacity-35 saturate-50" : ""
+        } ${imgClassName}`}
+      />
+      <span aria-hidden className="cover-aura" />
+      {overlay}
+    </div>
+  );
+}
+
 // Fluid display sizes (D3) — huge, confident page openers; section heads a step
 // down. Omit `size` to keep a bespoke scale via className (unchanged default).
 const displaySizes: Record<"opener" | "section", string> = {
@@ -119,6 +178,44 @@ export function Display({
       } ${className}`}
       {...props}
     />
+  );
+}
+
+/**
+ * An empty state that invites rather than apologises (D5) — one of the bespoke
+ * hush images (empty.jpg / gate.jpg) above a single in-voice line and an optional
+ * action. Never a blank box.
+ */
+export function EmptyState({
+  image,
+  children,
+  action,
+  className = "",
+}: {
+  image: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col items-center text-center ${className}`}>
+      <div className="relative mb-6 aspect-[3/2] w-full max-w-xs overflow-hidden rounded-[var(--radius-lg)] border border-line/60">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image} alt="" className="h-full w-full object-cover" />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to top, var(--color-bg), transparent 68%)",
+          }}
+        />
+      </div>
+      <p className="max-w-sm font-[family-name:var(--font-display)] text-lg italic leading-relaxed text-text-dim">
+        {children}
+      </p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
   );
 }
 

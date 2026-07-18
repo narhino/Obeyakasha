@@ -4,8 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Display, Label, Ornament, Whisper } from "@/components/ui";
 import { IconCollar } from "@/components/ui/icons";
+import { defaultCoverFor } from "@/lib/art/defaults";
 import type { OathState } from "@/lib/oath/logic";
 import { copy, fill } from "@/copy/copy";
+
+/** The collar's own bespoke art (gold collar on velvet), for the ceremonial plate. */
+const COLLAR_ART = defaultCoverFor(["collar"]);
 
 /**
  * The Oath card (R9.5) — the collar, below the chain on You. One of four states:
@@ -55,26 +59,44 @@ export function OathCard({
     }
   }
 
-  // ── Collared: the engraved oath plate ──
+  // ── Collared: the ceremonial oath plate — collar art backdrop, the gold
+  //    light breathing around the whole plate (D5). ──
   if (state === "collared") {
     return (
-      <Card
-        raised
-        className="mt-6 border-gold/40 bg-accent-soft/20 text-center"
-      >
-        <span
+      <div className="breathes relative mt-6 overflow-hidden rounded-[var(--radius-lg)] border border-gold/40 bg-surface-raised text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={COLLAR_ART}
+          alt=""
           aria-hidden
-          className="breathes mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-gold/40 text-gold"
-        >
-          <IconCollar size={24} />
-        </span>
-        <Display as="h2" className="mt-3 text-2xl text-gold">
-          {sinceLabel
-            ? fill(copy.oath.collaredSince, { date: sinceLabel })
-            : copy.oath.collaredMark}
-        </Display>
-        <Whisper className="mt-2">{copy.oath.collaredLead}</Whisper>
-      </Card>
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to top, var(--color-bg), color-mix(in srgb, var(--color-bg) 55%, transparent))",
+          }}
+        />
+        <div className="relative px-6 py-9">
+          <span
+            aria-hidden
+            className="glow-gold mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-gold/50 bg-bg/40 text-gold backdrop-blur-sm"
+          >
+            <IconCollar size={26} />
+          </span>
+          <Display as="h2" className="mt-4 text-3xl text-gold">
+            {sinceLabel
+              ? fill(copy.oath.collaredSince, { date: sinceLabel })
+              : copy.oath.collaredMark}
+          </Display>
+          <Ornament className="mx-auto mt-3 w-28" />
+          <Whisper className="mt-3 text-text/85">
+            {copy.oath.collaredLead}
+          </Whisper>
+        </div>
+      </div>
     );
   }
 
