@@ -1,0 +1,23 @@
+{
+  "note": "D1 art library — generated 2026-07-18 via Higgsfield (nano_banana_pro, one style anchor). Run scripts/fetch-art.mjs on a machine with open egress to materialize public/art/**, then commit the images.",
+  "base": "https://d8j0ntlcm91z4.cloudfront.net/user_3A1o7TPfqchY9Vl3BxsES7YKNVl/",
+  "items": [
+    { "out": "public/art/covers/default.jpg",        "max": 1024, "file": "hf_20260718_134321_a7407de3-96c2-417b-a9d3-6686307d2c47.png" },
+    { "out": "public/art/covers/sleep.jpg",          "max": 1024, "file": "hf_20260718_134836_d8cb1c49-58b3-4397-a326-472b658ff2cc.png" },
+    { "out": "public/art/covers/trance.jpg",         "max": 1024, "file": "hf_20260718_134840_ecd2ccac-dc24-40fe-94b5-6036b13c2ff0.png" },
+    { "out": "public/art/covers/worship.jpg",        "max": 1024, "file": "hf_20260718_134844_813fce32-b952-406f-b4c2-1327bfc46405.png" },
+    { "out": "public/art/covers/obedience.jpg",      "max": 1024, "file": "hf_20260718_134847_5af001c3-0836-4e38-bdec-a6654ada803f.png" },
+    { "out": "public/art/covers/blank.jpg",          "max": 1024, "file": "hf_20260718_134904_bc151976-b12a-4d68-ae67-55ebdf44035a.png" },
+    { "out": "public/art/covers/denial.jpg",         "max": 1024, "file": "hf_20260718_134910_7d0478bc-f88c-4fff-bb1c-9ae2ed1fa0d3.png" },
+    { "out": "public/art/covers/addiction.jpg",      "max": 1024, "file": "hf_20260718_134914_b312e38b-1322-47ec-a997-8c3764a3b451.png" },
+    { "out": "public/art/covers/collar.jpg",         "max": 1024, "file": "hf_20260718_135034_19d2df53-c204-4ed9-90b7-e0d2d632cca7.png" },
+    { "out": "public/art/covers/transformation.jpg", "max": 1024, "file": "hf_20260718_135055_f9395ee5-50c4-44b8-94c3-9a382af03592.png" },
+    { "out": "public/art/covers/praise.jpg",         "max": 1024, "file": "hf_20260718_135059_95d028e0-8f64-4981-b957-c3f8b7812c81.png" },
+    { "out": "public/art/covers/tribute.jpg",        "max": 1024, "file": "hf_20260718_135103_c6c2019b-1dd5-4cec-8e0e-f7cb2f6ad8bc.png" },
+    { "out": "public/art/covers/ritual.jpg",         "max": 1024, "file": "hf_20260718_135124_5ce59aca-1fef-4eca-8041-25477a041eda.png" },
+    { "out": "public/art/covers/collection.jpg",     "max": 1024, "file": "hf_20260718_135147_c188fbe1-6640-404c-bf84-2ffe3aa46194.png" },
+    { "out": "public/art/empty.jpg",                 "max": 1024, "file": "hf_20260718_135151_ae7a576e-b35e-4016-8ca2-50b80eef8a71.png" },
+    { "out": "public/art/hero.jpg",                  "max": 2400, "file": "hf_20260718_135216_a519826f-049f-45f8-a581-c889ff55de06.png" },
+    { "out": "public/art/gate.jpg",                  "max": 1920, "file": "hf_20260718_135220_7cceb7fa-299f-4c2f-a96f-294c82ab7b57.png" }
+  ]
+}
