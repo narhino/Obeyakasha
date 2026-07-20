@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
@@ -151,8 +151,44 @@ export async function requestTranscription(formData: FormData) {
   if (!trackId) throw new Error("No track");
   await logAudit(session.user.id, "transcript.requested", { trackId });
   // The worker picks this up within ~3s and marks the transcript processing.
-  await enqueue("transcribe", { trackId }, { dedupeKey: `transcribe:${trackId}` });
+  await enqueue(
+    "transcribe",
+    { trackId },
+    { dedupeKey: `transcribe:${trackId}`, maxAttempts: 5 },
+  );
   revalidatePath("/sanctum/library");
+}
+
+/**
+ * Transcribe everything that still needs it in one click: every track that has
+ * audio but no finished transcript (never done, or previously failed). Enqueues
+ * one durable job each; the worker grinds through them ONE AT A TIME (transcribe
+ * concurrency is 1) so a big batch never overwhelms the CPU/memory — it just
+ * takes as long as it takes, retrying transient failures on its own. The dedupe
+ * key means already-queued tracks are not double-enqueued. Returns the count so
+ * the UI can say how many were set going.
+ */
+export async function transcribeAllPending(): Promise<{ queued: number }> {
+  const session = await requireGoddess();
+  const rows = await db
+    .select({ id: tracks.id, status: transcripts.status })
+    .from(tracks)
+    .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
+    .where(isNotNull(tracks.streamKey));
+  // Anything without a completed transcript: no row, or status not "done".
+  const pending = rows.filter((r) => r.status !== "done").map((r) => r.id);
+  for (const trackId of pending) {
+    await enqueue(
+      "transcribe",
+      { trackId },
+      { dedupeKey: `transcribe:${trackId}`, maxAttempts: 5 },
+    );
+  }
+  await logAudit(session.user.id, "transcript.requested_all", {
+    queued: pending.length,
+  });
+  revalidatePath("/sanctum/library");
+  return { queued: pending.length };
 }
 
 /** Save Akasha's edits to a transcript (fixing mishears). PLAN §8.2. */

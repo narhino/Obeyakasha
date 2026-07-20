@@ -9,6 +9,7 @@ import {
   requestTranscription,
   setFreeSample,
   setTrackVisibility,
+  transcribeAllPending,
   updateTrackMeta,
 } from "./actions";
 import { organizeTrackAction } from "../organize/actions";
@@ -74,6 +75,32 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
   const anyWorking = useMemo(() => tracks.some(isWorking), [tracks]);
   usePolling(() => void refetch(), uploadsActive || anyWorking ? 2500 : 15000);
 
+  // Tracks that have audio but no finished script yet — the "transcribe all"
+  // target. Excludes ones already in flight so the count reflects real work left.
+  const needScript = useMemo(
+    () =>
+      tracks.filter(
+        (t) =>
+          t.hasAudio &&
+          t.transcriptStatus !== "done" &&
+          !TRANSCRIPT_WORKING.has(t.transcriptStatus),
+      ).length,
+    [tracks],
+  );
+  const [allBusy, setAllBusy] = useState(false);
+
+  const onTranscribeAll = () => {
+    setAllBusy(true);
+    startTransition(async () => {
+      try {
+        await transcribeAllPending();
+        await refetch();
+      } finally {
+        setAllBusy(false);
+      }
+    });
+  };
+
   const patch = (id: string, next: Partial<LibraryRow>) =>
     setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, ...next } : t)));
 
@@ -124,6 +151,30 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
         <Whisper className="mb-3">Add to the library</Whisper>
         <UploadQueue onUploaded={() => void refetch()} onActiveChange={setUploadsActive} />
       </Card>
+
+      {/* One-tap: transcribe everything that still needs a script. The worker
+          grinds through them one at a time and retries transient failures. */}
+      {needScript > 0 ? (
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <Whisper className="text-sm">
+            {needScript} {needScript === 1 ? "track needs" : "tracks need"} a
+            script.{" "}
+            {anyWorking ? (
+              <span className="text-gold/80">Working through them…</span>
+            ) : (
+              "Set them all going at once — they run one by one."
+            )}
+          </Whisper>
+          <Button
+            size="sm"
+            variant="gold"
+            onClick={onTranscribeAll}
+            disabled={allBusy}
+          >
+            {allBusy ? "Setting them going…" : `Transcribe all (${needScript})`}
+          </Button>
+        </Card>
+      ) : null}
 
       <div className="mt-6 space-y-3">
         {tracks.length === 0 ? (
