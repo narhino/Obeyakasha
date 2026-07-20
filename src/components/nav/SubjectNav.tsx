@@ -9,6 +9,7 @@ import {
   IconSpeak,
   IconTask,
 } from "@/components/ui/icons";
+import { usePresence } from "@/components/presence/PresenceProvider";
 import { copy } from "@/copy/copy";
 
 /**
@@ -52,6 +53,8 @@ function AlertDot({ className = "" }: { className?: string }) {
 
 export function BottomNav({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
+  // F4: the Whispers tab glows emerald while she's on the app (owner's colour).
+  const { online } = usePresence();
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-bg/92 backdrop-blur-md md:hidden"
@@ -63,21 +66,27 @@ export function BottomNav({ pendingCount = 0 }: { pendingCount?: number }) {
           const active = isActive(pathname, t.href);
           const Icon = t.icon;
           const showAlert = "alert" in t && t.alert && pendingCount > 0;
+          const lit = t.href === "/" && online;
           return (
             <Link
               key={t.href}
               href={t.href}
               className={`flex flex-col items-center justify-center gap-0.5 transition-colors duration-[var(--dur-med)] ${
-                active ? "text-gold" : "text-text-dim/70 hover:text-text-dim"
+                lit
+                  ? "text-presence"
+                  : active
+                    ? "text-gold"
+                    : "text-text-dim/70 hover:text-text-dim"
               }`}
             >
-              <span className="relative">
+              <span className={`relative ${lit ? "presence-lit" : ""}`}>
                 <Icon size={21} />
                 {showAlert ? <AlertDot className="absolute -top-1 -right-2" /> : null}
               </span>
               <span className="text-[0.5625rem] tracking-[0.14em] uppercase">
                 {t.label}
               </span>
+              {lit ? <span className="sr-only">{copy.presence.band}</span> : null}
               {showAlert ? <span className="sr-only">{copy.nav.pending}</span> : null}
             </Link>
           );
@@ -89,20 +98,28 @@ export function BottomNav({ pendingCount = 0 }: { pendingCount?: number }) {
 
 export function DesktopNav({ pendingCount = 0 }: { pendingCount?: number }) {
   const pathname = usePathname();
+  // F4: the Whispers tab glows emerald while she's on the app (owner's colour).
+  const { online } = usePresence();
   return (
     <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
       {TABS.map((t) => {
         const active = isActive(pathname, t.href);
         const showAlert = "alert" in t && t.alert && pendingCount > 0;
+        const lit = t.href === "/" && online;
         return (
           <Link
             key={t.href}
             href={t.href}
             className={`relative text-[0.6875rem] tracking-[0.2em] uppercase transition-colors duration-[var(--dur-med)] ${
-              active ? "text-gold" : "text-text-dim hover:text-text"
+              lit
+                ? "presence-lit"
+                : active
+                  ? "text-gold"
+                  : "text-text-dim hover:text-text"
             }`}
           >
             {t.label}
+            {lit ? <span className="sr-only">{copy.presence.band}</span> : null}
             {showAlert ? (
               <>
                 <AlertDot className="absolute -top-0.5 -right-2.5" />

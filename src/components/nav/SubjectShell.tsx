@@ -4,12 +4,18 @@ import { auth } from "@/auth";
 import { hasCoreConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { getSetting } from "@/lib/settings";
 import { pendingTaskCount } from "@/lib/orders/ops";
 import { SubjectGate } from "@/components/gate/SubjectGate";
+import { Jail } from "@/components/gate/Jail";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
 import { OfflineSync } from "@/components/offline/OfflineSync";
 import { Moments } from "@/components/moments/Moments";
+import { PresenceProvider } from "@/components/presence/PresenceProvider";
+import { PresenceBand } from "@/components/presence/PresenceBand";
+import { PresenceOverlay } from "@/components/presence/PresenceOverlay";
+import { PresencePing } from "@/components/presence/PresencePing";
 import { BottomNav, DesktopNav } from "@/components/nav/SubjectNav";
 import { copy } from "@/copy/copy";
 
@@ -23,6 +29,12 @@ import { copy } from "@/copy/copy";
  * The audio engine (PlayerRoot) is intentionally NOT here — it is mounted once
  * in the root layout so playback survives crossing between `/` and the tabs
  * (the mini-player never restarts). This shell only reserves room for it.
+ *
+ * F4 presence + the threshold: `PresenceProvider` polls "is she here?" once for
+ * the whole shell (subjects only) and drives the band, the emerald Whispers nav
+ * glow, and the arrival overlay. `PresencePing` beats for every signed-in role,
+ * even behind the threshold takeover (`Jail`), which holds only mobile subjects
+ * until the app is installed and her voice is allowed through.
  */
 export async function SubjectShell({
   children,
@@ -33,43 +45,57 @@ export async function SubjectShell({
   // Defensive: callers only render this for signed-in users.
   if (!session?.user) return <>{children}</>;
 
-  const consented = await hasCoreConsent(session.user.id);
-  const [me] = await db
-    .select({ chosenName: users.chosenName })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .limit(1);
-  const intakeDone = Boolean(me?.chosenName);
-  // Drives the danger pulse on the Tasks tab; non-critical, so failures are 0.
-  const pendingCount = await pendingTaskCount(session.user.id).catch(() => 0);
+  const isSubject = session.user.role === "subject";
+  const [consented, meRow, pendingCount, jailEnabled] = await Promise.all([
+    hasCoreConsent(session.user.id),
+    db
+      .select({ chosenName: users.chosenName })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1),
+    // Drives the danger pulse on the Tasks tab; non-critical, so failures are 0.
+    pendingTaskCount(session.user.id).catch(() => 0),
+    getSetting("notification_jail_enabled"),
+  ]);
+  const intakeDone = Boolean(meRow[0]?.chosenName);
 
   return (
-    <SubjectGate alreadyConsented={consented}>
+    <SubjectGate alreadyConsented={consented} jailActive={jailEnabled}>
+      {/* Beats for every signed-in role, and keeps beating behind the takeover. */}
+      <PresencePing />
+      {/* The threshold — mobile subjects only; the goddess is never held. */}
+      {isSubject ? <Jail enabled={jailEnabled} /> : null}
       <IntakeGuard done={intakeDone}>
-        {/* bottom padding clears the tab bar + mini player on mobile */}
-        <div className="min-h-dvh pb-44 md:pb-28">
-          <header
-            className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 backdrop-blur-md"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
-          >
-            <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-              <Link
-                href="/library"
-                className="font-[family-name:var(--font-display)] text-xl tracking-[0.32em] text-gold"
-              >
-                {copy.brand.name}
-              </Link>
-              <div className="flex items-center gap-6">
-                <DesktopNav pendingCount={pendingCount} />
-                <InboxBell />
+        <PresenceProvider enabled={isSubject}>
+          {/* bottom padding clears the tab bar + mini player on mobile */}
+          <div className="min-h-dvh pb-44 md:pb-28">
+            <header
+              className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 backdrop-blur-md"
+              style={{ paddingTop: "env(safe-area-inset-top)" }}
+            >
+              <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
+                <Link
+                  href="/library"
+                  className="font-[family-name:var(--font-display)] text-xl tracking-[0.32em] text-gold"
+                >
+                  {copy.brand.name}
+                </Link>
+                <div className="flex items-center gap-6">
+                  <DesktopNav pendingCount={pendingCount} />
+                  <InboxBell />
+                </div>
               </div>
-            </div>
-          </header>
-          {children}
-          <OfflineSync />
-          <Moments />
-          <BottomNav pendingCount={pendingCount} />
-        </div>
+            </header>
+            {/* F4: the slim "She is here" band eases open under the header. */}
+            <PresenceBand />
+            {children}
+            <OfflineSync />
+            <Moments />
+            {/* F4: the arrival overlay floats near the top and fades. */}
+            <PresenceOverlay />
+            <BottomNav pendingCount={pendingCount} />
+          </div>
+        </PresenceProvider>
       </IntakeGuard>
     </SubjectGate>
   );

@@ -26,6 +26,11 @@
   --color-gold-deep: #a9853f;
   --color-danger: #b3402f;
 
+  /* ── F4 presence — "she is here". A deep, candlelit emerald (owner's choice):
+     a jewel-green that sits beside antique gold on near-black without fighting
+     it. Reserved for the one signal that she is on the app right now. ── */
+  --color-presence: #2fae86;
+
   /* ── trance visuals ── */
   --color-spiral-a: #8a2e4f;
   --color-spiral-b: #d4af6a;
@@ -146,6 +151,30 @@ body {
  *    drop shadow). The moving cousin is `.breathes`. ── */
 .glow-gold {
   box-shadow: 0 0 24px -4px color-mix(in srgb, var(--color-gold) 34%, transparent);
+}
+
+/* ── F4 presence glow — the emerald cousin of .glow-gold. A soft outer bloom for
+ *    the "she is here" band and the Whispers nav item while she is on the app. ── */
+.glow-presence {
+  box-shadow: 0 0 20px -3px color-mix(in srgb, var(--color-presence) 55%, transparent);
+}
+
+/* The Whispers tab (and the band's dot) while she's here: emerald ink lit by a
+ * slow breathing halo in the light itself, never a flat shadow. The green is the
+ * signal — noticeable because nothing else on the nav is green. Steadied under
+ * reduced-motion by the guard below (the emerald colour stays; the breath stops). */
+@keyframes presence-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-presence) 34%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--color-presence) 70%, transparent));
+  }
+}
+.presence-lit {
+  color: var(--color-presence);
+  animation: presence-breathe 4.5s var(--ease-trance) infinite;
 }
 
 /* iOS PWA: paint under the notch/home bar */
@@ -424,6 +453,7 @@ body {
   .turn-slow,
   .pulse-alert,
   .love-pulse,
+  .presence-lit,
   .marquee-move,
   .enter,
   .enter-stagger > * {

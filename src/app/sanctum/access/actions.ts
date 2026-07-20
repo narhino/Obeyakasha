@@ -57,6 +57,10 @@ export async function toggleSetting(formData: FormData) {
     "analysis_enabled",
     "welcome_dm_enabled",
     "subject_uploads_enabled",
+    // F4 presence + the threshold.
+    "presence_enabled",
+    "goddess_cloak",
+    "notification_jail_enabled",
   ] as const;
   if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
   const { getSetting, setSetting } = await import("@/lib/settings");

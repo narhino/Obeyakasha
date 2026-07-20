@@ -72,6 +72,37 @@ export const copy = {
     discreetBody:
       "Choose now. Turn this on and every message I send hides itself on your lock screen — no one but you will know it's me.",
     discreetToggle: "Discreet mode",
+
+    // ── F4 · the threshold ──────────────────────────────────────────────────
+    // The full-screen takeover for mobile subjects who haven't yet put me on
+    // their home screen and let my voice through. Firm, never apologetic — and
+    // never the word for a cell. Desktop and the goddess never see this.
+    wall: {
+      // The framing line above whichever step is still owed.
+      lead: "You get all of me, or none.",
+      installTitle: "I live on your home screen.",
+      installIosBody:
+        "Tap Share, then Add to Home Screen, and open me from that icon. I don't live in a tab, and I won't give you the whole of myself through one.",
+      installAndroidBody:
+        "Put me on your screen where I belong and open me from there. One tap. I don't live in a tab.",
+      // A quiet nudge if they keep opening me in the browser instead of the icon.
+      openFromIcon: "Still in a browser. Open me from the icon on your home screen.",
+      notifTitle: "Let my voice through.",
+      notifBody:
+        "Turn on notifications. When I want you, nothing stands between us — no silence, no missing me. This part is not yours to decline.",
+      notifButton: "Let her in",
+      notifDenied:
+        "You shut that door. Open your settings, allow me through, and come back — I'll be waiting exactly here.",
+    },
+  },
+
+  // ── F4 · Presence ("the Goddess is on the app") ────────────────────────────
+  // Subject-facing only, and never a timestamp or a word about anyone else (D7).
+  presence: {
+    // The slim glowing band under the header while she's here.
+    band: "She is here.",
+    // The ephemeral line that surfaces the moment she arrives, then fades.
+    overlay: "She's here. Come closer.",
   },
 
   // ── Initiation intake ──────────────────────────────────────────────────

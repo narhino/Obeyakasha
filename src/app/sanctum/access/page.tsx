@@ -33,6 +33,9 @@ export default async function AccessPage() {
     uploadsEnabled,
     uploadMaxMb,
     uploadMaxFiles,
+    presenceEnabled,
+    cloaked,
+    jailEnabled,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -54,6 +57,9 @@ export default async function AccessPage() {
     getSetting("subject_uploads_enabled"),
     getSetting("subject_upload_max_mb"),
     getSetting("subject_upload_max_files"),
+    getSetting("presence_enabled"),
+    getSetting("goddess_cloak"),
+    getSetting("notification_jail_enabled"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -199,6 +205,42 @@ export default async function AccessPage() {
         <Whisper className="mt-2 text-xs">
           Automations send reclaim nudges to inactive subjects and broken chains
           (respects quiet hours). Off by default.
+        </Whisper>
+      </Card>
+
+      {/* F4 — presence + the threshold */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">Presence &amp; the threshold</Whisper>
+        <div className="flex flex-wrap gap-3">
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="presence_enabled" />
+            <Button
+              type="submit"
+              size="sm"
+              variant={presenceEnabled ? "gold" : "ghost"}
+            >
+              Show I&apos;m here: {presenceEnabled ? "on" : "off"}
+            </Button>
+          </form>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="goddess_cloak" />
+            <Button type="submit" size="sm" variant={cloaked ? "gold" : "ghost"}>
+              Cloak: {cloaked ? "on" : "off"}
+            </Button>
+          </form>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="notification_jail_enabled" />
+            <Button type="submit" size="sm" variant={jailEnabled ? "gold" : "ghost"}>
+              Threshold: {jailEnabled ? "on" : "off"}
+            </Button>
+          </form>
+        </div>
+        <Whisper className="mt-2 text-xs">
+          <b>Show I&apos;m here</b> lights a quiet &ldquo;She is here&rdquo; band and
+          turns the Whispers tab emerald for subjects whenever you&apos;re on the
+          app. <b>Cloak</b> hides that from them while you still see who&apos;s in
+          the room. <b>Threshold</b> holds mobile subjects until they add the app
+          to their home screen and allow notifications (desktop is never held).
         </Whisper>
       </Card>
 

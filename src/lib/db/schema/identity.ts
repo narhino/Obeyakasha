@@ -19,7 +19,9 @@ import {
 } from "./enums";
 
 // ── Auth.js adapter tables (standard shape, users extended) ───────────────
-export const users = pgTable("users", {
+export const users = pgTable(
+  "users",
+  {
   id: uuid("id").defaultRandom().primaryKey(),
   // Auth.js standard columns
   name: text("name"),
@@ -46,6 +48,9 @@ export const users = pgTable("users", {
   oathPetitionedAt: timestamp("oath_petitioned_at", { withTimezone: true }),
   oathAt: timestamp("oath_at", { withTimezone: true }),
   status: userStatus("status").notNull().default("active"),
+  // F4 presence: refreshed by the /api/presence heartbeat (any signed-in role).
+  // Indexed — the Sanctum "In the room" view and the goddess-online check both
+  // filter users by a recent lastSeenAt.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -53,7 +58,9 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+  },
+  (t) => [index("users_last_seen_idx").on(t.lastSeenAt)],
+);
 
 export const accounts = pgTable(
   "accounts",

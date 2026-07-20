@@ -46,6 +46,15 @@ export const SETTINGS_DEFAULTS = {
   subject_uploads_enabled: true as boolean,
   subject_upload_max_mb: 100 as number,
   subject_upload_max_files: 20 as number,
+  // F4 presence: the master switch for "the Goddess is on the app" (when off,
+  // subjects never see her online); the cloak (she goes dark to subjects while
+  // still seeing the room herself).
+  presence_enabled: true as boolean,
+  goddess_cloak: false as boolean,
+  // F4 the threshold: mobile subjects must keep the app on their home screen and
+  // her voice (push) allowed through, or the app takes over until they do. Off
+  // lets mobile web through. Desktop and the goddess are never held.
+  notification_jail_enabled: true as boolean,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

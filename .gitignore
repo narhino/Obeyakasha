@@ -43,6 +43,7 @@ yarn-error.log*
 /tmp
 media-test/
 media-local/
+media-qa/
 
 # ts build info
 *.tsbuildinfo

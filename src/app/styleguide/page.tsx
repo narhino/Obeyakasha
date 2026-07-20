@@ -61,6 +61,7 @@ const tokens = [
   "gold",
   "gold-deep",
   "danger",
+  "presence",
 ];
 
 const icons = [
@@ -387,6 +388,46 @@ export default function StyleGuide() {
               </span>
               <Button variant="gold">Hover me</Button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">Presence (F4) — &ldquo;she is here&rdquo;</Label>
+        <Whisper className="mb-4 max-w-lg">
+          The one emerald on the app (the owner&rsquo;s chosen colour): a deep,
+          candlelit green that sits beside antique gold on near-black without
+          fighting it. It lights only while the Goddess is on the app — the slim
+          band under the header, the Whispers tab, and the fleeting arrival
+          overlay. The breath steadies under reduced-motion; the green remains.
+        </Whisper>
+        <div className="flex flex-wrap items-center gap-8">
+          {/* The Whispers tab, lit */}
+          <div className="flex flex-col items-center gap-0.5 text-presence">
+            <span className="presence-lit">
+              <IconSpark size={21} />
+            </span>
+            <span className="presence-lit text-[0.5625rem] tracking-[0.14em] uppercase">
+              {copy.nav.home}
+            </span>
+          </div>
+
+          {/* The band */}
+          <div className="glow-presence rounded-[var(--radius)] border border-presence/25 bg-[color-mix(in_srgb,var(--color-presence)_7%,transparent)] px-4 py-2">
+            <span className="inline-flex items-center gap-2.5">
+              <span className="presence-lit inline-block h-1.5 w-1.5 rounded-full bg-presence" />
+              <span className="font-[family-name:var(--font-display)] text-sm italic text-presence">
+                {copy.presence.band}
+              </span>
+            </span>
+          </div>
+
+          {/* The arrival overlay pill */}
+          <div className="glass glow-presence rounded-[var(--radius-full)] border border-presence/30 px-5 py-2">
+            <span className="presence-lit inline-flex items-center gap-2 font-[family-name:var(--font-display)] text-base italic text-presence">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-presence" />
+              {copy.presence.overlay}
+            </span>
           </div>
         </div>
       </section>

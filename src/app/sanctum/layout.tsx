@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { pendingPetitions } from "@/lib/oath/resolve";
 import { totalUnreadComments } from "@/lib/feed/comments";
+import { PresencePing } from "@/components/presence/PresencePing";
 import { SanctumNav, type NavCounts } from "./SanctumNav";
 
 // The rail carries live counts, so never serve a stale shell.
@@ -76,6 +77,9 @@ export default async function SanctumLayout({
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[230px_1fr]">
+      {/* F4: her heartbeat — this is what lights the "She is here" band for
+          subjects. Beats on load, on tab-focus, and every 60s while visible. */}
+      <PresencePing />
       <aside
         className="border-b border-line/70 bg-surface md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-b-0 md:border-r"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

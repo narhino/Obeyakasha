@@ -12,8 +12,12 @@ import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
 import { liveListeners } from "@/lib/listen/live";
 import { totalUnreadComments } from "@/lib/feed/comments";
 import { pendingPetitions } from "@/lib/oath/resolve";
+import { subjectsInRoom } from "@/lib/presence/room";
+import { getSetting } from "@/lib/settings";
 import { formatWhen } from "@/lib/format/when";
 import { LivePanel } from "./live/LivePanel";
+import { RoomPanel } from "./RoomPanel";
+import { toggleCloak } from "./actions";
 import { acceptOathAction, declineOathAction } from "./subjects/actions";
 
 // The live panel polls, so keep this surface dynamic (never statically cached).
@@ -24,9 +28,11 @@ async function count(where: Promise<{ n: number }[]>): Promise<number> {
 }
 
 export default async function SanctumToday() {
-  const [live, petitions] = await Promise.all([
+  const [live, petitions, room, cloaked] = await Promise.all([
     liveListeners(),
     pendingPetitions(),
+    subjectsInRoom().catch(() => []),
+    getSetting("goddess_cloak").catch(() => false),
   ]);
 
   // "Awaiting you" — the actionable backlog, each a count + one-line label + link.
@@ -84,6 +90,22 @@ export default async function SanctumToday() {
     <div>
       <Display size="opener">Today</Display>
       <Whisper className="mt-1">Everything that wants you.</Whisper>
+
+      {/* F4: who is on the app with her right now — a live count and the names she
+          gave them, with a prominent cloak toggle to go dark to them (she still
+          sees the room). A mirror toggle lives in Access; both are audited. */}
+      <div className="mt-8">
+        <RoomPanel
+          initial={room}
+          cloakSlot={
+            <form action={toggleCloak}>
+              <Button type="submit" size="sm" variant={cloaked ? "gold" : "ghost"}>
+                {cloaked ? "Cloaked — dark to them" : "Cloak — go dark"}
+              </Button>
+            </form>
+          }
+        />
+      </div>
 
       {/* R9.1: who is under right now — one-tap touch, fuller room one click away. */}
       <div className="mt-8">

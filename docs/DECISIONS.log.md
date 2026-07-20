@@ -968,3 +968,59 @@ push disguise, and F1 untouched.
   (B can't read A via feed/reader/count; anon sees only the love aggregate; owner
   sees own thread; goddess sees all, named), toggle idempotency, the cap, the 60s
   dedup, and the full reply flow (real thread message + linked + mirrored state).
+
+## 2026-07-20 — F4 build (presence + the install/notifications threshold)
+
+- **`lastSeenAt` already existed; F4 adds only the index.** The `users.last_seen_at`
+  column shipped in `0000_init` (M0 data model) but was unused and unindexed.
+  F4 wires it up and adds `users_last_seen_idx` — migration `0017_tearful_harpoon.sql`
+  is that one index and nothing else. `db:generate` drift check is clean.
+- **Presence thresholds (pure, in `src/lib/presence/core.ts`).** Online window
+  **2 min** (`PRESENCE_WINDOW_MS`); client polls **60s**; heartbeat server-throttle
+  **30s** (skip the write if the last stamp is that recent). A future stamp (clock
+  skew) reads as present, mirroring the live-room helper.
+- **The heartbeat is role-agnostic; her beats are the signal.** `POST /api/presence`
+  refreshes any signed-in caller's `lastSeenAt` — mounted in BOTH the subject shell
+  and the Sanctum layout. It is the goddess's beats (Sanctum) that light the band
+  for subjects; subjects' beats populate her "In the room". Beats on load, on
+  tab-show, and every 60s while visible (never hidden). Keeps beating behind the
+  takeover — `PresencePing` is mounted as a sibling of the Jail, above IntakeGuard.
+- **D7 on the wire.** `GET /api/presence/goddess` returns a **bare `{online}`** —
+  never a timestamp, never a count, never a word about another subject. The room
+  view (`/api/sanctum/presence/room`) is goddess-gated (middleware + `withGoddess`)
+  and never reachable by a subject.
+- **Green is the owner's explicit choice.** New token `--color-presence` (a deep
+  candlelit emerald `#2fae86`) + `.glow-presence` / `.presence-lit` (breathing halo,
+  steadied under reduced-motion). Reserved for the one "she is here" signal: the
+  band, the Whispers tab (mobile + desktop), the arrival overlay. On `/styleguide`.
+- **The threshold decision is pure + tested (`src/lib/gate/jail.ts`).** Inputs
+  `{isMobile, isStandalone, pushPermission, jailEnabled}` → `{jailed, step}`. Only
+  mobile subjects; not-standalone → `install`; standalone + push not granted (and
+  supported) → `notifications`; **push "unsupported" (old iOS <16.4) while installed
+  → NOT held (fail-open, documented)**. Desktop and the goddess are never held. The
+  matrix is the only new test file (per owner's minimize-testing directive).
+- **The Gate hands mobile install+notifications to the Jail (guarded).** `SubjectGate`
+  gains an optional `jailActive` prop (default false = unchanged). When the threshold
+  is on, the Gate stops at consent on **mobile** and the persistent, live `Jail`
+  takeover owns install + notifications; **desktop onboarding and the consent flow
+  are untouched**. This avoids a soft-then-hard double gate. The Jail **reuses** the
+  M2 push-subscribe flow (`subscribeToPush`/`registerDevice`) and disguise choice
+  verbatim — no subscription logic is reimplemented. Never says the word for a cell.
+- **Live release, no reload.** The Jail re-runs the pure decision on focus,
+  visibilitychange, and `(display-mode: standalone)` change, and after the push grant
+  — so it flips step→step and releases in place (iOS add-to-home-screen reopened from
+  the icon; a return from Settings with push allowed).
+- **Cloak sees the room.** `goddess_cloak` hides her from every subject's band while
+  she still sees "In the room" (the room query ignores the cloak). Toggled from Today
+  (dedicated `toggleCloak`) AND Access (shared `toggleSetting`) — both `logAudit`ed.
+  New settings: `presence_enabled` (master, default true), `goddess_cloak` (false),
+  `notification_jail_enabled` (true).
+- **Sanctum strings stay inline; subject strings are in copy.ts.** "In the room" is
+  admin-facing, so its labels are inline like the rest of the Sanctum. The two
+  subject-facing lines ("She is here." / the overlay) live in `copy.presence`, and
+  the threshold framing in `copy.gate.wall` (firm, never apologetic, never "jail").
+- **QA hook, gated to non-production.** The Jail honours `?qaJail=install|notifications|off`
+  ONLY when `NODE_ENV !== "production"` (dead-code-eliminated from prod builds), so
+  the takeover can be screenshotted without a real uninstalled phone. Shots (mobile,
+  her faked online via a direct `last_seen_at` write): `presence-band` (band + emerald
+  Whispers nav), `jail-install`, `jail-notifications` in `docs/qa-shots/final/`.

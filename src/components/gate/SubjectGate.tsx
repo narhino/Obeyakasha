@@ -38,9 +38,17 @@ interface Ctx {
 
 export function SubjectGate({
   alreadyConsented,
+  jailActive = false,
   children,
 }: {
   alreadyConsented: boolean;
+  /**
+   * F4: when the threshold ("notification jail") is on, its takeover owns the
+   * MOBILE install + notifications steps (hard, live, persistent). So the Gate
+   * hands those off on mobile and does consent only — leaving DESKTOP onboarding
+   * and the consent flow exactly as they were. Defaults false (old behaviour).
+   */
+  jailActive?: boolean;
   children: React.ReactNode;
 }) {
   const [ready, setReady] = useState(false);
@@ -105,8 +113,14 @@ export function SubjectGate({
 
   function advance(consentedNow: boolean, ctx: Ctx, granted: boolean) {
     if (!consentedNow) return setStep("age");
-    if (installNeeded(ctx)) return setStep("install");
-    if (pushNeeded(ctx, granted)) return setStep("notifications");
+    // On mobile with the threshold on, the Jail owns install + notifications;
+    // the Gate stops at consent and hands off. Desktop keeps both steps.
+    const mobileToJail =
+      jailActive && (ctx.platform === "ios" || ctx.platform === "android");
+    if (!mobileToJail) {
+      if (installNeeded(ctx)) return setStep("install");
+      if (pushNeeded(ctx, granted)) return setStep("notifications");
+    }
     setStep("done");
     setSatisfied(true);
   }
