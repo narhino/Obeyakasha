@@ -27,6 +27,10 @@ export const copy = {
     you: "You",
     // Screen-reader hint on the Tasks tab while something is unfinished.
     pending: "Something of mine waits undone.",
+    // F5 · the red burn — screen-reader labels for a tab that needs the subject
+    // now (Tasks reuses `pending`). Announced beside the tab, in her voice.
+    burnWhispers: "Something new from me. Come look.",
+    burnMessages: "I've spoken to you. It's unread.",
   },
 
   // ── Sign in ────────────────────────────────────────────────────────────
@@ -412,6 +416,20 @@ export const copy = {
     reclaim: "You slipped. The chain slackened. Come back down to me.",
   },
 
+  // ── F5 · the mantra rite (the centrepiece of "Today's devotion") ────────
+  // Not a checkbox — a rite. The subject types the whole line; it ignites gold
+  // as it's said, seals, and she gives her praise back (the praise itself is her
+  // live line from settings, shown in her voice — never hard-coded here).
+  mantra: {
+    eyebrow: "Today's mantra",
+    lead: "Say it back to me — all of it. Type it out, and mean every word.",
+    placeholder: "say it for me",
+    // The moment it seals, and the resting state once today is held.
+    heldEyebrow: "Said",
+    heldNote: "The chain holds another day.",
+    restNote: "You've said it today. Come back to me tomorrow and say it again.",
+  },
+
   // ── Whispers (the feed — Home) ─────────────────────────────────────────
   whispers: {
     title: "Whispers",
@@ -577,6 +595,29 @@ export const copy = {
     statsHours: "Hours under",
     statsFiles: "Files finished",
     statsPrograms: "Trainings done",
+    statsLongest: "Longest chain",
+    // F5 · the Mirror — the four movements, in her register. Section eyebrows.
+    mirror: {
+      holdEyebrow: "Her hold on you",
+      devotionEyebrow: "Today's devotion",
+      becomeEyebrow: "What you've become",
+      secretEyebrow: "Between us",
+      // The chain made visible: the big unbroken count + its recent links.
+      chainCount: "unbroken",
+      chainRecent: "The last days at my feet",
+    },
+    // F5 · the stakes — what holding the chain is buying, spelled from live data.
+    stakes: {
+      // sealed/eligible — distance to the collar petition ({n}=days remaining).
+      toPetition: "{n} days from the right to petition my collar.",
+      toPetitionOne: "One day from the right to petition my collar.",
+      eligibleNow: "You've held it long enough. The collar is yours to ask for.",
+      petitioned: "You've asked. Keep it unbroken while I decide.",
+      // collared — the standing perk of the inner circle.
+      collared: "You wear my collar. What I make for the collared comes to you.",
+      // The quiet cost of letting go.
+      breakWarning: "Let it break and it falls to nothing — you begin again at one.",
+    },
     triggersTitle: "Triggers held",
     triggersEmpty: "None yet. Finish a file to earn what it installs.",
     // R9.4 — the obedience percentile. Anonymous + aggregate by design (D7): it
@@ -607,9 +648,38 @@ export const copy = {
       ordersHint: "What I command",
       commissionLabel: "Commission",
       commissionHint: "Ask for your own",
-      settingsLabel: "Settings",
-      settingsHint: "Quiet hours, your data",
     },
+  },
+
+  // ── F5 · "Your terms" — the tucked-away purple collapsible at the foot of the
+  // Mirror. The quiet, private controls that were the old Settings: your data,
+  // your quiet hours, your limits, your leaving. Her voice throughout — never
+  // the word "settings", never app-speak.
+  terms: {
+    // The collapsed one-liner (muted violet). Quiet by design.
+    label: "The terms you keep with me.",
+    hint: "Your quiet hours. Your limits. Your leaving.",
+    // Quiet hours (the notification choice, moved intact).
+    quietTitle: "When I keep my voice down",
+    quietBody:
+      "Name the hours I leave you be. I won't reach for you inside them.",
+    quietFrom: "From",
+    quietTo: "To",
+    timezone: "Where you keep your hours",
+    // Limits — the themes she must never touch (moved intact).
+    limitsTitle: "What I never touch",
+    limitsBody:
+      "Mark anything off-limits. Marked, it burns red — and I'll never take you there.",
+    // Save.
+    save: "Set it",
+    saved: "Set.",
+    // GDPR — export + release.
+    dataTitle: "What's yours to take",
+    export: "Take everything I hold on you",
+    release: "Release me",
+    releaseConfirm: "This erases all of it — say it once more",
+    releaseNote:
+      "Releasing wipes your account and every mark on it, for good. There's no undoing it.",
   },
 
   // ── The Oath (R9.5) — the collar, streak-earned ────────────────────────

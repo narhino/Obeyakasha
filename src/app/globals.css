@@ -31,6 +31,23 @@
      it. Reserved for the one signal that she is on the app right now. ── */
   --color-presence: #2fae86;
 
+  /* ── F5 attention — the burn. A hot, impossible-to-ignore red, hotter and
+     brighter than the oxblood `--danger` so it reads as *alarm*, not decor.
+     Reserved for a nav tab that holds something needing the subject right now
+     (a whisper, a task owed, her unread word). On the Whispers tab it overrides
+     the emerald presence glow — red wins whenever something burns. ── */
+  --color-attention: #f5433a;
+
+  /* ── F5 "your terms" — a muted amethyst for the tucked-away purple collapsible
+     at the foot of the Mirror (GDPR + notification choices). A deep violet that
+     sits with the violet-black room without competing with gold; used nowhere
+     else, so the block reads as set apart and private. ── */
+  --color-terms: #9a6fd4;
+  --color-terms-deep: #46296e;
+  --terms-surface: color-mix(in srgb, var(--color-terms-deep) 30%, var(--color-surface));
+  --terms-line: color-mix(in srgb, var(--color-terms) 34%, var(--color-line));
+  --terms-glow: 0 0 22px -8px color-mix(in srgb, var(--color-terms) 45%, transparent);
+
   /* ── trance visuals ── */
   --color-spiral-a: #8a2e4f;
   --color-spiral-b: #d4af6a;
@@ -175,6 +192,26 @@ body {
 .presence-lit {
   color: var(--color-presence);
   animation: presence-breathe 4.5s var(--ease-trance) infinite;
+}
+
+/* ── F5 · the burn — the red attention glow. A nav tab that holds something
+ * needing the subject (a whisper, a task owed, her unread word) turns hot red
+ * and pulses a strong glow ring in the light itself. Faster and harder than the
+ * emerald breath: this is alarm, not ambience. On the Whispers tab it overrides
+ * the presence glow (red wins). Under reduced-motion the pulse stops but a solid
+ * red ring stays — the signal must never disappear (guard below). ── */
+@keyframes burn-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-attention) 55%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 11px color-mix(in srgb, var(--color-attention) 95%, transparent));
+  }
+}
+.burns {
+  color: var(--color-attention);
+  animation: burn-pulse 1.35s var(--ease-trance) infinite;
 }
 
 /* iOS PWA: paint under the notch/home bar */
@@ -465,6 +502,13 @@ body {
   }
   .cover-frame img {
     transition: none;
+  }
+  /* F5 · the burn keeps a solid red ring, but stops pulsing — the alarm must
+   * never vanish, only hold still. */
+  .burns {
+    animation: none;
+    color: var(--color-attention);
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-attention) 78%, transparent));
   }
   ::view-transition-group(*),
   ::view-transition-old(*),

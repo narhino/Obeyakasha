@@ -127,6 +127,13 @@
       "when": 1784551031904,
       "tag": "0017_tearful_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784553389649,
+      "tag": "0018_smiling_masque",
+      "breakpoints": true
     }
   ]
 }

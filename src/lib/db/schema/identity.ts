@@ -52,6 +52,12 @@ export const users = pgTable(
   // Indexed — the Sanctum "In the room" view and the goddess-online check both
   // filter users by a recent lastSeenAt.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // F5 the red attention system: stamped to "now" each time the subject opens
+  // the Whispers feed. The Whispers nav tab burns red when a whisper (or her
+  // reply to one of their comments) has landed since — no existing per-feed
+  // "seen" marker existed (receipts only record a kneel), so this is the cheap
+  // one. Cleared by visiting `/`.
+  lastSeenWhispersAt: timestamp("last_seen_whispers_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

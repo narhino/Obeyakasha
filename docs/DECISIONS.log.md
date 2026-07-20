@@ -1024,3 +1024,69 @@ push disguise, and F1 untouched.
   the takeover can be screenshotted without a real uninstalled phone. Shots (mobile,
   her faked online via a direct `last_seen_at` write): `presence-band` (band + emerald
   Whispers nav), `jail-install`, `jail-notifications` in `docs/qa-shots/final/`.
+
+## 2026-07-20 — F5: the Mirror (mantra rite · red attention · terms in purple)
+
+- **You → the Mirror, four movements + terms.** `/(subject)/me` rebuilt into
+  light-separated movements (DESIGN §D5), every prior capability kept: **Her hold
+  on you** (name/rank/percentile plate + the `OathCard` collar), **Today's
+  devotion** (the mantra rite + the chain made visible + the stakes), **What
+  you've become** (the display-scale stat band + the Vault), **Between us**
+  (Secret mode, its own clear block — never buried), and **Your terms** (the
+  purple collapsible) at the very bottom. Ask/petition + rooms kept between.
+- **The mantra is a rite, not a checkbox.** `MantraRite` shows the line as faint
+  ghost text in the display serif; each character said ignites gold across it
+  (pure `litLength`), and on exact completion (`mantraMatches` — case-insensitive,
+  whitespace collapsed, trailing punctuation forgiven; internal punctuation still
+  counts) the input seals and **her praise blooms in** in the Voice treatment.
+  The day's link registers through the **existing** keep — `POST /api/chain/mantra`
+  → `keepChain(userId,"mantra")`, once-per-day idempotent — no parallel streak.
+  Normalizer is a pure module (`src/lib/chain/mantra.ts`) with the one sanctioned
+  test (6 cases). Already-held-today rests sealed with her praise until midnight
+  (the chain's own tz convention).
+- **Settings keys `mantra_text` + `mantra_praise` supersede `chain_mantra`.** Same
+  default line; `mantra_praise` defaults "Good subject." Editable from a new Access
+  "Mantra & praise" card (zod-validated, `logAudit`, `setMantraAndPraise`); the
+  Mirror always reads the live values. `chain_mantra` retired (its only reader was
+  the old `MantraButton`, now replaced).
+- **The red attention system (`.burns` + `--color-attention`).** A hot red glow-
+  ring on any nav tab that holds something needing the subject: **Whispers** (a
+  whisper — or her reply to one of their comments — since last seen), **Tasks**
+  (the former lone danger dot, now unified into this one treatment via the same
+  `pendingCount`), **Messages** (her unread word). A cheap fail-soft `attentionFor`
+  runs once in `SubjectShell` and feeds both navs; `Attention`/`NO_ATTENTION` live
+  in `lib/attention/types.ts` so the client navs don't drag the DB into the bundle.
+  **Priority:** on Whispers red **overrides** the F4 emerald presence (green shows
+  only when nothing burns); a tab's burn is suppressed while it is the active tab.
+  Reduced-motion holds a solid red ring (no pulse). **You**-tab praise/collar burn
+  skipped — no cheap unseen-marker without another column.
+- **Seen mechanisms (one migration).** Whispers had no per-feed "seen" marker
+  (receipts only record a kneel), so **added `users.lastSeenWhispersAt`**
+  (migration `0018_smiling_masque.sql`), stamped by `POST /api/whispers/seen` from
+  a `<WhispersSeen/>` marker on the signed-in Home. Messages reuse `messages.readAt`
+  on **goddess-sent** rows to mean "the subject has seen it" (set in `myThread`) —
+  no migration, no collision with her inbox (which reads subject-sent readAt).
+- **"Your terms" in muted amethyst (`--terms-*`).** A deep-violet collapsible,
+  collapsed by default behind one quiet in-voice line, holding the old Settings
+  **intact**: quiet hours, limits (themes she must never touch), and the GDPR
+  pieces (export + release) — same endpoints (`/api/me` PATCH, `/api/me/export`,
+  `/api/me/delete`), now voiced through `copy.terms`. `SettingsClient` deleted.
+  *Deviation:* the brief named only GDPR + notification choices for this block;
+  the theme **limits** were folded here too (they are literally the subject's
+  terms) rather than orphaned. New tokens demoed on `/styleguide`.
+- **Settings tab gone.** `/(subject)/settings` now `redirect("/me")` (old deep
+  links live); `/settings` dropped from `YOU_ROOMS` and the You rooms grid.
+- **Deep-link audit.** Whisper push now anchors to the exact card: threaded an
+  optional `whisperId` through the shared `sendWhisperPush` path (immediate +
+  scheduled), `deepLink: /#whisper-<id>`, with `id`/`scroll-mt` on `WhisperItem`
+  (the SW click handler already preserves anchors via `client.navigate`). Every
+  other call site audited and left as-is — each already lands on its exact surface
+  (chain-broke/rank/collar/rename/wish → `/me`, her reply → `/messages`, task →
+  `/orders`, commission stage → `/commissions`, premiere/new-file/upload-ready →
+  `/library/track/<slug>`, poll → `/asks`, gift/delivered → `/library`).
+- **Whispers burn ignores audience by design** (a heavier per-subject filter isn't
+  worth it) — a rare over-signal clears the instant they open `/`, which is the
+  point of the glow. Her comment-reply burns **both** Messages (where it lives) and
+  Whispers (where they may look). Shots (mobile 390, jail off, her faked online):
+  `you-mirror`, `you-mantra` (mid-type ignition), `nav-burns` (red Tasks beside
+  emerald Whispers) in `docs/qa-shots/final/`.

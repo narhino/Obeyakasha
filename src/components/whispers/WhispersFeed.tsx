@@ -65,7 +65,8 @@ function WhisperItem({
 
   return (
     <li
-      className={`overflow-hidden rounded-[var(--radius-lg)] border ${
+      id={`whisper-${whisper.id}`}
+      className={`scroll-mt-24 overflow-hidden rounded-[var(--radius-lg)] border ${
         featured
           ? "border-gold/30 bg-surface-raised elev-2"
           : "border-line/80 bg-surface"

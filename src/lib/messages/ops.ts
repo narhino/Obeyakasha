@@ -108,7 +108,21 @@ export async function threadMessages(threadId: string) {
 
 export async function myThread(userId: string) {
   const threadId = await getOrCreateThread(userId);
-  return { threadId, messages: await threadMessages(threadId) };
+  const msgs = await threadMessages(threadId);
+  // Opening the thread marks her words seen — this clears the Messages tab's red
+  // burn (F5). `readAt` on a goddess-sent row means "the subject has read it"
+  // (the mirror of the subject-side readAt she sets when she replies).
+  await db
+    .update(messages)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(messages.threadId, threadId),
+        eq(messages.sender, "goddess"),
+        isNull(messages.readAt),
+      ),
+    );
+  return { threadId, messages: msgs };
 }
 
 /** Sanctum inbox: threads with last message + unread + safety flag. */

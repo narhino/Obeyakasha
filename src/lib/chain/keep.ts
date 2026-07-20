@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chainEvents, chains, users } from "@/lib/db/schema";
 import { recordRankProgress } from "@/lib/ranks/promote";
-import { localDate, nextChainState } from "./logic";
+import { localDate, nextChainState, previousDay } from "./logic";
 
 /**
  * Keep the chain for the subject "today" (their timezone). Idempotent per day.
@@ -70,6 +70,44 @@ export async function keepChain(
   await recordRankProgress(userId);
 
   return { currentLen: next.currentLen, kept: true };
+}
+
+export interface ChainDay {
+  /** YYYY-MM-DD in the subject's timezone. */
+  date: string;
+  /** Was the chain kept that day? */
+  lit: boolean;
+  /** Is this today (the day still in play)? */
+  today: boolean;
+}
+
+/**
+ * The recent chain window (F5) — the last `span` days as lit/unlit links, plus
+ * whether today is already held. Drives the "chain made visible" row and the
+ * mantra rite's rest-state on the Mirror. One small indexed read.
+ */
+export async function chainWindow(
+  userId: string,
+  timezone: string,
+  span = 10,
+): Promise<{ days: ChainDay[]; heldToday: boolean; today: string }> {
+  const today = localDate(new Date(), timezone);
+  let earliest = today;
+  for (let i = 0; i < span - 1; i++) earliest = previousDay(earliest);
+
+  const rows = await db
+    .select({ date: chainEvents.date })
+    .from(chainEvents)
+    .where(and(eq(chainEvents.userId, userId), gte(chainEvents.date, earliest)));
+  const kept = new Set(rows.map((r) => r.date));
+
+  const days: ChainDay[] = [];
+  let d = today;
+  for (let i = 0; i < span; i++) {
+    days.unshift({ date: d, lit: kept.has(d), today: d === today });
+    d = previousDay(d);
+  }
+  return { days, heldToday: kept.has(today), today };
 }
 
 export async function getChain(

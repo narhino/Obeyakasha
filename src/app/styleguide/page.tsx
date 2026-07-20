@@ -62,6 +62,9 @@ const tokens = [
   "gold-deep",
   "danger",
   "presence",
+  "attention",
+  "terms",
+  "terms-deep",
 ];
 
 const icons = [
@@ -429,6 +432,80 @@ export default function StyleGuide() {
               {copy.presence.overlay}
             </span>
           </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">The burn (F5) — the red attention system</Label>
+        <Whisper className="mb-4 max-w-lg">
+          A hot, impossible-to-ignore red on any nav tab that holds something
+          needing the subject now — a new whisper, a task owed, her unread word.
+          Stronger and faster than the emerald breath: alarm, not ambience. On
+          the Whispers tab red <b>overrides</b> the presence glow (green shows
+          only when nothing burns). The pulse stops under reduced-motion; a solid
+          red ring stays. Clicking the tab clears its burn.
+        </Whisper>
+        <div className="flex flex-wrap items-center gap-8">
+          {/* Whispers tab, burning — red wins over the emerald presence glow */}
+          <div className="flex flex-col items-center gap-0.5 text-attention">
+            <span className="burns">
+              <IconSpark size={21} />
+            </span>
+            <span className="text-[0.5625rem] tracking-[0.14em] uppercase">
+              {copy.nav.home}
+            </span>
+          </div>
+          {/* Tasks tab, burning — the former danger pulse, unified */}
+          <div className="flex flex-col items-center gap-0.5 text-attention">
+            <span className="burns">
+              <IconTask size={21} />
+            </span>
+            <span className="text-[0.5625rem] tracking-[0.14em] uppercase">
+              {copy.nav.tasks}
+            </span>
+          </div>
+          {/* Messages tab, burning */}
+          <div className="flex flex-col items-center gap-0.5 text-attention">
+            <span className="burns">
+              <IconSpeak size={21} />
+            </span>
+            <span className="text-[0.5625rem] tracking-[0.14em] uppercase">
+              {copy.nav.messages}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <Label className="mb-3">Your terms (F5) — the tucked-away purple</Label>
+        <Whisper className="mb-4 max-w-lg">
+          A muted amethyst, used nowhere else, for the collapsed drawer at the
+          foot of the Mirror that holds the quiet, private controls (data, quiet
+          hours, limits). Derived from a deep violet that sits with the room
+          without competing with gold. Tokens: <code>--color-terms</code>,{" "}
+          <code>--terms-surface</code>, <code>--terms-line</code>,{" "}
+          <code>--terms-glow</code>.
+        </Whisper>
+        <div className="max-w-md">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[var(--radius-lg)] border px-4 py-3 text-left shadow-[var(--terms-glow)]"
+            style={{
+              borderColor: "var(--terms-line)",
+              background: "var(--terms-surface)",
+            }}
+          >
+            <span
+              className="text-sm italic font-[family-name:var(--font-display)]"
+              style={{ color: "var(--color-terms)" }}
+            >
+              {copy.terms.label}
+            </span>
+            <IconChevronDown size={16} style={{ color: "var(--color-terms)" }} />
+          </button>
+          <p className="mt-2 text-xs" style={{ color: "var(--color-terms)" }}>
+            Collapsed by default. Opens to the GDPR pieces + notification choices.
+          </p>
         </div>
       </section>
 

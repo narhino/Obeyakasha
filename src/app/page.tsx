@@ -10,6 +10,7 @@ import {
 } from "@/lib/feed/whispers";
 import { HERO_IMAGE } from "@/lib/art/defaults";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
+import { WhispersSeen } from "@/components/whispers/WhispersSeen";
 import { SubjectShell } from "@/components/nav/SubjectShell";
 import { Button, Display, Eyebrow, Voice } from "@/components/ui";
 import { copy } from "@/copy/copy";
@@ -78,6 +79,8 @@ export default async function Home() {
             </div>
           </section>
           <WhispersFeed items={items} signedIn />
+          {/* F5: opening the feed marks it seen — clears the Whispers tab burn. */}
+          {session?.user?.role === "subject" ? <WhispersSeen /> : null}
         </main>
       </SubjectShell>
     );

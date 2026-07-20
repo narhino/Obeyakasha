@@ -16,6 +16,8 @@ export async function sendWhisperPush(opts: {
   pollId: string | null;
   audience: Audience;
   createdBy?: string;
+  /** The whisper's id — anchors the push at the exact card in the feed (F5). */
+  whisperId?: string;
 }): Promise<void> {
   // Prefer the whisper text; fall back to the attached poll's question.
   let pushBody = opts.body ? opts.body.slice(0, 120) : undefined;
@@ -31,7 +33,8 @@ export async function sendWhisperPush(opts: {
   await broadcast({
     title: opts.pollId ? copy.whispers.askingPush : copy.whispers.whisperedPush,
     body: pushBody,
-    deepLink: "/",
+    // Land on the exact whisper card in the feed (its anchor), not just `/` (F5).
+    deepLink: opts.whisperId ? `/#whisper-${opts.whisperId}` : "/",
     audience: opts.audience,
     kind: "manual",
     createdBy: opts.createdBy,

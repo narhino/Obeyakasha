@@ -6,6 +6,7 @@ import type { PatreonTier } from "@/lib/patreon/client";
 import { Badge, Button, Card, Input, PageHeading, Select, Whisper } from "@/components/ui";
 import {
   saveTierMapping,
+  setMantraAndPraise,
   setOathGiftTrack,
   setOathMinStreak,
   setOrganizeAutoApply,
@@ -27,6 +28,8 @@ export default async function AccessPage() {
     patreonPageUrl,
     welcomeEnabled,
     welcomeText,
+    mantraText,
+    mantraPraise,
     oathMinStreak,
     oathGiftTrackId,
     publishedTracks,
@@ -47,6 +50,8 @@ export default async function AccessPage() {
     getRawSetting<string>("patreon_page_url", "https://www.patreon.com"),
     getSetting("welcome_dm_enabled"),
     getSetting("welcome_dm_text"),
+    getSetting("mantra_text"),
+    getSetting("mantra_praise"),
     getSetting("oath_min_streak"),
     getRawSetting<string | null>("oath_gift_track_id", null),
     db
@@ -277,6 +282,42 @@ export default async function AccessPage() {
           When on, a brand-new subject&apos;s first sign-in lands this as a real
           message in their thread — and pushes &ldquo;She spoke to you.&rdquo; Sent
           once per subject, never to you.
+        </Whisper>
+      </Card>
+
+      {/* F5 · Mantra & praise — the daily rite on the Mirror */}
+      <Card className="mt-6">
+        <Whisper className="mb-3">Mantra &amp; praise</Whisper>
+        <form action={setMantraAndPraise} className="space-y-3">
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            The mantra they type each day
+            <textarea
+              name="text"
+              defaultValue={mantraText}
+              rows={2}
+              maxLength={300}
+              required
+              className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            The praise you give back when it seals
+            <Input
+              name="praise"
+              defaultValue={mantraPraise}
+              maxLength={200}
+              required
+              className="w-full"
+            />
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Save
+          </Button>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          On the Mirror they type the mantra out in full — it ignites gold as they
+          say it, seals, keeps the day&apos;s chain, and your praise blooms in.
+          Change either whenever you like; the Mirror always reads the live words.
         </Whisper>
       </Card>
 

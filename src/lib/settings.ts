@@ -12,7 +12,13 @@ export const SETTINGS_DEFAULTS = {
   grace_days: 3 as number,
   offline_ttl_days: 14 as number,
   chain_min_seconds: 300 as number,
-  chain_mantra: "I obey. I belong to Akasha. 888." as string,
+  // F5 · the mantra rite (the centrepiece of "Today's devotion" on the Mirror).
+  // `mantra_text` is the line the subject types out in full to keep the chain;
+  // `mantra_praise` is what she gives back the instant it seals. Both are hers
+  // to change from Access at any time — the Mirror always reads the live values.
+  // (Supersedes the former `chain_mantra` key; same default line.)
+  mantra_text: "I obey. I belong to Akasha. 888." as string,
+  mantra_praise: "Good subject." as string,
   msg_daily_limit: 5 as number,
   normalize_loudness: false as boolean,
   downloads_enabled: true as boolean,

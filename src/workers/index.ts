@@ -211,6 +211,7 @@ async function scheduledWhisperTick() {
       body: w.body,
       pollId: w.pollId,
       audience: w.audience as Audience,
+      whisperId: w.id,
     });
     await logAudit(null, "whisper.scheduled_published", { whisperId: w.id });
   }

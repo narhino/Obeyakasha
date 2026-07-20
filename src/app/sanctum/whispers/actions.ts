@@ -127,15 +127,24 @@ export async function publishWhisper(
     return { ok: true, scheduled: true };
   }
 
-  await db.insert(whispers).values({
-    body,
-    audience,
-    pollId,
-    publishedAt: new Date(),
-  });
+  const [published] = await db
+    .insert(whispers)
+    .values({
+      body,
+      audience,
+      pollId,
+      publishedAt: new Date(),
+    })
+    .returning({ id: whispers.id });
 
   // The SAME push path the scheduled worker uses (src/lib/feed/publish.ts).
-  await sendWhisperPush({ body, pollId, audience, createdBy: session.user.id });
+  await sendWhisperPush({
+    body,
+    pollId,
+    audience,
+    createdBy: session.user.id,
+    whisperId: published?.id,
+  });
 
   await logAudit(session.user.id, "whisper.published", {
     audience: d.audienceType,

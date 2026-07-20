@@ -107,6 +107,30 @@ export async function setWelcomeDmText(formData: FormData) {
   revalidatePath("/sanctum/access");
 }
 
+const mantraSchema = z.object({
+  text: z.string().trim().min(1).max(300),
+  praise: z.string().trim().min(1).max(200),
+});
+
+/** Set the mantra line the subject types and the praise she gives back (F5). */
+export async function setMantraAndPraise(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = mantraSchema.safeParse({
+    text: formData.get("text"),
+    praise: formData.get("praise"),
+  });
+  if (!parsed.success) {
+    throw new Error(
+      "Give the mantra (up to 300) and the praise (up to 200).",
+    );
+  }
+  const { setSetting } = await import("@/lib/settings");
+  await setSetting("mantra_text", parsed.data.text);
+  await setSetting("mantra_praise", parsed.data.praise);
+  await logAudit(session.user.id, "setting.mantra", {});
+  revalidatePath("/sanctum/access");
+}
+
 const oathStreakSchema = z.object({
   minStreak: z.coerce.number().int().min(1).max(3650),
 });

@@ -5,7 +5,8 @@ import { hasCoreConsent } from "@/lib/consent";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
-import { pendingTaskCount } from "@/lib/orders/ops";
+import { attentionFor } from "@/lib/attention/resolve";
+import { NO_ATTENTION } from "@/lib/attention/types";
 import { SubjectGate } from "@/components/gate/SubjectGate";
 import { Jail } from "@/components/gate/Jail";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
@@ -46,15 +47,18 @@ export async function SubjectShell({
   if (!session?.user) return <>{children}</>;
 
   const isSubject = session.user.role === "subject";
-  const [consented, meRow, pendingCount, jailEnabled] = await Promise.all([
+  const [consented, meRow, attention, jailEnabled] = await Promise.all([
     hasCoreConsent(session.user.id),
     db
       .select({ chosenName: users.chosenName })
       .from(users)
       .where(eq(users.id, session.user.id))
       .limit(1),
-    // Drives the danger pulse on the Tasks tab; non-critical, so failures are 0.
-    pendingTaskCount(session.user.id).catch(() => 0),
+    // F5 · the red attention system — which tabs burn (whisper / task / message).
+    // Subjects only; non-critical, so any failure falls back to nothing burning.
+    isSubject
+      ? attentionFor(session.user.id).catch(() => NO_ATTENTION)
+      : Promise.resolve(NO_ATTENTION),
     getSetting("notification_jail_enabled"),
   ]);
   const intakeDone = Boolean(meRow[0]?.chosenName);
@@ -81,7 +85,7 @@ export async function SubjectShell({
                   {copy.brand.name}
                 </Link>
                 <div className="flex items-center gap-6">
-                  <DesktopNav pendingCount={pendingCount} />
+                  <DesktopNav attention={attention} />
                   <InboxBell />
                 </div>
               </div>
@@ -93,7 +97,7 @@ export async function SubjectShell({
             <Moments />
             {/* F4: the arrival overlay floats near the top and fades. */}
             <PresenceOverlay />
-            <BottomNav pendingCount={pendingCount} />
+            <BottomNav attention={attention} />
           </div>
         </PresenceProvider>
       </IntakeGuard>
