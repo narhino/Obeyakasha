@@ -36,7 +36,12 @@ export const trackKind = pgEnum("track_kind", [
   "emergence",
   "spiral_audio",
 ]);
-export const trackSource = pgEnum("track_source", ["upload", "patreon_import"]);
+export const trackSource = pgEnum("track_source", [
+  "upload",
+  "patreon_import",
+  // F1: a file a subject brought of their own — private to its owner (D7).
+  "subject_upload",
+]);
 export const transcriptStatus = pgEnum("transcript_status", [
   "queued",
   "processing",

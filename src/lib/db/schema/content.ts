@@ -38,6 +38,9 @@ export const tracks = pgTable(
     storageKey: text("storage_key"),
     streamKey: text("stream_key"),
     artworkKey: text("artwork_key"),
+    // Stored size of the original bytes. Recorded at ingest; drives the Sanctum
+    // "Their files" storage footprint per subject (F1). Null for legacy rows.
+    sizeBytes: integer("size_bytes"),
     waveform: jsonb("waveform").$type<number[]>(),
     minAccessLevel: integer("min_access_level").notNull().default(1),
     downloadable: boolean("downloadable").notNull().default(true),
@@ -59,6 +62,14 @@ export const tracks = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     source: trackSource("source").notNull().default("upload"),
     patreonPostId: text("patreon_post_id"),
+    // F1 "subjects bring their own files": when set, this track is a subject's
+    // PRIVATE personal upload — visible & streamable ONLY to this owner and to
+    // the goddess (D7, absolute). Null for the whole public catalog. The shared
+    // predicate `notSomeoneElses()` gates every subject-reachable track read on
+    // it. ON DELETE CASCADE: releasing an account takes their files with it.
+    ownerUserId: uuid("owner_user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -66,7 +77,10 @@ export const tracks = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("tracks_visibility_idx").on(t.visibility)],
+  (t) => [
+    index("tracks_visibility_idx").on(t.visibility),
+    index("tracks_owner_idx").on(t.ownerUserId),
+  ],
 );
 
 // Transcripts: ADMIN-ONLY (never shipped to subject clients). PLAN §8.

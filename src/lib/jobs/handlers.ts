@@ -5,6 +5,7 @@ import { transcribeTrack } from "@/lib/transcribe/run";
 import { organizeTrack } from "@/lib/organize/run";
 import { analyzeTrack } from "@/lib/analyze/run";
 import { importPatreonPost } from "@/lib/patreon/import";
+import { notifyOwnerUploadReady } from "@/lib/library/uploads";
 import { getSetting } from "@/lib/settings";
 import { enqueue } from "./queue";
 import { registerHandler } from "./runner";
@@ -22,6 +23,10 @@ async function setPipeline(trackId: string, pipeline: Pipeline): Promise<void> {
     .update(tracks)
     .set({ pipeline, updatedAt: new Date() })
     .where(eq(tracks.id, trackId));
+  // F1: the single choke point a track reaches `ready`. If it's a subject's
+  // personal upload, tell its owner it's done (no-op for the catalog). Never
+  // throws — a push hiccup must not fail the pipeline.
+  if (pipeline === "ready") await notifyOwnerUploadReady(trackId);
 }
 
 /**

@@ -10,6 +10,8 @@ export interface NavCounts {
   review: number;
   messages: number;
   tasks: number;
+  /** F1: how many personal files subjects have brought (fail-soft). */
+  theirFiles: number;
 }
 
 type BadgeKey = keyof NavCounts;
@@ -35,6 +37,7 @@ const GROUPS: NavGroup[] = [
       { href: "/sanctum/library", label: "Library" },
       { href: "/sanctum/collections", label: "Collections" },
       { href: "/sanctum/organize", label: "Review", badge: "review" },
+      { href: "/sanctum/their-files", label: "Their files", badge: "theirFiles" },
     ],
   },
   {

@@ -14,6 +14,7 @@ import {
   resolveCollectionCover,
   resolveTrackCover,
 } from "@/lib/art/resolve";
+import { notSomeoneElses } from "@/lib/library/queries";
 import { computeGates, type Gating } from "./gating";
 
 export interface ProgramItemView {
@@ -98,10 +99,14 @@ export async function listProgramsForSubject(
     })
     .from(programItems)
     .innerJoin(tracks, eq(tracks.id, programItems.trackId))
+    // D7: a personal upload can never leak through a program's item list.
     .where(
-      inArray(
-        programItems.programId,
-        progs.map((p) => p.id),
+      and(
+        inArray(
+          programItems.programId,
+          progs.map((p) => p.id),
+        ),
+        notSomeoneElses(userId),
       ),
     );
 

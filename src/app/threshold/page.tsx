@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tracks } from "@/lib/db/schema";
+import { notSomeoneElses } from "@/lib/library/queries";
 import { getSetting } from "@/lib/settings";
 import { GATE_IMAGE } from "@/lib/art/defaults";
 import { Button, Card, Display, Whisper } from "@/components/ui";
@@ -20,7 +21,11 @@ export default async function Threshold() {
   const ids = await getSetting("threshold_track_ids");
   const free =
     ids.length > 0
-      ? await db.select().from(tracks).where(inArray(tracks.id, ids))
+      ? await db
+          .select()
+          .from(tracks)
+          // D7: the public funnel is her catalog only — never a personal upload.
+          .where(and(inArray(tracks.id, ids), notSomeoneElses(null)))
       : [];
 
   return (

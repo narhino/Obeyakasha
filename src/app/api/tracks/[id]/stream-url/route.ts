@@ -25,10 +25,16 @@ export async function GET(
 
   let track: Awaited<ReturnType<typeof getAccessibleTrack>> = null;
   if (session?.user) {
+    const isGoddess = session.user.role === "goddess";
     const access = await resolveAccess(session.user.id);
-    track = await getAccessibleTrack(id, session.user.id, access.accessLevel);
+    // D7: getAccessibleTrack settles personal-upload ownership BEFORE we reach
+    // signing — the owner (or the goddess) gets the row; any other subject null.
+    track = await getAccessibleTrack(id, session.user.id, access.accessLevel, {
+      isGoddess,
+    });
   }
-  // Not entitled (or not signed in) → only a published free sample streams.
+  // Not entitled (or not signed in) → only a published free sample streams
+  // (getSampleTrack never returns a personal upload).
   if (!track) track = await getSampleTrack(id);
 
   if (!track || !track.streamKey) {

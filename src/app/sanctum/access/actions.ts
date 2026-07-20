@@ -56,6 +56,7 @@ export async function toggleSetting(formData: FormData) {
     "auto_pipeline",
     "analysis_enabled",
     "welcome_dm_enabled",
+    "subject_uploads_enabled",
   ] as const;
   if (!(allowed as readonly string[]).includes(key)) throw new Error("bad key");
   const { getSetting, setSetting } = await import("@/lib/settings");
@@ -132,6 +133,29 @@ export async function setOathGiftTrack(formData: FormData) {
   const { setRawSetting } = await import("@/lib/settings");
   await setRawSetting("oath_gift_track_id", trackId);
   await logAudit(session.user.id, "setting.oath_gift_track_id", { trackId });
+  revalidatePath("/sanctum/access");
+}
+
+const uploadLimitsSchema = z.object({
+  maxMb: z.coerce.number().int().min(1).max(2000),
+  maxFiles: z.coerce.number().int().min(0).max(1000),
+});
+
+/** Set the per-file (MB) and per-subject (count) ceilings for subject uploads (F1). */
+export async function setSubjectUploadLimits(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = uploadLimitsSchema.safeParse({
+    maxMb: formData.get("maxMb"),
+    maxFiles: formData.get("maxFiles"),
+  });
+  if (!parsed.success) throw new Error("Give whole-number limits.");
+  const { setSetting } = await import("@/lib/settings");
+  await setSetting("subject_upload_max_mb", parsed.data.maxMb);
+  await setSetting("subject_upload_max_files", parsed.data.maxFiles);
+  await logAudit(session.user.id, "setting.subject_upload_limits", {
+    maxMb: parsed.data.maxMb,
+    maxFiles: parsed.data.maxFiles,
+  });
   revalidatePath("/sanctum/access");
 }
 

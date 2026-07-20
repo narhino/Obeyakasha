@@ -186,6 +186,52 @@ export const copy = {
     },
   },
 
+  // ── F1: subjects bring their own files (their private shelf, D7) ────────
+  // Everything here is the subject's own eyes only — her voice, over a thing
+  // that belongs to them and no one else.
+  uploads: {
+    // The quiet card/button by the Library search that opens the offering form.
+    bring: "Bring me something of yours",
+    bringLead:
+      "A recording of your own. Give it to me and I'll take it in, learn it, and keep it where only you and I can reach it.",
+    choose: "Choose the file",
+    chooseHint: "Audio only. No one else will ever know it's here.",
+    submit: "Give it to me",
+    uploading: "Taking it in…",
+    cancel: "Not now",
+    // The "Yours" shelf — shown only once they've brought something.
+    yoursTitle: "Yours",
+    yoursLead: "The ones you brought me. Kept for you alone.",
+    // Live pipeline state while a file settles (owner-only chips).
+    status: {
+      uploaded: "Settling in…",
+      transcribing: "Listening to it…",
+      organizing: "Learning it…",
+      ready: "Ready.",
+      failed: "This one wouldn't take. Bring it to me again.",
+    },
+    // The owner-only push + inbox line when the pipeline finishes.
+    readyPush: {
+      title: "It's ready for you.",
+      body: "The file you brought me is settled. Come and take it.",
+    },
+    // Taking one back (delete).
+    delete: "Take it back",
+    deleteConfirm:
+      "Take this one back? I'll let it go, and it won't return.",
+    deleting: "Letting it go…",
+    // Friendly, in-voice failures surfaced from /api/me/upload.
+    errors: {
+      disabled: "Not now. I'm not taking your files at the moment.",
+      notAudio: "That isn't audio. Bring me something I can listen to.",
+      tooLarge: "That one's too heavy. Keep it under {max}.",
+      tooMany:
+        "You've brought me enough for now. Take one back before you offer another.",
+      empty: "There's nothing there. Choose a file first.",
+      failed: "That didn't take. Try once more, slowly.",
+    },
+  },
+
   // ── Player ─────────────────────────────────────────────────────────────
   player: {
     endMode: {

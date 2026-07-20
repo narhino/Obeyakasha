@@ -9,7 +9,7 @@ import {
 import { logAudit } from "@/lib/audit";
 import { llmOrganize } from "@/lib/llm/organize";
 import { getSetting } from "@/lib/settings";
-import { autoApplyOrganize } from "./apply";
+import { applyTags, autoApplyOrganize } from "./apply";
 import { heuristicOrganize } from "./heuristic";
 import { organizeProposalSchema, type OrganizeProposal } from "./types";
 
@@ -74,6 +74,21 @@ export async function organizeTrack(trackId: string): Promise<void> {
   const proposal = organizeProposalSchema.parse(
     mergeProposals(heuristic, llm),
   );
+
+  // F1 — a subject's private upload (D7). It NEVER lands in the goddess review
+  // queue (their files are not her catalog to curate) and never fires a publish/
+  // premiere/whisper push. Its tags auto-apply with tags_only semantics
+  // regardless of the global `organize_auto_apply` dial, so the owner always gets
+  // tags + a real default cover. Triggers/playlists (shared-catalog machinery)
+  // are intentionally skipped — tags only.
+  if (track.ownerUserId != null) {
+    await applyTags(trackId, proposal.tags);
+    await logAudit(null, "organize.subject_upload_tagged", {
+      trackId,
+      tags: proposal.tags.length,
+    });
+    return;
+  }
 
   // Replace any existing pending row for this track (match on subjectRef.trackId).
   const pending = await db

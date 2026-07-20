@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   grants,
@@ -23,6 +23,25 @@ import {
   resolveTrackCover,
   signArtwork,
 } from "@/lib/art/resolve";
+
+/**
+ * THE D7 PRIVACY PREDICATE (F1 — "subjects bring their own files"). A subject's
+ * personal upload carries `tracks.ownerUserId`; it is visible ONLY to that owner
+ * and to the goddess. Every track-reading query a subject or an anonymous
+ * visitor can reach is filtered through this so no one ever learns a file that
+ * isn't theirs even exists (D7 — absolute):
+ *
+ *   ownerUserId IS NULL          → the public catalog (nobody's personal file)
+ *   OR ownerUserId = <viewer>    → the viewer's own upload
+ *
+ * Anonymous (userId null) collapses to the first clause, so every owned track
+ * vanishes. The goddess/Sanctum never uses this — the Sanctum sees everything.
+ */
+export function notSomeoneElses(userId: string | null) {
+  return userId
+    ? or(isNull(tracks.ownerUserId), eq(tracks.ownerUserId, userId))
+    : isNull(tracks.ownerUserId);
+}
 
 /** Track ids granted directly to a user (commission deliveries, gifts). */
 export async function grantedTrackIds(userId: string): Promise<Set<string>> {
@@ -69,19 +88,20 @@ export type CatalogTrack = LibraryTrack & {
 
 // ── Shared annotation ──────────────────────────────────────────────────────
 
-/** Published tracks + the viewer's privately-granted ones (rows only). */
-async function fetchBaseTrackRows(granted: Set<string>) {
+/** Published tracks + the viewer's privately-granted ones (rows only). D7:
+ *  another subject's personal upload is never in this pool. */
+async function fetchBaseTrackRows(userId: string | null, granted: Set<string>) {
+  const base =
+    granted.size > 0
+      ? or(
+          eq(tracks.visibility, "published"),
+          inArray(tracks.id, [...granted]),
+        )
+      : eq(tracks.visibility, "published");
   return db
     .select()
     .from(tracks)
-    .where(
-      granted.size > 0
-        ? or(
-            eq(tracks.visibility, "published"),
-            inArray(tracks.id, [...granted]),
-          )
-        : eq(tracks.visibility, "published"),
-    )
+    .where(and(base, notSomeoneElses(userId)))
     .orderBy(desc(tracks.publishedAt));
 }
 
@@ -192,7 +212,7 @@ export async function listLibraryTracks(
   accessLevel: number,
 ): Promise<LibraryTrack[]> {
   const granted = await grantedTrackIds(userId);
-  const rows = await fetchBaseTrackRows(granted);
+  const rows = await fetchBaseTrackRows(userId, granted);
   return annotateTracks(rows, { userId, accessLevel, granted });
 }
 
@@ -229,10 +249,12 @@ function likeContains(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-/** Track ids whose (admin-only) transcript speaks the query. Never returns text. */
+/** Track ids whose (admin-only) transcript speaks the query. Never returns text.
+ *  D7: only ever matches within the viewer-safe pool (owned tracks excluded). */
 async function transcriptMatchIds(
   ids: string[],
   q: string,
+  userId: string | null,
 ): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   const rows = await db
@@ -243,6 +265,7 @@ async function transcriptMatchIds(
       and(
         inArray(transcripts.trackId, ids),
         eq(tracks.visibility, "published"),
+        notSomeoneElses(userId),
         sql`(${transcripts.fullText} ILIKE ${likeContains(q)} OR similarity(${transcripts.fullText}, ${q}) > ${SIMILARITY_THRESHOLD})`,
       ),
     );
@@ -327,7 +350,7 @@ export async function listCatalogTracks(
   const granted = viewer.userId
     ? await grantedTrackIds(viewer.userId)
     : new Set<string>();
-  const rows = await fetchBaseTrackRows(granted);
+  const rows = await fetchBaseTrackRows(viewer.userId, granted);
   const baseAll = await annotateTracks(rows, {
     userId: viewer.userId,
     accessLevel: viewer.accessLevel,
@@ -386,7 +409,7 @@ export async function listCatalogTracks(
   const ql = q.toLowerCase();
 
   // Transcript matches (published only) augment whatever metadata match wins.
-  const transcriptIds = await transcriptMatchIds(poolIds, q);
+  const transcriptIds = await transcriptMatchIds(poolIds, q, viewer.userId);
   const augmentTranscriptOnly = (primary: LibraryTrack[]): CatalogTrack[] => {
     const primaryIds = new Set(primary.map((t) => t.id));
     const extra = pool.filter(
@@ -577,7 +600,13 @@ export async function getSeriesPage(
     .select({ track: tracks, sort: playlistItems.sort })
     .from(playlistItems)
     .innerJoin(tracks, eq(tracks.id, playlistItems.trackId))
-    .where(eq(playlistItems.playlistId, playlistId));
+    // D7: a personal upload can never leak through a series expansion.
+    .where(
+      and(
+        eq(playlistItems.playlistId, playlistId),
+        notSomeoneElses(viewer.userId),
+      ),
+    );
 
   const granted = viewer.userId
     ? await grantedTrackIds(viewer.userId)
@@ -603,11 +632,13 @@ export async function getSeriesPage(
   };
 }
 
-/** A single track if the subject may access it, else null (for the stream endpoint). */
+/** A single track if the subject may access it, else null (for the stream +
+ *  offline endpoints). `isGoddess` lets the Sanctum reach any file. */
 export async function getAccessibleTrack(
   trackId: string,
   userId: string,
   accessLevel: number,
+  opts: { isGoddess?: boolean } = {},
 ): Promise<typeof tracks.$inferSelect | null> {
   const [row] = await db
     .select()
@@ -615,6 +646,14 @@ export async function getAccessibleTrack(
     .where(eq(tracks.id, trackId))
     .limit(1);
   if (!row) return null;
+  // F1/D7 — a subject's personal upload. Its owner may ALWAYS reach it (any
+  // level, any visibility — it's theirs); the goddess may reach it; every other
+  // subject gets null (404 upstream) and never learns it exists. This runs
+  // BEFORE any grant/level logic and before any signed URL is minted.
+  if (row.ownerUserId != null) {
+    if (opts.isGoddess || row.ownerUserId === userId) return row;
+    return null;
+  }
   const granted = await grantedTrackIds(userId);
   if (granted.has(trackId)) return row; // privately delivered
   if (row.visibility !== "published") return null;
@@ -636,10 +675,15 @@ export async function continueListening(
     })
     .from(resumePoints)
     .innerJoin(tracks, eq(tracks.id, resumePoints.trackId))
+    // Published catalog OR the subject's own personal upload — never another
+    // subject's upload (D7). Their own file resumes here like anything else.
     .where(
       and(
         eq(resumePoints.userId, userId),
-        eq(tracks.visibility, "published"),
+        or(
+          eq(tracks.ownerUserId, userId),
+          and(isNull(tracks.ownerUserId), eq(tracks.visibility, "published")),
+        ),
       ),
     )
     .orderBy(desc(resumePoints.updatedAt))
@@ -708,10 +752,88 @@ export async function getSampleTrack(
     .where(eq(tracks.id, trackId))
     .limit(1);
   if (!row) return null;
+  // D7: a subject's personal upload is never a public free sample, no matter its
+  // flags — the free-funnel taste is her catalog only.
+  if (row.ownerUserId != null) return null;
   if (row.visibility !== "published" || !row.freeSample || !row.streamKey) {
     return null;
   }
   return row;
+}
+
+// ── The subject's own shelf (F1 — "Yours") ──────────────────────────────────
+
+export type UploadPipeline = (typeof tracks.$inferSelect)["pipeline"];
+
+export interface MyUpload {
+  id: string;
+  title: string;
+  slug: string;
+  durationS: number | null;
+  /** Resolved cover (D1) from the file's auto-tags → default sigil. Never raw. */
+  cover: string;
+  /** Pipeline state, drives the processing chip (transcribing… / organizing…). */
+  pipeline: UploadPipeline;
+  /** Has playable audio — true from ingest on, so it plays while it still processes. */
+  playable: boolean;
+  createdAt: Date;
+}
+
+/**
+ * A subject's own personal uploads — the private "Yours" shelf (F1). Newest
+ * first, each with a cover resolved from its auto-applied tags and its live
+ * pipeline state. Scoped hard to `ownerUserId = userId`; it is the ONLY query
+ * that returns a subject their owned rows, and it never returns anyone else's.
+ */
+export async function listMyUploads(userId: string): Promise<MyUpload[]> {
+  const rows = await db
+    .select()
+    .from(tracks)
+    .where(eq(tracks.ownerUserId, userId))
+    .orderBy(desc(tracks.createdAt));
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const tagRows = await db
+    .select({ trackId: trackTags.trackId, value: tags.value })
+    .from(trackTags)
+    .innerJoin(tags, eq(tags.id, trackTags.tagId))
+    .where(inArray(trackTags.trackId, ids));
+  const tagsByTrack = new Map<string, string[]>();
+  for (const t of tagRows) {
+    const list = tagsByTrack.get(t.trackId) ?? [];
+    list.push(t.value);
+    tagsByTrack.set(t.trackId, list);
+  }
+  const coverByTrack = new Map<string, string>();
+  await Promise.all(
+    rows.map(async (r) => {
+      coverByTrack.set(
+        r.id,
+        await resolveTrackCover(r.artworkKey, tagsByTrack.get(r.id) ?? []),
+      );
+    }),
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    slug: r.slug,
+    durationS: r.durationS,
+    cover: coverByTrack.get(r.id) ?? DEFAULT_COVER,
+    pipeline: r.pipeline,
+    playable: r.streamKey != null,
+    createdAt: r.createdAt,
+  }));
+}
+
+/** How many personal uploads a subject currently holds (upload-limit gate, F1). */
+export async function countMyUploads(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(tracks)
+    .where(eq(tracks.ownerUserId, userId));
+  return row?.n ?? 0;
 }
 
 export async function listPlaylistsWithTracks(accessLevel: number) {
@@ -728,10 +850,14 @@ export async function listPlaylistsWithTracks(accessLevel: number) {
     })
     .from(playlistItems)
     .innerJoin(tracks, eq(tracks.id, playlistItems.trackId))
+    // D7: a generic (viewer-agnostic) listing never surfaces any personal upload.
     .where(
-      inArray(
-        playlistItems.playlistId,
-        pls.map((p) => p.id),
+      and(
+        inArray(
+          playlistItems.playlistId,
+          pls.map((p) => p.id),
+        ),
+        notSomeoneElses(null),
       ),
     );
 
@@ -806,11 +932,16 @@ export async function getTrackMetaBySlug(
       title: tracks.title,
       description: tracks.description,
       visibility: tracks.visibility,
+      ownerUserId: tracks.ownerUserId,
     })
     .from(tracks)
     .where(eq(tracks.slug, slug))
     .limit(1);
-  if (!row || row.visibility !== "published") return null;
+  // Published catalog only — never a draft, and never a personal upload (D7:
+  // page <title>/description are public, so an owned file must never reach it).
+  if (!row || row.visibility !== "published" || row.ownerUserId != null) {
+    return null;
+  }
   return { title: row.title, description: row.description };
 }
 
@@ -832,8 +963,17 @@ export async function getTrackFilePage(
     .limit(1);
   if (!row) return null;
 
-  const isDraftPreview = row.visibility !== "published";
-  if (isDraftPreview && !opts.isGoddess) return null;
+  // F1/D7 — a personal upload's file page. Only its owner or the goddess may
+  // open it; a direct slug/id from anyone else is a hard 404, so its existence
+  // never leaks. The owner sees it as their own file (no "draft preview" chrome).
+  if (row.ownerUserId != null) {
+    const mayView = opts.isGoddess || row.ownerUserId === viewer.userId;
+    if (!mayView) return null;
+  } else {
+    const draftPreview = row.visibility !== "published";
+    if (draftPreview && !opts.isGoddess) return null;
+  }
+  const isDraftPreview = row.ownerUserId == null && row.visibility !== "published";
 
   const granted = viewer.userId
     ? await grantedTrackIds(viewer.userId)
@@ -981,7 +1121,7 @@ export async function getTrackFilePage(
     const railRows = await db
       .select()
       .from(tracks)
-      .where(inArray(tracks.id, railIds));
+      .where(and(inArray(tracks.id, railIds), notSomeoneElses(viewer.userId)));
     const annotated = await annotateTracks(railRows, {
       userId: viewer.userId,
       accessLevel: viewer.accessLevel,

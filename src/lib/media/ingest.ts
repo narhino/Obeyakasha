@@ -51,6 +51,10 @@ export async function ingestUpload(params: {
   bytes: Uint8Array;
   title?: string;
   clientDurationS?: number | null;
+  /** F1: the subject who brought this file (their private upload) — else null. */
+  ownerUserId?: string | null;
+  /** Provenance. Defaults to a goddess "upload"; "subject_upload" for F1. */
+  source?: "upload" | "subject_upload";
 }): Promise<IngestResult> {
   const ext = extname(params.filename).toLowerCase();
   if (!ALLOWED_EXT.has(ext)) {
@@ -62,12 +66,23 @@ export async function ingestUpload(params: {
 
   const [track] = await db
     .insert(tracks)
-    .values({ title, slug, visibility: "draft", source: "upload" })
+    .values({
+      title,
+      slug,
+      visibility: "draft",
+      source: params.source ?? "upload",
+      ownerUserId: params.ownerUserId ?? null,
+    })
     .returning();
   const trackId = track!.id;
 
   const provider = mediaProvider();
-  await provider.putOriginal(trackId, params.filename, params.bytes);
+  // Record BOTH keys so deletion can remove every stored object (F1 delete).
+  const storageKey = await provider.putOriginal(
+    trackId,
+    params.filename,
+    params.bytes,
+  );
   const streamKey = await provider.putStream(trackId, params.bytes, ext);
 
   // Probe duration from a temp copy if ffprobe is available.
@@ -78,7 +93,9 @@ export async function ingestUpload(params: {
   await db
     .update(tracks)
     .set({
+      storageKey,
       streamKey,
+      sizeBytes: params.bytes.length,
       durationS: durationS ?? undefined,
       updatedAt: new Date(),
     })
@@ -98,6 +115,8 @@ export async function ingestUploadFromPath(params: {
   filename: string;
   title?: string;
   clientDurationS?: number | null;
+  ownerUserId?: string | null;
+  source?: "upload" | "subject_upload";
 }): Promise<IngestResult> {
   const { readFile } = await import("node:fs/promises");
   const bytes = new Uint8Array(await readFile(params.path));
@@ -106,6 +125,8 @@ export async function ingestUploadFromPath(params: {
     bytes,
     title: params.title,
     clientDurationS: params.clientDurationS ?? null,
+    ownerUserId: params.ownerUserId ?? null,
+    source: params.source,
   });
 }
 

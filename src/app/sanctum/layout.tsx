@@ -2,7 +2,13 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { signOut } from "@/auth";
 import { db } from "@/lib/db";
-import { messages, orderAssignments, reviewQueue, users } from "@/lib/db/schema";
+import {
+  messages,
+  orderAssignments,
+  reviewQueue,
+  tracks,
+  users,
+} from "@/lib/db/schema";
 import { pendingPetitions } from "@/lib/oath/resolve";
 import { SanctumNav, type NavCounts } from "./SanctumNav";
 
@@ -15,7 +21,7 @@ function count(where: Promise<{ n: number }[]>): Promise<number> {
 }
 
 async function navCounts(): Promise<NavCounts> {
-  const [today, review, unread, tasks] = await Promise.all([
+  const [today, review, unread, tasks, theirFiles] = await Promise.all([
     // Open collar petitions awaiting her word.
     pendingPetitions()
       .then((p) => p.length)
@@ -46,8 +52,15 @@ async function navCounts(): Promise<NavCounts> {
           ),
         ),
     ),
+    // F1: personal files subjects have brought (oversight badge).
+    count(
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(tracks)
+        .where(isNotNull(tracks.ownerUserId)),
+    ),
   ]);
-  return { today, review, messages: unread, tasks };
+  return { today, review, messages: unread, tasks, theirFiles };
 }
 
 export default async function SanctumLayout({

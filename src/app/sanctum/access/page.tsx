@@ -10,6 +10,7 @@ import {
   setOathMinStreak,
   setOrganizeAutoApply,
   setPatreonPageUrl,
+  setSubjectUploadLimits,
   setWelcomeDmText,
   toggleSetting,
 } from "./actions";
@@ -29,6 +30,9 @@ export default async function AccessPage() {
     oathMinStreak,
     oathGiftTrackId,
     publishedTracks,
+    uploadsEnabled,
+    uploadMaxMb,
+    uploadMaxFiles,
   ] = await Promise.all([
     db.select().from(tierMappings),
     getRawSetting<PatreonTier[]>("patreon_campaign_tiers", []),
@@ -47,6 +51,9 @@ export default async function AccessPage() {
       .from(tracks)
       .where(eq(tracks.visibility, "published"))
       .limit(500),
+    getSetting("subject_uploads_enabled"),
+    getSetting("subject_upload_max_mb"),
+    getSetting("subject_upload_max_files"),
   ]);
 
   const mappedById = new Map(existing.map((m) => [m.patreonTierId, m]));
@@ -348,6 +355,58 @@ export default async function AccessPage() {
             applies until you approve it in Organize.
           </Whisper>
         </div>
+      </Card>
+
+      {/* Their offerings — subjects bringing their own files (F1) */}
+      <Card className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Whisper>Their offerings</Whisper>
+          <form action={toggleSetting}>
+            <input type="hidden" name="key" value="subject_uploads_enabled" />
+            <Button
+              type="submit"
+              size="sm"
+              variant={uploadsEnabled ? "gold" : "ghost"}
+            >
+              Bringing files: {uploadsEnabled ? "on" : "off"}
+            </Button>
+          </form>
+        </div>
+        <form
+          action={setSubjectUploadLimits}
+          className="mt-3 flex flex-wrap items-end gap-3"
+        >
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Max size per file (MB)
+            <Input
+              name="maxMb"
+              type="number"
+              min={1}
+              max={2000}
+              defaultValue={uploadMaxMb}
+              className="w-28"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Max files per subject
+            <Input
+              name="maxFiles"
+              type="number"
+              min={0}
+              max={1000}
+              defaultValue={uploadMaxFiles}
+              className="w-28"
+            />
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Save limits
+          </Button>
+        </form>
+        <Whisper className="mt-2 text-xs">
+          When on, subjects can bring their own audio into a private shelf only
+          they and you can see. Each file transcribes and organizes itself and
+          stays their own — see them all under Catalog → Their files.
+        </Whisper>
       </Card>
 
       {/* Manual add (fallback when tiers weren't auto-discovered). */}

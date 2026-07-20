@@ -862,3 +862,54 @@ Gate green: typecheck · lint (0 warnings) · **291 tests** (store untouched) ·
 build (39/39 pages). Player screenshots in `docs/qa-shots/final/player-*`
 replace the old `player-fs*` / `player-queue` set (collapsed + expanded at five
 viewports, a reduced-motion pass, a drift-armed pass, and "The pull").
+
+---
+
+## 2026-07-20 — F1 build: subjects bring their own files (private shelf + Sanctum oversight)
+
+A signed-in subject can bring their own audio into a **private** shelf. Their
+files are visible/streamable ONLY to the uploader and the goddess — no other
+subject may ever learn they exist (D7, absolute). Files run the normal pipeline
+(transcribe → organize, tags_only) so they earn a transcript, tags, and a
+default cover automatically.
+
+- **The privacy predicate.** One shared helper, `notSomeoneElses(userId | null)`
+  in `src/lib/library/queries.ts` — SQL `ownerUserId IS NULL OR ownerUserId =
+  <viewer>` (anonymous → `ownerUserId IS NULL`). It is the D7 floor applied to
+  every track-read a subject or anon can reach. It is NOT visibility: the D7
+  test creates a *published* owned track to prove the predicate (not draft
+  status) is what hides it from others.
+- **Owner/goddess access is single-track, additive.** `getAccessibleTrack` and
+  `getTrackFilePage` gained an owner branch (owner reaches their own upload at
+  ANY level/visibility; the goddess via `isGoddess`; every other subject → null,
+  a hard 404 before any signed URL is minted). The catalog/list/search paths use
+  the exclusion predicate; the single-file paths add owner inclusion. Non-owned
+  catalog behaviour is byte-for-byte unchanged.
+- **Owned uploads stay out of the catalog by design.** They are always drafts and
+  live only on the subject's "Yours" shelf (query `listMyUploads`) and the
+  Sanctum "Their files" page — never the public catalog, and (deliberately) never
+  the goddess's main Sanctum Library list either, so a catalog action (publish /
+  free-sample) can't be applied to a private file.
+- **Pipeline, owner-aware.** `organizeTrack` short-circuits for owned tracks: it
+  never inserts a `review_queue` row (D7 — their files aren't her catalog to
+  curate) and applies tags with tags_only semantics **regardless of the global
+  `organize_auto_apply` dial** (triggers/playlists — shared-catalog machinery —
+  are skipped). The ready notification is fired from a single choke point
+  (`setPipeline` → `ready`) through the disguise-aware push (`sendToDevice`) +
+  inbox (`broadcast`): "It's ready for you." No publish/premiere/whisper push
+  ever fires for an owned upload (they never publish).
+- **Uploads always self-start.** `/api/me/upload` enqueues `transcribe`
+  unconditionally (not gated on `auto_pipeline`), because subjects have no manual
+  pipeline control — so a brought file always earns at least a transcript + cover
+  even if she has the global auto-pipeline off. Chaining to organize still
+  follows `auto_pipeline`.
+- **Storage footprint.** Added `tracks.sizeBytes` (recorded at ingest) and set
+  `tracks.storageKey` (previously written but never persisted) so the Sanctum
+  "Their files" page can show per-subject MB and deletion can remove every stored
+  object. `deleteUpload` is hard-scoped to personal uploads (refuses a
+  null-owner catalog track), so it can never touch the catalog.
+- **Schema:** `tracks.ownerUserId` (uuid FK → users.id, ON DELETE CASCADE,
+  indexed) + `tracks.sizeBytes`, enum value `track_source.subject_upload`, and
+  settings `subject_uploads_enabled` / `subject_upload_max_mb` /
+  `subject_upload_max_files`. One generated migration:
+  `drizzle/0015_broad_microbe.sql`.

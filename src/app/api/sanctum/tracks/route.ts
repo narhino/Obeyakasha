@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { trackTags, tracks, transcripts } from "@/lib/db/schema";
 import { withGoddess } from "@/lib/api";
@@ -30,6 +30,9 @@ export async function GET() {
       })
       .from(tracks)
       .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
+      // F1: personal uploads live on their own "Their files" page, never mixed
+      // into her catalog Library (so catalog actions can't touch a private file).
+      .where(isNull(tracks.ownerUserId))
       .orderBy(desc(tracks.createdAt));
 
     const counts = await db

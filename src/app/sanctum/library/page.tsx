@@ -45,6 +45,9 @@ export default async function SanctumLibrary() {
     })
     .from(tracks)
     .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
+    // F1: exclude subjects' personal uploads — they have their own oversight
+    // page (Their files) and never belong in her catalog Library.
+    .where(isNull(tracks.ownerUserId))
     .orderBy(desc(tracks.createdAt));
 
   const [counts, shells] = await Promise.all([

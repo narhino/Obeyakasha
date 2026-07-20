@@ -46,14 +46,18 @@ export function uploadAudio(
     trackId?: string;
     durationS?: number | null;
     onProgress?: (fraction: number) => void;
+    /** Target route. Defaults to the Sanctum uploader; F1's subject shelf points
+     *  it at /api/me/upload (same XHR + progress primitive, different endpoint). */
+    endpoint?: string;
   } = {},
 ): Promise<{ trackId: string }> {
   return new Promise((resolve, reject) => {
     const params = new URLSearchParams({ filename: file.name });
     if (opts.durationS != null) params.set("durationS", String(opts.durationS));
     if (opts.trackId) params.set("trackId", opts.trackId);
+    const endpoint = opts.endpoint ?? "/api/sanctum/upload";
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/sanctum/upload?${params.toString()}`);
+    xhr.open("POST", `${endpoint}?${params.toString()}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) opts.onProgress?.(e.loaded / e.total);
     };

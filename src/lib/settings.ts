@@ -40,6 +40,12 @@ export const SETTINGS_DEFAULTS = {
   // last-granted month stamp are dynamic keys (oath_gift_track_id /
   // oath_gift_last_granted) read via getRawSetting.
   oath_min_streak: 21 as number,
+  // F1 "subjects bring their own files": whether subjects may bring their own
+  // audio into their private shelf, and the per-file / per-subject ceilings.
+  // She holds all three from Settings → "Their offerings".
+  subject_uploads_enabled: true as boolean,
+  subject_upload_max_mb: 100 as number,
+  subject_upload_max_files: 20 as number,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

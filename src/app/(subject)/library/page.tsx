@@ -5,18 +5,21 @@ import { resolveAccess } from "@/lib/entitlements/resolve";
 import {
   continueListening,
   listCatalogTracks,
+  listMyUploads,
   listSeriesCards,
   listTagGroups,
   type CatalogTrack,
   type LibraryTrack,
+  type MyUpload,
   type SeriesCard,
   type TagGroup,
 } from "@/lib/library/queries";
-import { getRawSetting } from "@/lib/settings";
+import { getRawSetting, getSetting } from "@/lib/settings";
 import { EMPTY_IMAGE } from "@/lib/art/defaults";
 import { LibraryClient } from "@/components/library/LibraryClient";
 import { ContinueShelf } from "@/components/library/ContinueShelf";
 import { SurrenderBand } from "@/components/library/SurrenderBand";
+import { YoursShelf } from "@/components/library/YoursShelf";
 import {
   Badge,
   Button,
@@ -91,18 +94,24 @@ export default async function LibraryPage({
     const cards = await listSeriesCards();
     content = <SeriesGrid cards={cards} />;
   } else {
-    const [tagGroups, catalog, continueRow] = await Promise.all([
-      listTagGroups(),
-      listCatalogTracks(
-        { userId, accessLevel: access.accessLevel },
-        { q, tagIds: activeTags },
-      ),
-      signedIn && userId
-        ? continueListening(userId, access.accessLevel)
-        : Promise.resolve(
-            [] as { track: LibraryTrack; positionS: number }[],
-          ),
-    ]);
+    const [tagGroups, catalog, continueRow, myUploads, uploadsEnabled] =
+      await Promise.all([
+        listTagGroups(),
+        listCatalogTracks(
+          { userId, accessLevel: access.accessLevel },
+          { q, tagIds: activeTags },
+        ),
+        signedIn && userId
+          ? continueListening(userId, access.accessLevel)
+          : Promise.resolve([] as { track: LibraryTrack; positionS: number }[]),
+        // F1: their private shelf + whether she's taking files right now.
+        signedIn && userId
+          ? listMyUploads(userId)
+          : Promise.resolve([] as MyUpload[]),
+        signedIn
+          ? getSetting("subject_uploads_enabled")
+          : Promise.resolve(false),
+      ]);
     content = (
       <FilesSegment
         tagGroups={tagGroups}
@@ -114,6 +123,8 @@ export default async function LibraryPage({
         patreonPageUrl={patreonPageUrl}
         q={q}
         activeTags={activeTags}
+        myUploads={myUploads}
+        uploadsEnabled={uploadsEnabled}
       />
     );
   }
@@ -200,6 +211,8 @@ function FilesSegment({
   patreonPageUrl,
   q,
   activeTags,
+  myUploads,
+  uploadsEnabled,
 }: {
   tagGroups: TagGroup[];
   tracks: CatalogTrack[];
@@ -210,6 +223,8 @@ function FilesSegment({
   patreonPageUrl: string;
   q: string;
   activeTags: string[];
+  myUploads: MyUpload[];
+  uploadsEnabled: boolean;
 }) {
   const filtersActive = q !== "" || activeTags.length > 0;
   // Only offer Surrender when the shelf isn't already narrowed by a search —
@@ -248,6 +263,11 @@ function FilesSegment({
           </Link>
         ) : null}
       </form>
+
+      {/* F1: "Yours" — the subject's private shelf, right by the search. */}
+      {signedIn ? (
+        <YoursShelf enabled={uploadsEnabled} uploads={myUploads} />
+      ) : null}
 
       {tagGroups.length > 0 ? (
         <div className="mb-6 flex flex-wrap items-baseline gap-x-6 gap-y-3">

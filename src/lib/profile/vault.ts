@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { trackTriggers, tracks, triggers, userTriggers } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
-import { grantedTrackIds } from "@/lib/library/queries";
+import { grantedTrackIds, notSomeoneElses } from "@/lib/library/queries";
 
 export interface VaultTrigger {
   name: string;
@@ -67,6 +67,8 @@ export async function vaultFor(
               inArray(tracks.id, [...granted]),
             )
           : eq(tracks.visibility, "published"),
+        // D7: a sealed-slot count never draws on another subject's upload.
+        notSomeoneElses(userId),
       ),
     );
 
