@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, whispers } from "@/lib/db/schema";
 import { whisperStats } from "@/lib/feed/whispers";
+import { loveCountsFor } from "@/lib/feed/loves";
+import { unreadCommentCountsFor } from "@/lib/feed/comments";
 import { listOpenPolls } from "@/lib/polls/ops";
 import { Badge, Button, Card, Label, PageHeading, Whisper } from "@/components/ui";
 import { WhisperComposer } from "./WhisperComposer";
@@ -32,7 +35,12 @@ export default async function SanctumWhispers() {
       .limit(15),
     listOpenPolls(),
   ]);
-  const stats = await Promise.all(recent.map((w) => whisperStats(w.id)));
+  const whisperIds = recent.map((w) => w.id);
+  const [stats, loveCounts, unreadComments] = await Promise.all([
+    Promise.all(recent.map((w) => whisperStats(w.id))),
+    loveCountsFor(whisperIds),
+    unreadCommentCountsFor(whisperIds),
+  ]);
 
   return (
     <div className="max-w-2xl">
@@ -62,7 +70,7 @@ export default async function SanctumWhispers() {
                 <p className="truncate text-sm text-text">
                   {w.body ?? (w.pollId ? "— poll —" : "")}
                 </p>
-                <div className="mt-1 flex flex-wrap gap-2">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
                   {w.pinned ? <Badge tone="gold">Pinned</Badge> : null}
                   {w.pollId ? <Badge tone="neutral">Poll</Badge> : null}
                   {scheduled ? (
@@ -73,6 +81,18 @@ export default async function SanctumWhispers() {
                     <>
                       <Badge tone="neutral">{stats[i]!.seen} seen</Badge>
                       <Badge tone="gold">{stats[i]!.knelt} knelt</Badge>
+                      <Badge tone="neutral">
+                        {loveCounts.get(w.id) ?? 0} surrendered
+                      </Badge>
+                      <Link
+                        href={`/sanctum/whispers/${w.id}`}
+                        className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.08em] text-text-dim transition-colors hover:text-gold"
+                      >
+                        Comments
+                        {(unreadComments.get(w.id) ?? 0) > 0 ? (
+                          <Badge tone="gold">{unreadComments.get(w.id)}</Badge>
+                        ) : null}
+                      </Link>
                     </>
                   )}
                 </div>

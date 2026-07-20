@@ -267,6 +267,30 @@ body {
   animation: pulse-alert 1.6s var(--ease-trance) infinite;
 }
 
+/* ── F3 · love pulse — a single soft gold bloom when a subject surrenders to a
+ * whisper. One-shot (not infinite): the mark swells and a warm gold halo
+ * blooms once, then settles. Applied for one animation only, then removed.
+ * Inert under reduced-motion (guard below). ── */
+@keyframes love-pulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  40% {
+    transform: scale(1.32);
+    filter: drop-shadow(
+      0 0 7px color-mix(in srgb, var(--color-gold) 70%, transparent)
+    );
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+.love-pulse {
+  animation: love-pulse var(--dur-med) var(--ease-out);
+}
+
 /* ── D4 · the entrance — one orchestrated page-load reveal ──
  * Content fades up a hair (10px) and settles. On a parent, `.enter-stagger`
  * cascades its direct children 50ms apart so a grid or feed unfurls in order.
@@ -399,6 +423,7 @@ body {
   .breathes,
   .turn-slow,
   .pulse-alert,
+  .love-pulse,
   .marquee-move,
   .enter,
   .enter-stagger > * {

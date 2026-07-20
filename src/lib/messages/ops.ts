@@ -49,12 +49,16 @@ export async function sendSubjectMessage(
   return { ok: true };
 }
 
-/** Akasha replies (never auto-sent by AI). Marks the subject's messages read. */
+/** Akasha replies (never auto-sent by AI). Marks the subject's messages read.
+ *  Returns the new message's id (F3 links a whisper-comment reply to it). */
 export async function sendGoddessMessage(
   threadId: string,
   body: string,
-): Promise<void> {
-  await db.insert(messages).values({ threadId, sender: "goddess", body });
+): Promise<string> {
+  const [msg] = await db
+    .insert(messages)
+    .values({ threadId, sender: "goddess", body })
+    .returning({ id: messages.id });
   await db
     .update(messages)
     .set({ readAt: new Date() })
@@ -91,6 +95,7 @@ export async function sendGoddessMessage(
   } catch (err) {
     console.error("[messages] goddess reply push failed:", err);
   }
+  return msg!.id;
 }
 
 export async function threadMessages(threadId: string) {

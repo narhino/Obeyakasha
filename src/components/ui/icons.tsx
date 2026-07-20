@@ -87,6 +87,20 @@ export function IconSpark({ size, ...p }: P) {
   );
 }
 
+export function IconDrop({ size, filled = false, ...p }: P & { filled?: boolean }) {
+  // A single bead of candlelit gold — the F3 love mark. A drop given to her,
+  // deliberately NOT a heart. Hollow when untaken; fills with currentColor once
+  // the viewer has surrendered.
+  return (
+    <svg {...base(size)} {...p}>
+      <path
+        d="M12 3.5c2.7 3.6 5 6.6 5 9.4a5 5 0 0 1-10 0c0-2.8 2.3-5.8 5-9.4Z"
+        fill={filled ? "currentColor" : "none"}
+      />
+    </svg>
+  );
+}
+
 export function IconKeep({ size, ...p }: P) {
   return (
     <svg {...base(size)} {...p}>

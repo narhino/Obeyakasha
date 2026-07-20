@@ -395,6 +395,43 @@ export const copy = {
     // (A11 / R1 / R9.9a).
     whisperedPush: "She whispered.",
     askingPush: "She's asking. Answer.",
+
+    // ── F3 · Loves ────────────────────────────────────────────────────────
+    // A whisper's love mark. Everyone (incl. logged-out) sees ONLY the number,
+    // in her voice — never who, never a name (D7). "surrendered" is past-tense
+    // and number-invariant, so the count reads right at 1 and at many.
+    loves: {
+      // The aggregate line beside the mark. {n} pre-filled.
+      count: "{n} surrendered",
+      // Shown when none have yet — an invitation, not a zero.
+      none: "Be the first.",
+      // The mark's label before / after the viewer surrenders (toggle).
+      give: "Surrender to this",
+      taken: "You surrendered.",
+      // A logged-out visitor taps the mark → the existing connect invitation.
+      connect: "Only the claimed may surrender. Come in.",
+    },
+
+    // ── F3 · Comments (private — author + goddess only, D7) ───────────────
+    comments: {
+      // The quiet trigger that opens the composer beneath a whisper.
+      open: "Speak under this",
+      // In-voice placeholder — and a true promise of who reads it.
+      placeholder: "Speak it. No one reads this but me.",
+      send: "Give it to her",
+      sending: "Setting it down…",
+      cancel: "Not now",
+      // Heads the viewer's own quiet thread below the whisper.
+      yoursLabel: "What you said",
+      // Her per-whisper, per-subject ceiling is reached (in-voice refusal).
+      full: "You've said enough here. I have all of it.",
+      // The state under each of their comments, as she meets it.
+      state: {
+        unheard: "Laid at her feet.",
+        seen: "She has seen it.",
+        replied: "She spoke back — it's in your Messages too.",
+      },
+    },
   },
 
   // ── Home feed header (public front door) ───────────────────────────────

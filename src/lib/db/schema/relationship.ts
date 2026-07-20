@@ -82,6 +82,61 @@ export const whisperReceipts = pgTable(
   (t) => [primaryKey({ columns: [t.whisperId, t.userId] })],
 );
 
+// ── Loves (F3) ───────────────────────────────────────────────────────────
+// A subject's single love on a whisper — a toggle, one per (whisper, subject).
+// Everyone (incl. logged-out) may see the AGGREGATE count in her voice; the
+// membership (who) is NEVER exposed to anyone but the goddess (D7). The PK
+// enforces one-per-subject; both FKs cascade so releasing an account or
+// deleting a whisper takes its loves with it.
+export const whisperLoves = pgTable(
+  "whisper_loves",
+  {
+    whisperId: uuid("whisper_id")
+      .notNull()
+      .references(() => whispers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.whisperId, t.userId] })],
+);
+
+// ── Comments (F3) ────────────────────────────────────────────────────────
+// A subject speaks privately under a whisper. STRICTLY her <-> that one subject
+// (D7, absolute): a comment is visible ONLY to its author and to the goddess —
+// never to any other subject, and no other subject may ever perceive its count.
+// `readAt` records that she has seen it; `replyMessageId` links the reply she
+// dropped into the subject's Messages thread (the whisper thread mirrors it).
+export const whisperComments = pgTable(
+  "whisper_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    whisperId: uuid("whisper_id")
+      .notNull()
+      .references(() => whispers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    // Her reply lives as a real message in the subject's thread; this points at
+    // it. ON DELETE SET NULL so pruning a message never orphans the comment row.
+    replyMessageId: uuid("reply_message_id").references(() => messages.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    index("whisper_comments_whisper_idx").on(t.whisperId),
+    index("whisper_comments_user_idx").on(t.userId),
+  ],
+);
+
 // ── Orders (A12) ─────────────────────────────────────────────────────────
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),

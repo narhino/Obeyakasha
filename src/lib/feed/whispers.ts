@@ -5,6 +5,8 @@ import type { Audience } from "@/lib/db/schema/relationship";
 import { audienceMatches } from "@/lib/push/audience";
 import { signArtwork } from "@/lib/art/resolve";
 import { tallyVotes, type PollOption, type Tally } from "@/lib/polls/tally";
+import { loveCountsFor, lovedSetFor } from "./loves";
+import { commentsForViewer, type WhisperCommentView } from "./comments";
 
 /** A poll attached to a whisper, rendered + voted inline in the feed (R1). */
 export interface WhisperPollView {
@@ -32,6 +34,14 @@ export interface WhisperCard {
   publishedAt: Date | null;
   knelt: boolean;
   poll: WhisperPollView | null;
+  /** Aggregate loves (F3) — the ONLY love signal anyone but the goddess sees;
+   *  never who, never a name (D7). Shown to logged-out visitors too. */
+  loveCount: number;
+  /** Whether the VIEWER has loved this; always false for logged-out visitors. */
+  loved: boolean;
+  /** The VIEWER'S OWN private comment thread (F3) — their words + her reply.
+   *  Empty for logged-out visitors; never carries another subject's comment. */
+  comments: WhisperCommentView[];
 }
 
 /** Sign the attached images for a batch of whispers (cheap HMAC, no N+1). */
@@ -148,10 +158,17 @@ export async function whispersForSubject(
   const pollIds = visible
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
-  const [pollViews, imageUrls] = await Promise.all([
-    pollViewsFor(pollIds, userId),
-    imageUrlsFor(visible),
-  ]);
+  const whisperIds = visible.map((w) => w.id);
+  // All batched — no per-card queries (loves counts, viewer's love set, and the
+  // viewer's OWN comment threads are each one round trip).
+  const [pollViews, imageUrls, loveCounts, lovedSet, comments] =
+    await Promise.all([
+      pollViewsFor(pollIds, userId),
+      imageUrlsFor(visible),
+      loveCountsFor(whisperIds),
+      lovedSetFor(userId, whisperIds),
+      commentsForViewer(userId, whisperIds),
+    ]);
 
   return visible.map((w) => ({
     id: w.id,
@@ -162,6 +179,9 @@ export async function whispersForSubject(
     publishedAt: w.publishedAt,
     knelt: kneltSet.has(w.id),
     poll: w.pollId ? pollViews.get(w.pollId) ?? null : null,
+    loveCount: loveCounts.get(w.id) ?? 0,
+    loved: lovedSet.has(w.id),
+    comments: comments.get(w.id) ?? [],
   }));
 }
 
@@ -186,10 +206,14 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
   const pollIds = visible
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
-  // No userId → no personal vote; results still gated by resultsShared.
-  const [pollViews, imageUrls] = await Promise.all([
+  const whisperIds = visible.map((w) => w.id);
+  // No userId → no personal vote; results still gated by resultsShared. The
+  // logged-out visitor sees ONLY the aggregate love count — never the loved
+  // state, and NEVER any comment (D7): `comments` stays empty here by design.
+  const [pollViews, imageUrls, loveCounts] = await Promise.all([
     pollViewsFor(pollIds, null),
     imageUrlsFor(visible),
+    loveCountsFor(whisperIds),
   ]);
 
   return visible.map((w) => ({
@@ -201,6 +225,9 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
     publishedAt: w.publishedAt,
     knelt: false,
     poll: w.pollId ? pollViews.get(w.pollId) ?? null : null,
+    loveCount: loveCounts.get(w.id) ?? 0,
+    loved: false,
+    comments: [],
   }));
 }
 

@@ -9,6 +9,7 @@ import type { Audience } from "@/lib/db/schema/relationship";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { sendWhisperPush } from "@/lib/feed/publish";
+import { deleteComment, replyToComment } from "@/lib/feed/comments";
 import { createPollRecord } from "@/lib/polls/ops";
 import type { PollOption } from "@/lib/polls/tally";
 
@@ -196,5 +197,61 @@ export async function cancelScheduledWhisper(formData: FormData) {
     whisperId: parsed.data.whisperId,
     removed: deleted.length > 0,
   });
+  revalidatePath("/sanctum/whispers");
+}
+
+// ── F3 · private comments under whispers ───────────────────────────────────
+
+const replySchema = z.object({
+  commentId: z.string().uuid(),
+  whisperId: z.string().uuid(),
+  body: z.string().min(1).max(2000),
+});
+
+/** She answers a subject's comment → a real message in their thread (with its
+ *  disguise-aware push) + the comment's reply line. Audited against the subject. */
+export async function replyToWhisperComment(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = replySchema.safeParse({
+    commentId: formData.get("commentId"),
+    whisperId: formData.get("whisperId"),
+    body: formData.get("body"),
+  });
+  if (!parsed.success) throw new Error("Invalid reply");
+
+  const result = await replyToComment(parsed.data.commentId, parsed.data.body);
+  if (result.ok) {
+    await logAudit(session.user.id, "whisper.comment_replied", {
+      commentId: parsed.data.commentId,
+      whisperId: parsed.data.whisperId,
+      subjectUserId: result.userId,
+    });
+  }
+  revalidatePath(`/sanctum/whispers/${parsed.data.whisperId}`);
+  revalidatePath("/sanctum/whispers");
+}
+
+const deleteCommentSchema = z.object({
+  commentId: z.string().uuid(),
+  whisperId: z.string().uuid(),
+});
+
+/** She may take a subject's comment down — her prerogative, always audited. */
+export async function deleteWhisperComment(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = deleteCommentSchema.safeParse({
+    commentId: formData.get("commentId"),
+    whisperId: formData.get("whisperId"),
+  });
+  if (!parsed.success) throw new Error("Invalid delete");
+
+  const result = await deleteComment(parsed.data.commentId);
+  await logAudit(session.user.id, "whisper.comment_deleted", {
+    commentId: parsed.data.commentId,
+    whisperId: parsed.data.whisperId,
+    subjectUserId: result.ok ? result.userId : null,
+    removed: result.ok,
+  });
+  revalidatePath(`/sanctum/whispers/${parsed.data.whisperId}`);
   revalidatePath("/sanctum/whispers");
 }

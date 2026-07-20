@@ -913,3 +913,58 @@ default cover automatically.
   settings `subject_uploads_enabled` / `subject_upload_max_mb` /
   `subject_upload_max_files`. One generated migration:
   `drizzle/0015_broad_microbe.sql`.
+
+## 2026-07-20 — F3: whispers — anonymous loves + private comments
+
+New reactions under each whisper: a public **love** aggregate and a **private
+comment** thread. Built on the existing feed (`src/lib/feed/whispers.ts`), card
+(`WhispersFeed.tsx`), Sanctum whispers, and messages send path — player, auth,
+push disguise, and F1 untouched.
+
+- **Two tables** (`relationship.ts`, migration `drizzle/0016_fine_susan_delgado.sql`):
+  `whisper_loves` (PK `(whisperId, userId)` — one love per subject; both FKs
+  cascade) and `whisper_comments` (`id, whisperId, userId, body, createdAt,
+  readAt, replyMessageId` — whisper/user FKs cascade, `replyMessageId` → messages
+  ON DELETE SET NULL so pruning a message never orphans a comment).
+- **The love verb is "surrendered", not "knelt".** BRAND's register offers both,
+  but *kneel* is already the whisper-**receipt** gesture (`whisperReceipts`,
+  Sanctum "N knelt"). Reusing it for loves would put two different "knelt" counts
+  on one card. "surrendered" (bank: *surrender*) is register-true, unambiguous to
+  anonymous visitors, and past-tense **number-invariant** — "1 surrendered" and
+  "23 surrendered" both read correctly, so the plural helper isn't needed for it
+  (it inflects no noun). Key copy (`copy.whispers.loves` / `.comments`): count
+  `"{n} surrendered"`, none `"Be the first."`, comment states `"Laid at her
+  feet." / "She has seen it." / "She spoke back — it's in your Messages too."`,
+  cap refusal `"You've said enough here. I have all of it."`
+- **D7 is the spine.** There is deliberately **no "who loved" reader anywhere** —
+  only aggregate counts (`loveCountsFor`) and the viewer's OWN set (`lovedSetFor`).
+  Comments a subject can reach are always scoped `userId = viewer`
+  (`commentsForViewer`); the `*Admin` readers (whole set, named) are called only
+  from goddess-gated Sanctum surfaces. The `WhisperCard` payload carries the love
+  aggregate + the viewer's own thread and **no comment count** — a subject can
+  never perceive another's comment or its existence. `publicWhispers()` returns
+  the love count only (`loved:false`, `comments:[]`). All feed reads stay batched
+  (grouped count, one loved-set query, one viewer-comments query + join) — no N+1.
+- **Her reply reuses the messages path.** `replyToComment` → `getOrCreateThread`
+  + `sendGoddessMessage` (which fires the existing disguise-aware "She spoke to
+  you." push) then stamps the comment's `replyMessageId` + `readAt`. The whisper
+  thread mirrors her words (Voice/italic) with an "also in your Messages" line.
+  `sendGoddessMessage` now **returns the new message id** (was void) so the
+  comment can link to it; all existing callers ignore the return, unchanged.
+- **No push spam to her.** Comment-create fires no `notifyGoddess` (unlike
+  wishes) — new comments surface only via the fail-soft nav badge on the Voice ›
+  Whispers item (`totalUnreadComments`, new `NavCounts.comments`) and the Today
+  "Spoken under your whispers" attention row. Per-whisper Sanctum view marks
+  comments read on open (this view still highlights what was new).
+- **Guards mirror existing patterns.** Per-subject cap of 10 comments/whisper
+  (in-voice refusal); 60s identical-body dedup (the wishes petition pattern);
+  love toggle idempotent via PK + `onConflictDoNothing`. Deleting a subject's
+  comment is allowed for her (audited) and leaves any reply she already sent in
+  their Messages.
+- **New primitives on `/styleguide`:** `IconDrop` (the love mark — a candlelit
+  gold bead, hollow→filled, deliberately not a heart) and `.love-pulse` (one-shot
+  gold bloom on tap, reduced-motion-gated in the global guard). Tokens only.
+- **Tests** (`src/lib/feed/social.test.ts`, DB-backed): D7 across loves + comments
+  (B can't read A via feed/reader/count; anon sees only the love aggregate; owner
+  sees own thread; goddess sees all, named), toggle idempotency, the cap, the 60s
+  dedup, and the full reply flow (real thread message + linked + mirrored state).

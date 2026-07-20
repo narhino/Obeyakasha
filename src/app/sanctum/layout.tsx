@@ -10,6 +10,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { pendingPetitions } from "@/lib/oath/resolve";
+import { totalUnreadComments } from "@/lib/feed/comments";
 import { SanctumNav, type NavCounts } from "./SanctumNav";
 
 // The rail carries live counts, so never serve a stale shell.
@@ -21,7 +22,7 @@ function count(where: Promise<{ n: number }[]>): Promise<number> {
 }
 
 async function navCounts(): Promise<NavCounts> {
-  const [today, review, unread, tasks, theirFiles] = await Promise.all([
+  const [today, review, unread, tasks, theirFiles, comments] = await Promise.all([
     // Open collar petitions awaiting her word.
     pendingPetitions()
       .then((p) => p.length)
@@ -59,8 +60,10 @@ async function navCounts(): Promise<NavCounts> {
         .from(tracks)
         .where(isNotNull(tracks.ownerUserId)),
     ),
+    // F3: unread comments spoken under her whispers.
+    totalUnreadComments().catch(() => 0),
   ]);
-  return { today, review, messages: unread, tasks, theirFiles };
+  return { today, review, messages: unread, tasks, theirFiles, comments };
 }
 
 export default async function SanctumLayout({

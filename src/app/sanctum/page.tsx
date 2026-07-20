@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
 import { liveListeners } from "@/lib/listen/live";
+import { totalUnreadComments } from "@/lib/feed/comments";
 import { pendingPetitions } from "@/lib/oath/resolve";
 import { formatWhen } from "@/lib/format/when";
 import { LivePanel } from "./live/LivePanel";
@@ -29,8 +30,8 @@ export default async function SanctumToday() {
   ]);
 
   // "Awaiting you" — the actionable backlog, each a count + one-line label + link.
-  const [proofs, pendingReviews, newComms, newWishes, shells] = await Promise.all(
-    [
+  const [proofs, pendingReviews, newComms, newWishes, shells, unreadComments] =
+    await Promise.all([
       count(
         db
           .select({ n: sql<number>`count(*)::int` })
@@ -66,12 +67,13 @@ export default async function SanctumToday() {
           .from(tracks)
           .where(and(eq(tracks.source, "patreon_import"), isNull(tracks.streamKey))),
       ),
-    ],
-  );
+      totalUnreadComments().catch(() => 0),
+    ]);
 
   const awaiting = [
     { label: "Proofs to review", value: proofs, href: "/sanctum/orders" },
     { label: "Waiting on your review", value: pendingReviews, href: "/sanctum/organize" },
+    { label: "Spoken under your whispers", value: unreadComments, href: "/sanctum/whispers" },
     { label: "New commissions", value: newComms, href: "/sanctum/commissions" },
     { label: "New asks", value: newWishes, href: "/sanctum/wishes" },
     { label: "Shells waiting for audio", value: shells, href: "/sanctum/import" },

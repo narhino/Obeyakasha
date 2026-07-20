@@ -1,18 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { WhisperCard } from "@/lib/feed/whispers";
-import { copy } from "@/copy/copy";
+import type { CommentState } from "@/lib/feed/comments";
+import { copy, fill } from "@/copy/copy";
 import { formatWhen } from "@/lib/format/when";
 import { Eyebrow, Voice } from "@/components/ui";
+import { IconDrop } from "@/components/ui/icons";
 import { FeedPoll } from "./FeedPoll";
 
 /**
- * The Whispers feed (Home). One-way — subjects never post, they only kneel.
- * Pinned whispers open as large editorial cards; her words are set in the D3
- * voice (italic display), and any image she attached blooms above the words as
- * the card's art. `signedIn` toggles subject affordances (kneel, poll voting)
- * vs the logged-out public view (read + connect CTA on polls).
+ * The Whispers feed (Home). Subjects never post whispers — they kneel, love, and
+ * speak privately beneath. Her words are set in the D3 voice (italic display),
+ * and any image she attached blooms above the words as the card's art.
+ * `signedIn` toggles subject affordances (kneel, love toggle, the private
+ * composer) vs the logged-out public view (read + connect CTAs). Loves show as
+ * an aggregate to EVERYONE; comments are visible only to their author (D7).
  */
 export function WhispersFeed({
   items,
@@ -113,9 +117,20 @@ function WhisperItem({
         ) : null}
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          <span className="label-caps text-text-dim/60" suppressHydrationWarning>
-            {whisper.publishedAt ? formatWhen(whisper.publishedAt) : ""}
-          </span>
+          <div className="flex items-center gap-4">
+            <span
+              className="label-caps text-text-dim/60"
+              suppressHydrationWarning
+            >
+              {whisper.publishedAt ? formatWhen(whisper.publishedAt) : ""}
+            </span>
+            <LoveMark
+              whisperId={whisper.id}
+              initialLoved={whisper.loved}
+              initialCount={whisper.loveCount}
+              signedIn={signedIn}
+            />
+          </div>
           {signedIn ? (
             <button
               onClick={doKneel}
@@ -130,7 +145,236 @@ function WhisperItem({
             </button>
           ) : null}
         </div>
+
+        {signedIn ? (
+          <WhisperComments whisperId={whisper.id} initial={whisper.comments} />
+        ) : null}
       </div>
     </li>
+  );
+}
+
+/**
+ * The love mark — a candlelit gold bead + the aggregate count in her voice.
+ * EVERYONE sees the number, never who (D7). Signed-in: taps toggle with an
+ * optimistic update + a one-shot gold pulse (reduced-motion-gated by the CSS).
+ * Logged-out: the mark links to the Gate (the existing connect invitation).
+ */
+function LoveMark({
+  whisperId,
+  initialLoved,
+  initialCount,
+  signedIn,
+}: {
+  whisperId: string;
+  initialLoved: boolean;
+  initialCount: number;
+  signedIn: boolean;
+}) {
+  const [loved, setLoved] = useState(initialLoved);
+  const [count, setCount] = useState(initialCount);
+  const [busy, setBusy] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
+  const label =
+    count > 0 ? fill(copy.whispers.loves.count, { n: count }) : copy.whispers.loves.none;
+
+  if (!signedIn) {
+    return (
+      <Link
+        href="/signin"
+        aria-label={copy.whispers.loves.connect}
+        title={copy.whispers.loves.connect}
+        className="group inline-flex items-center gap-2 text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold"
+      >
+        <IconDrop size={17} />
+        <span className="nums-lining text-xs tracking-[0.04em]">{label}</span>
+      </Link>
+    );
+  }
+
+  async function toggle() {
+    if (busy) return;
+    const prevLoved = loved;
+    const prevCount = count;
+    const next = !prevLoved;
+    setLoved(next);
+    setCount(Math.max(0, prevCount + (next ? 1 : -1)));
+    if (next) setPulse(true);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/whispers/${whisperId}/love`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { loved: boolean; count: number };
+      setLoved(data.loved);
+      setCount(data.count);
+    } catch {
+      setLoved(prevLoved);
+      setCount(prevCount);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      aria-pressed={loved}
+      aria-label={loved ? copy.whispers.loves.taken : copy.whispers.loves.give}
+      className={`group inline-flex items-center gap-2 transition-colors duration-[var(--dur-med)] ${
+        loved ? "text-gold" : "text-text-dim/70 hover:text-gold"
+      }`}
+    >
+      <span
+        className={pulse ? "love-pulse inline-flex" : "inline-flex"}
+        onAnimationEnd={() => setPulse(false)}
+      >
+        <IconDrop size={17} filled={loved} />
+      </span>
+      <span className="nums-lining text-xs tracking-[0.04em]">{label}</span>
+    </button>
+  );
+}
+
+interface ThreadComment {
+  id: string;
+  body: string;
+  state: CommentState;
+  reply: string | null;
+}
+
+/**
+ * A subject's private thread beneath a whisper (D7). "Speak under this" opens a
+ * quiet inline composer; their own words render below with the state of how she
+ * has met each — and her reply, when she has spoken, in her voice. No other
+ * subject's comment ever reaches here, and there is no count shown.
+ */
+function WhisperComments({
+  whisperId,
+  initial,
+}: {
+  whisperId: string;
+  initial: ThreadComment[];
+}) {
+  const [comments, setComments] = useState<ThreadComment[]>(
+    initial.map((c) => ({
+      id: c.id,
+      body: c.body,
+      state: c.state,
+      reply: c.reply,
+    })),
+  );
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function submit() {
+    if (!value.trim() || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/whispers/${whisperId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: value }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        reason?: string;
+        comment?: ThreadComment;
+        error?: string;
+      };
+      if (data.ok === false && data.reason === "full") {
+        setNotice(copy.whispers.comments.full);
+      } else if (data.comment) {
+        const added = data.comment;
+        setComments((cs) => [
+          { id: added.id, body: added.body, state: added.state, reply: added.reply },
+          ...cs.filter((c) => c.id !== added.id),
+        ]);
+        setValue("");
+        setOpen(false);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-line/50 pt-3">
+      {comments.length > 0 ? (
+        <ul className="space-y-3">
+          {comments.map((c) => (
+            <li key={c.id} className="border-l-2 border-gold/25 pl-3">
+              <p className="text-sm leading-relaxed text-text-dim">{c.body}</p>
+              {c.state === "replied" && c.reply ? (
+                <div className="mt-2">
+                  <Voice className="text-[0.9375rem] leading-relaxed">
+                    {c.reply}
+                  </Voice>
+                  <p className="mt-1 text-[0.6875rem] tracking-[0.04em] text-gold/70">
+                    {copy.whispers.comments.state.replied}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1 text-[0.6875rem] tracking-[0.04em] text-text-dim/60">
+                  {c.state === "seen"
+                    ? copy.whispers.comments.state.seen
+                    : copy.whispers.comments.state.unheard}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {open ? (
+        <div className={comments.length > 0 ? "mt-3" : ""}>
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            rows={2}
+            maxLength={500}
+            autoFocus
+            placeholder={copy.whispers.comments.placeholder}
+            className="w-full rounded-[var(--radius)] border border-line bg-bg/60 px-3 py-2 text-sm text-text placeholder:text-text-dim/45 focus:border-gold/70 focus:outline-none"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={submit}
+              disabled={busy || !value.trim()}
+              className="rounded-[var(--radius-full)] border border-gold bg-gold/10 px-4 py-1 text-xs tracking-[0.06em] text-gold transition-colors duration-[var(--dur-med)] hover:bg-gold/20 disabled:cursor-not-allowed disabled:border-line disabled:bg-transparent disabled:text-text-dim/45"
+            >
+              {busy ? copy.whispers.comments.sending : copy.whispers.comments.send}
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                setValue("");
+                setNotice(null);
+              }}
+              className="text-xs tracking-[0.04em] text-text-dim/70 transition-colors hover:text-text-dim"
+            >
+              {copy.whispers.comments.cancel}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className={`inline-flex items-center text-xs tracking-[0.06em] text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold ${
+            comments.length > 0 ? "mt-3" : ""
+          }`}
+        >
+          {copy.whispers.comments.open}
+        </button>
+      )}
+
+      {notice ? (
+        <p className="mt-2 text-xs text-gold">{notice}</p>
+      ) : null}
+    </div>
   );
 }

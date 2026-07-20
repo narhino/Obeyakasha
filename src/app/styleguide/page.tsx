@@ -31,6 +31,7 @@ import {
   IconChevronDown,
   IconCollar,
   IconDescend,
+  IconDrop,
   IconKeep,
   IconLibrary,
   IconLock,
@@ -77,6 +78,7 @@ const icons = [
   ["Check", IconCheck],
   ["Library", IconLibrary],
   ["Descend", IconDescend],
+  ["Drop", IconDrop],
   ["Speak", IconSpeak],
   ["Collar", IconCollar],
   ["Seal", IconSeal],
@@ -146,6 +148,23 @@ export default function StyleGuide() {
               <span className="text-[0.5625rem] tracking-wide">{name}</span>
             </div>
           ))}
+        </div>
+
+        {/* F3 · the love mark — hollow (untaken), filled gold (surrendered), and
+            the one-shot gold bloom on tap (steady under reduced-motion). */}
+        <Label className="mt-6 mb-3">The love mark (F3)</Label>
+        <div className="flex flex-wrap items-center gap-6">
+          <span className="inline-flex items-center gap-2 text-text-dim/70">
+            <IconDrop size={18} />
+            <span className="nums-lining text-xs">Be the first.</span>
+          </span>
+          <span className="inline-flex items-center gap-2 text-gold">
+            <IconDrop size={18} filled />
+            <span className="nums-lining text-xs">23 surrendered</span>
+          </span>
+          <span className="love-pulse inline-flex text-gold">
+            <IconDrop size={18} filled />
+          </span>
         </div>
       </section>
 

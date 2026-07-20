@@ -12,6 +12,8 @@ export interface NavCounts {
   tasks: number;
   /** F1: how many personal files subjects have brought (fail-soft). */
   theirFiles: number;
+  /** F3: unread comments spoken under her whispers (fail-soft). */
+  comments: number;
 }
 
 type BadgeKey = keyof NavCounts;
@@ -50,7 +52,7 @@ const GROUPS: NavGroup[] = [
   {
     label: "Voice",
     items: [
-      { href: "/sanctum/whispers", label: "Whispers" },
+      { href: "/sanctum/whispers", label: "Whispers", badge: "comments" },
       { href: "/sanctum/broadcast", label: "Broadcast" },
       { href: "/sanctum/questions", label: "Questions" },
     ],
