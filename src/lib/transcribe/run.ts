@@ -33,6 +33,17 @@ export async function transcribeTrack(trackId: string): Promise<void> {
     const filename = track.streamKey.split("/").pop() ?? "audio.m4a";
     const result = await transcriptionProvider().transcribe(bytes, filename);
 
+    // An empty transcript is not a script. This happens when the transcriber
+    // sidecar runs in stub mode (TRANSCRIBER_STUB=1) or the model returns
+    // nothing — either way it must never flip the track to a gold "script
+    // ready" badge with no text behind it. Treat it as a failure so the UI
+    // stays honest and the goddess can re-transcribe once the model is live.
+    if (!result.fullText.trim()) {
+      throw new Error(
+        "Transcriber returned no text — is it running the real model (TRANSCRIBER_STUB=0)?",
+      );
+    }
+
     await db
       .update(transcripts)
       .set({

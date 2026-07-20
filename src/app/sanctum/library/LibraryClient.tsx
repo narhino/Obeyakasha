@@ -42,11 +42,13 @@ function PipelineBadge({ row }: { row: LibraryRow }) {
       return <Badge tone="danger">organize failed</Badge>;
     case "ready":
       // Positive states read calm/gold; wine is reserved for failures (F29).
-      return row.transcriptStatus === "done" ? (
-        <Badge tone="gold">script ready</Badge>
-      ) : (
-        <Badge tone="neutral">ready</Badge>
-      );
+      // A failed transcript on an otherwise-ready track earns its own quiet
+      // wine badge so "no script" never hides behind a plain "ready".
+      if (row.transcriptStatus === "done")
+        return <Badge tone="gold">script ready</Badge>;
+      if (row.transcriptStatus === "failed")
+        return <Badge tone="danger">no script</Badge>;
+      return <Badge tone="neutral">ready</Badge>;
     default:
       return <Badge tone="neutral">uploaded</Badge>;
   }

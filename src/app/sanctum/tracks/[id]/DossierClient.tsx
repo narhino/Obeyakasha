@@ -598,6 +598,19 @@ export function DossierClient({
         </div>
       </Card>
 
+      {/* Transcript failed / came back empty — say so plainly instead of a
+          silent gap. The usual cause is the transcriber sidecar in stub mode. */}
+      {transcript?.status === "failed" ? (
+        <Card className="mt-6 border-danger/40">
+          <Label>Transcript</Label>
+          <p className="mt-2 text-sm text-text-dim">
+            The transcriber returned no text. If it&apos;s in stub mode, set{" "}
+            <code className="text-gold/80">TRANSCRIBER_STUB=0</code> on the
+            server, rebuild, then re-transcribe from the Library.
+          </p>
+        </Card>
+      ) : null}
+
       {/* Transcript (admin-only) */}
       {transcript?.fullText ? (
         <Card className="mt-6">
