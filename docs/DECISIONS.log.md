@@ -1090,3 +1090,74 @@ push disguise, and F1 untouched.
   Whispers (where they may look). Shots (mobile 390, jail off, her faked online):
   `you-mirror`, `you-mantra` (mid-type ignition), `nav-burns` (red Tasks beside
   emerald Whispers) in `docs/qa-shots/final/`.
+
+---
+
+## 2026-07-20 — Chunked resumable uploads (defeat the Cloudflare 524)
+
+- **Root cause.** Uploads streamed the whole file through the app in ONE request.
+  Behind Cloudflare's orange-cloud proxy (kept for IP hiding) any single request
+  over ~100 s is killed with a **524** origin timeout; large audio on a home
+  upstream blew past 100 s. Fix: slice the file client-side into small parts,
+  each its own short request, reassembled server-side; the final assemble+ingest
+  is fast because the bytes are already on disk.
+- **Protocol.** Per-chunk raw-body `POST ${endpoint}?uploadId&index&count&filename&size&sha256&durationS[&trackId][&title]`.
+  Chunks go **strictly sequentially**. Earlier chunks answer `{received}`; the
+  **final chunk** (`index === count-1`) triggers assemble → integrity-check →
+  ingest and answers `{trackId}`. Chunk size **5 MiB** (client const) — one part
+  finishes well under a minute on a ~1 Mbps upstream and stays under Cloudflare's
+  100 s / 100 MB per-request caps. The client `uploadAudio(file, {trackId?,
+  durationS?, onProgress?, endpoint?}) → {trackId}` signature is **unchanged**, so
+  no caller changed (UploadQueue, AttachButton, bulk AttachClient, F1 YoursShelf).
+- **Retry / ordering (the resumability).** Each chunk retries itself up to **3×**
+  with small backoff (300 ms × attempt) on a network drop or 5xx; ordering is
+  never advanced past a failed chunk. Server keeps a strict guard: reject **409**
+  if `index !== received` (chunks committed so far) for that `uploadId`. Index 0
+  (re)initialises — it wipes any prior state for that id, so an index-0 retry
+  after a lost response starts clean rather than wedging. A mid-append transport
+  failure truncates the assembled file back to the last committed boundary and
+  answers **500** (retryable) without losing committed chunks.
+- **Path safety.** The temp dir is derived from the `uploadId` **uuid alone**
+  (`tmpdir/akasha-chunked/<uuid>/`), never from the filename — no traversal
+  surface. All query params are zod-validated (`uploadId` uuid, `index<count`,
+  `sha256` = 64 hex, etc.).
+- **Integrity gate (fail loud, never ingest a mismatch).** The client sends the
+  whole file's exact byte `size` + hex `SHA-256` (Web Crypto). On the final chunk
+  the server asserts the assembled file's size **and** streamed SHA-256 match
+  before it ever calls ingest; a mismatch → **422** + cleanup, no ingest. F1
+  speaks it in voice (`copy.uploads.errors.notWhole`, new); the Sanctum is plain.
+- **Size + auth enforcement per route.** Auth is re-checked on **every** chunk
+  (each chunk is its own POST → the route's `auth()` runs each time): Sanctum
+  requires `goddess`, F1 requires a signed-in owner (upload bound to their id).
+  Index-0 fast-fails run before any bytes: Sanctum validates the R8 `trackId`
+  target (exists → 404, no audio yet → 409); F1 checks `subject_uploads_enabled`
+  (403), audio extension (415), and the per-subject file cap (409). The per-file
+  ceiling is enforced twice — an **exact** declared-`size` vs `maxBytes` fast-fail
+  at index 0, plus a hard streaming cap as bytes accumulate (413 + cleanup). Caps:
+  F1 = `subject_upload_max_mb`; Sanctum = 1 GiB origin-side (her own masters).
+- **Cleanup.** Temp dir removed on finalize (success) and on any hard error; kept
+  between chunks. A best-effort sweep of assemblies older than 6 h runs on each
+  new upload start (index 0) to reap abandoned partials.
+- **Backward-compat: fully switched (no single-shot path kept).** Every poster to
+  these routes is the shared `uploadAudio` client (grep-confirmed: 4 callers, no
+  other `fetch`/XHR to `/api/*/upload`), so both routes now speak chunked only —
+  simpler than maintaining a dual path. The old whole-body streaming code is gone.
+- **Shared server helper** `src/lib/media/chunked.ts` owns transport only
+  (assembly, ordering, ceiling, integrity, cleanup) and both routes delegate via
+  `onStart`/`onFinalize` hooks — the routes keep their own auth, validations, and
+  ingest/attach + `logAudit` + auto_pipeline/transcribe enqueue. **`ingest.ts`
+  contracts (`ingestUploadFromPath`, `attachUploadToTrack`) are unchanged** — they
+  still receive one assembled path. Pure planning/assembly split into
+  `src/lib/media/chunk-plan.ts` (`planChunks`/`concatChunks`), unit-tested
+  (`chunk-plan.test.ts`) with a SHA-256 proof that in-order concat is lossless.
+- **Minor deviations.** (1) F1's old secondary MIME sniff is dropped: chunk bodies
+  don't carry the original file's content-type, so the **extension** allow-list
+  (here + in ingest's `ALLOWED_EXT`) is the gate. Net effect for real users is
+  identical (the client already filters by `AUDIO_RE`), and it incidentally stops
+  a latent false-reject of `.mp4` audio whose browser MIME is `video/mp4`. (2)
+  Assembly temp files are **local to the origin** — chunk N must reach the same
+  origin as N-1. True for the single-origin-behind-Cloudflare deployment; a
+  multi-instance origin (M6 scale) would need shared scratch storage. (3) The
+  client hashes the whole file via `file.arrayBuffer()` (one transient in-memory
+  copy) — Web Crypto has no streaming digest and no new deps were allowed; chunk
+  *sending* stays memory-bounded (lazy `file.slice`), and the server hash streams.

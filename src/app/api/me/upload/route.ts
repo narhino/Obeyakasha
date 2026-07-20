@@ -1,32 +1,36 @@
-import { createWriteStream } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { extname, join } from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { extname } from "node:path";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { logAudit } from "@/lib/audit";
 import { ingestUploadFromPath } from "@/lib/media/ingest";
+import {
+  ChunkError,
+  parseChunkParams,
+  receiveChunk,
+} from "@/lib/media/chunked";
 import { countMyUploads } from "@/lib/library/queries";
 import { enqueue } from "@/lib/jobs/queue";
 import { getSetting } from "@/lib/settings";
 import { copy, fill } from "@/copy/copy";
 
 /**
- * F1 — "subjects bring their own files". A signed-in subject streams ONE audio
- * file of their own here; it becomes a PRIVATE track (ownerUserId = them,
- * source "subject_upload", draft) visible only to them and the goddess (D7), and
- * enters the normal transcribe → organize pipeline so it earns a transcript,
- * tags, and a default cover automatically.
+ * F1 — "subjects bring their own files", now chunked/resumable (the
+ * Cloudflare-524 fix). A signed-in subject's file is sliced into ~5 MB parts and
+ * POSTed sequentially; `chunked.ts` reassembles + integrity-checks it on disk,
+ * then it becomes a PRIVATE track (ownerUserId = them, source "subject_upload",
+ * draft) visible only to them and the goddess (D7), and enters the normal
+ * transcribe → organize pipeline so it earns a transcript, tags, and a cover.
  *
- * Modelled on /api/sanctum/upload: the file is the raw request body (not
- * multipart) so the browser's XHR upload.onprogress drives a real progress bar.
- * The body is size-capped as it streams (bounded memory + storage) and every
- * failure speaks in her voice. Query param: filename (required), durationS.
+ * Every failure still speaks in her voice; auth + the ownership scope are
+ * re-checked on every chunk. Query params per chunk: uploadId, index, count,
+ * filename, size, sha256, durationS.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Audio extensions we accept (mirrors ingest's ALLOWED_EXT). The extension is
+ *  the gate — chunk bodies don't carry the original file's content-type. */
+const AUDIO_EXT = new Set([".mp3", ".m4a", ".mp4", ".wav", ".aac", ".ogg"]);
 
 /** A .m4a → "My session" style title from the raw filename. */
 function cleanTitle(filename: string): string {
@@ -35,136 +39,74 @@ function cleanTitle(filename: string): string {
   return base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
 }
 
-/** Stream Transform that aborts the moment the body exceeds `maxBytes`. */
-function byteCap(maxBytes: number): Transform {
-  let seen = 0;
-  return new Transform({
-    transform(chunk, _enc, cb) {
-      seen += chunk.length;
-      if (seen > maxBytes) {
-        cb(new Error("too_large"));
-        return;
-      }
-      cb(null, chunk);
-    },
-  });
-}
-
 export async function POST(req: NextRequest) {
+  // Re-checked on EVERY chunk — each chunk is its own POST. Owner scope is the
+  // signed-in user; the upload is bound to their id below.
   const session = await auth();
   if (!session?.user) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   const userId = session.user.id;
 
-  // Gate 1: is she taking their files at all?
-  if (!(await getSetting("subject_uploads_enabled"))) {
-    return Response.json(
-      { error: copy.uploads.errors.disabled },
-      { status: 403 },
-    );
-  }
-
   const { searchParams } = new URL(req.url);
-  const filename = searchParams.get("filename");
-  if (!filename) {
-    return Response.json(
-      { error: copy.uploads.errors.empty },
-      { status: 400 },
-    );
-  }
+  const parsed = parseChunkParams(searchParams);
+  if (!parsed.ok) return parsed.response;
+  const params = parsed.value;
 
-  // Gate 2: audio/* mime + extension sniff (both, per spec).
-  const ext = extname(filename).toLowerCase();
-  const AUDIO_EXT = new Set([".mp3", ".m4a", ".mp4", ".wav", ".aac", ".ogg"]);
-  const ct = (req.headers.get("content-type") ?? "").toLowerCase();
-  const mimeOk =
-    ct === "" || ct === "application/octet-stream" || ct.startsWith("audio/");
-  if (!AUDIO_EXT.has(ext) || !mimeOk) {
-    return Response.json(
-      { error: copy.uploads.errors.notAudio },
-      { status: 415 },
-    );
-  }
-
-  // Gate 3: per-subject ceiling — count their existing (non-deleted) uploads.
-  const [maxFiles, maxMb] = await Promise.all([
-    getSetting("subject_upload_max_files"),
-    getSetting("subject_upload_max_mb"),
-  ]);
-  const held = await countMyUploads(userId);
-  if (held >= maxFiles) {
-    return Response.json(
-      { error: copy.uploads.errors.tooMany },
-      { status: 409 },
-    );
-  }
-
-  // Gate 4: per-file size ceiling. Fast-fail on Content-Length, then enforce
-  // hard as the bytes actually stream (a spoofed/absent header can't get past).
+  const maxMb = await getSetting("subject_upload_max_mb");
   const maxBytes = Math.max(1, Math.round(maxMb)) * 1024 * 1024;
-  const tooLarge = () =>
-    Response.json(
-      { error: fill(copy.uploads.errors.tooLarge, { max: `${maxMb} MB` }) },
-      { status: 413 },
-    );
-  const declared = Number(req.headers.get("content-length") ?? "");
-  if (Number.isFinite(declared) && declared > maxBytes) return tooLarge();
 
-  if (!req.body) {
-    return Response.json({ error: copy.uploads.errors.empty }, { status: 400 });
-  }
+  return receiveChunk(req, params, {
+    maxBytes, // the per-file ceiling, enforced exactly (declared size) + hard as bytes stream
+    exposeErrors: false, // subject-facing — always speak in her voice
+    errors: {
+      tooLarge: { error: fill(copy.uploads.errors.tooLarge, { max: `${maxMb} MB` }) },
+      corrupt: { error: copy.uploads.errors.notWhole },
+      failed: { error: copy.uploads.errors.failed },
+    },
+    // All the F1 gates run once, on index 0, before any bytes are accepted. The
+    // exact per-file size ceiling is handled generically by the helper (declared
+    // size vs maxBytes), so it isn't repeated here.
+    onStart: async (p) => {
+      if (!(await getSetting("subject_uploads_enabled"))) {
+        throw new ChunkError(403, { error: copy.uploads.errors.disabled });
+      }
+      const ext = extname(p.filename).toLowerCase();
+      if (!AUDIO_EXT.has(ext)) {
+        throw new ChunkError(415, { error: copy.uploads.errors.notAudio });
+      }
+      const maxFiles = await getSetting("subject_upload_max_files");
+      const held = await countMyUploads(userId);
+      if (held >= maxFiles) {
+        throw new ChunkError(409, { error: copy.uploads.errors.tooMany });
+      }
+    },
+    onFinalize: async (p, assembledPath) => {
+      const result = await ingestUploadFromPath({
+        path: assembledPath,
+        filename: p.filename,
+        title: cleanTitle(p.filename),
+        clientDurationS: p.durationS,
+        ownerUserId: userId,
+        source: "subject_upload",
+      });
 
-  const durationRaw = searchParams.get("durationS");
-  const durationNum =
-    durationRaw && durationRaw !== "" ? Math.round(Number(durationRaw)) : null;
-  const clientDurationS = Number.isFinite(durationNum as number)
-    ? durationNum
-    : null;
+      await logAudit(userId, "subject_upload.received", {
+        trackId: result.trackId,
+        filename: p.filename,
+        durationS: result.durationS,
+      });
 
-  const dir = await mkdtemp(join(tmpdir(), "akasha-me-upload-"));
-  const tmpPath = join(dir, "upload.bin");
-  try {
-    await pipeline(
-      Readable.fromWeb(req.body as Parameters<typeof Readable.fromWeb>[0]),
-      byteCap(maxBytes),
-      createWriteStream(tmpPath),
-    );
+      // Subject uploads always self-start: transcribe → (organize, per
+      // auto_pipeline). organizeTrack skips the review queue for owned tracks;
+      // the owner is pushed "It's ready for you." when it reaches `ready`.
+      await enqueue(
+        "transcribe",
+        { trackId: result.trackId },
+        { dedupeKey: `transcribe:${result.trackId}` },
+      );
 
-    const result = await ingestUploadFromPath({
-      path: tmpPath,
-      filename,
-      title: cleanTitle(filename),
-      clientDurationS,
-      ownerUserId: userId,
-      source: "subject_upload",
-    });
-
-    await logAudit(userId, "subject_upload.received", {
-      trackId: result.trackId,
-      filename,
-      durationS: result.durationS,
-    });
-
-    // Subject uploads have no manual pipeline control, so they always self-start:
-    // transcribe → (organize, per auto_pipeline) so they earn a transcript, tags,
-    // and a cover. organizeTrack skips the review queue for owned tracks; the
-    // owner is pushed "It's ready for you." when it reaches `ready`.
-    await enqueue(
-      "transcribe",
-      { trackId: result.trackId },
-      { dedupeKey: `transcribe:${result.trackId}` },
-    );
-
-    return Response.json({ trackId: result.trackId });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (message === "too_large") return tooLarge();
-    return Response.json(
-      { error: copy.uploads.errors.failed },
-      { status: 400 },
-    );
-  } finally {
-    await rm(dir, { recursive: true, force: true }).catch(() => {});
-  }
+      return { trackId: result.trackId };
+    },
+  });
 }

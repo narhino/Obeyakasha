@@ -264,6 +264,7 @@ export const copy = {
         "You've brought me enough for now. Take one back before you offer another.",
       empty: "There's nothing there. Choose a file first.",
       failed: "That didn't take. Try once more, slowly.",
+      notWhole: "That didn't reach me whole. Bring it to me once more.",
     },
   },
 
