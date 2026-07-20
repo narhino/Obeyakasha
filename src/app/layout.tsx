@@ -28,6 +28,13 @@ export const metadata: Metadata = {
     title: copy.brand.name,
   },
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
   robots: { index: false, follow: false },
 };
 
