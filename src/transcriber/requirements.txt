@@ -5,3 +5,6 @@ python-multipart==0.0.20
 # Self-hosted, free speech-to-text (CPU). Pulls ctranslate2; model weights are
 # downloaded on first transcription and cached in the container.
 faster-whisper==1.1.0
+# faster-whisper imports `requests` (model download) but doesn't always pull it
+# in transitively on a pinned resolve — declare it so the real model can load.
+requests==2.32.3
