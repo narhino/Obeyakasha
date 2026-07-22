@@ -1,0 +1,47 @@
+name: Deploy to production
+
+# On-demand deploy. Triggered from the GitHub "Actions" tab (Run workflow) or
+# via the API — never automatically on push, so a small VPS isn't rebuilt on
+# every commit. It refuses to deploy unless CI ("verify") is green for the exact
+# commit, then SSHes to the server and runs the same pull + rebuild you'd run by
+# hand. A failed build on the server leaves the running site untouched.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require CI green for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          concl=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+            --jq '[.check_runs[] | select(.name=="verify")][0].conclusion')
+          echo "CI 'verify' conclusion for ${{ github.sha }}: ${concl:-none}"
+          if [ "$concl" != "success" ]; then
+            echo "::error::CI has not passed for this commit (${concl:-not run yet}). Not deploying."
+            exit 1
+          fi
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -e; cd '${DEPLOY_PATH:-/root/obeyakasha}'; \
+             git pull --ff-only; \
+             docker compose -f compose.prod.yml up -d --build; \
+             docker image prune -f"
