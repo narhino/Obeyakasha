@@ -8,6 +8,10 @@ name: Deploy to production
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: read
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
