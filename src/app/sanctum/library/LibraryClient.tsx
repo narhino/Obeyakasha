@@ -42,12 +42,11 @@ function PipelineBadge({ row }: { row: LibraryRow }) {
     case "failed_organize":
       return <Badge tone="danger">organize failed</Badge>;
     case "ready":
-      // Positive states read calm/gold; wine is reserved for failures (F29).
-      // A failed transcript on an otherwise-ready track earns its own quiet
-      // wine badge so "no script" never hides behind a plain "ready".
-      if (row.transcriptStatus === "done")
-        return <Badge tone="gold">script ready</Badge>;
-      if (row.transcriptStatus === "failed")
+      // "script ready" now means a real transcript WITH TEXT exists — never a
+      // bare "done" status (old stub rows are done-but-empty). No text on a
+      // ready track = an honest wine "no script" she can re-run.
+      if (row.hasScript) return <Badge tone="gold">script ready</Badge>;
+      if (row.transcriptStatus === "failed" || row.transcriptStatus === "done")
         return <Badge tone="danger">no script</Badge>;
       return <Badge tone="neutral">ready</Badge>;
     default:
@@ -82,7 +81,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
       tracks.filter(
         (t) =>
           t.hasAudio &&
-          t.transcriptStatus !== "done" &&
+          !t.hasScript &&
           !TRANSCRIPT_WORKING.has(t.transcriptStatus),
       ).length,
     [tracks],
@@ -240,7 +239,7 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                   disabled={!t.hasAudio || busyId === t.id || isWorking(t)}
                   onClick={() => onTranscribe(t.id)}
                 >
-                  {t.transcriptStatus === "done" ? "Re-transcribe" : "Transcribe"}
+                  {t.hasScript ? "Re-transcribe" : "Transcribe"}
                 </Button>
                 <Button
                   size="sm"

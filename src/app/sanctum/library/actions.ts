@@ -171,12 +171,15 @@ export async function requestTranscription(formData: FormData) {
 export async function transcribeAllPending(): Promise<{ queued: number }> {
   const session = await requireGoddess();
   const rows = await db
-    .select({ id: tracks.id, status: transcripts.status })
+    .select({ id: tracks.id, fullText: transcripts.fullText })
     .from(tracks)
     .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
     .where(isNotNull(tracks.streamKey));
-  // Anything without a completed transcript: no row, or status not "done".
-  const pending = rows.filter((r) => r.status !== "done").map((r) => r.id);
+  // Anything without a REAL script: no transcript row, or a row with empty text
+  // (old stub-era "done" rows). Trust the text, not the status.
+  const pending = rows
+    .filter((r) => !r.fullText || r.fullText.trim().length === 0)
+    .map((r) => r.id);
   for (const trackId of pending) {
     await enqueue(
       "transcribe",

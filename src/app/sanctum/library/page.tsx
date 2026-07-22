@@ -42,6 +42,9 @@ export default async function SanctumLibrary() {
       streamKey: tracks.streamKey,
       pipeline: tracks.pipeline,
       transcriptStatus: transcripts.status,
+      // Real script presence — actual text, not just a "done" status (old
+      // stub-era rows are "done" with an empty transcript).
+      hasScript: sql<boolean>`length(coalesce(trim(${transcripts.fullText}), '')) > 0`,
     })
     .from(tracks)
     .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
@@ -76,6 +79,7 @@ export default async function SanctumLibrary() {
     pipeline: r.pipeline,
     transcriptStatus: (r.transcriptStatus ??
       "none") as LibraryRow["transcriptStatus"],
+    hasScript: Boolean(r.hasScript),
     tagCount: tagMap.get(r.id) ?? 0,
   }));
 

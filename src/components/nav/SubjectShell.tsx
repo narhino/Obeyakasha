@@ -18,6 +18,7 @@ import { PresenceBand } from "@/components/presence/PresenceBand";
 import { PresenceOverlay } from "@/components/presence/PresenceOverlay";
 import { PresencePing } from "@/components/presence/PresencePing";
 import { BottomNav, DesktopNav } from "@/components/nav/SubjectNav";
+import { LiveRefresh } from "@/components/nav/LiveRefresh";
 import { copy } from "@/copy/copy";
 
 /**
@@ -67,6 +68,8 @@ export async function SubjectShell({
     <SubjectGate alreadyConsented={consented} jailActive={jailEnabled}>
       {/* Beats for every signed-in role, and keeps beating behind the takeover. */}
       <PresencePing />
+      {/* Auto-refresh: pulls new whispers / messages / burns without a reload. */}
+      <LiveRefresh />
       {/* The threshold — mobile subjects only; the goddess is never held. */}
       {isSubject ? <Jail enabled={jailEnabled} /> : null}
       <IntakeGuard done={intakeDone}>

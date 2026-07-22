@@ -27,6 +27,9 @@ export async function GET() {
         streamKey: tracks.streamKey,
         pipeline: tracks.pipeline,
         transcriptStatus: transcripts.status,
+        // The truth about "does it have a script": real text, not just a
+        // status. Old stub-era rows are status "done" with empty text.
+        hasScript: sql<boolean>`length(coalesce(trim(${transcripts.fullText}), '')) > 0`,
       })
       .from(tracks)
       .leftJoin(transcripts, eq(transcripts.trackId, tracks.id))
@@ -56,6 +59,7 @@ export async function GET() {
       pipeline: r.pipeline,
       transcriptStatus: (r.transcriptStatus ??
         "none") as LibraryRow["transcriptStatus"],
+      hasScript: Boolean(r.hasScript),
       tagCount: tagMap.get(r.id) ?? 0,
     }));
     return { tracks: library };

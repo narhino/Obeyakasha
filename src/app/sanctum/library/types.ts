@@ -20,5 +20,8 @@ export interface LibraryRow {
     | "failed_transcribe"
     | "failed_organize";
   transcriptStatus: "none" | "queued" | "processing" | "done" | "failed";
+  /** True only when a real transcript with text exists — not merely status
+   *  "done" (old stub-era rows are "done" but empty). The badge trusts this. */
+  hasScript: boolean;
   tagCount: number;
 }

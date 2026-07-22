@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { IconSpark } from "@/components/ui/icons";
+import { usePolling } from "@/lib/hooks/usePolling";
 
 /**
  * Header bell with an unseen dot. "Seen" is tracked client-side (localStorage)
@@ -11,27 +12,29 @@ import { IconSpark } from "@/components/ui/icons";
 export function InboxBell() {
   const [hasUnseen, setHasUnseen] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/inbox");
-        if (!res.ok) return;
-        const { notifications } = (await res.json()) as {
-          notifications: { sentAt: string | null }[];
-        };
-        const newest = notifications[0]?.sentAt;
-        if (cancelled || !newest) return;
-        const seen = localStorage.getItem("akasha_inbox_seen");
-        if (!seen || new Date(newest) > new Date(seen)) setHasUnseen(true);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // Poll so a notification that arrives while the app is open lights the dot on
+  // its own — no navigation needed. usePolling pauses while the tab is hidden
+  // and re-checks the instant it's shown again.
+  const check = useCallback(async () => {
+    try {
+      const res = await fetch("/api/inbox", { cache: "no-store" });
+      if (!res.ok) return;
+      const { notifications } = (await res.json()) as {
+        notifications: { sentAt: string | null }[];
+      };
+      const newest = notifications[0]?.sentAt;
+      if (!newest) return;
+      const seen = localStorage.getItem("akasha_inbox_seen");
+      setHasUnseen(!seen || new Date(newest) > new Date(seen));
+    } catch {
+      /* transient — the next poll retries */
+    }
   }, []);
+
+  useEffect(() => {
+    void check();
+  }, [check]);
+  usePolling(() => void check(), 30_000);
 
   return (
     <Link
