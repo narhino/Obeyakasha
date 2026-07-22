@@ -61,13 +61,29 @@ services:
       postgres: { condition: service_healthy }
 
   transcriber:
-    build: { context: ./src/transcriber, dockerfile: Dockerfile }
+    build:
+      context: ./src/transcriber
+      dockerfile: Dockerfile
+      # Bake the SAME model the runtime uses into the image (see the Dockerfile).
+      args:
+        WHISPER_MODEL: ${WHISPER_MODEL:-base}
     restart: unless-stopped
     environment:
       # Real self-hosted transcription is on by default. Model: base (light) →
       # small/medium for more accuracy (needs more RAM). Set STUB=1 to disable.
       TRANSCRIBER_STUB: ${TRANSCRIBER_STUB:-0}
       WHISPER_MODEL: ${WHISPER_MODEL:-base}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Generous first-boot window in case a changed model still warms up.
+      start_period: 60s
     expose:
       - "8000"
 
