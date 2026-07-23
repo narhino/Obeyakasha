@@ -25,24 +25,32 @@ const active = new Map<string, number>();
 /**
  * A job left in `running` whose worker died mid-run (a restart, a deploy, a
  * crash) is never re-claimed — the claim query only takes `queued` rows — so it
- * shows "transcribing…" forever. Once its lock is older than this, requeue it so
- * the work resumes. The window is deliberately LONGER than any handler's own
- * request timeout (transcription aborts at 12 min), so a job that is genuinely
- * still working is never yanked out from under a live worker.
+ * shows "transcribing…" forever. Once its lock is older than 15 minutes (longer
+ * than any handler's own 12-min request timeout, so a live worker is never
+ * yanked out from under itself), requeue it so the work resumes.
+ *
+ * Written as one raw statement — the SAME shape as `claim()` below — and the
+ * cutoff computed by the database (`now() - interval`), never a JS Date param,
+ * so there is no client/driver timestamp-casting quirk to silently no-op on.
+ * Logs how many it rescued; errors are surfaced by the caller, never swallowed.
  */
-const STALE_LOCK_MS = 15 * 60_000;
-
-async function reclaimStale(): Promise<void> {
-  const cutoff = new Date(Date.now() - STALE_LOCK_MS);
-  await db
-    .update(jobs)
-    .set({
-      status: "queued",
-      runAt: new Date(),
-      lastError: "requeued after a stale lock (worker restart or hang)",
-      updatedAt: new Date(),
-    })
-    .where(sql`${jobs.status} = 'running' and ${jobs.lockedAt} < ${cutoff}`);
+async function reclaimStale(): Promise<number> {
+  const result = await db.execute(sql`
+    update ${jobs} set
+      status = 'queued',
+      run_at = now(),
+      locked_at = null,
+      last_error = 'requeued after a stale lock (worker restart or hang)',
+      updated_at = now()
+    where ${jobs.status} = 'running'
+      and ${jobs.lockedAt} is not null
+      and ${jobs.lockedAt} < now() - interval '15 minutes'
+    returning ${jobs.id} as id
+  `);
+  const rows = (result as unknown as unknown[]) ?? [];
+  const n = rows.length;
+  if (n > 0) console.log(`[worker] reclaimed ${n} stale job(s) → queued`);
+  return n;
 }
 
 export function registerHandler(
@@ -162,8 +170,12 @@ async function runJob(job: ClaimedJob): Promise<void> {
  * run in the background and free their slot on completion.
  */
 export async function jobsTick(): Promise<void> {
-  // First, rescue anything a dead worker left stranded in `running`.
-  await reclaimStale().catch(() => {});
+  // First, rescue anything a dead worker left stranded in `running`. Surface
+  // failures (a swallowed error here once hid a broken reclaim) — a failed
+  // reclaim must not also fail the whole tick, so it's logged, not thrown.
+  await reclaimStale().catch((e) =>
+    console.error("[worker] reclaim failed:", e),
+  );
   for (const [kind, reg] of REGISTRY) {
     const slots = reg.concurrency - (active.get(kind) ?? 0);
     if (slots <= 0) continue;
