@@ -18,6 +18,11 @@ import type {
 const ENDPOINT = "https://api.elevenlabs.io/v1/speech-to-text";
 const MODEL_ID = "scribe_v1";
 
+/** Abort a hung request so it fails and retries instead of blocking the single
+ *  transcribe slot forever. Generous — even a long file uploads + returns well
+ *  under this; must stay below the queue's stale-lock reclaim window (15 min). */
+const TIMEOUT_MS = 12 * 60_000;
+
 /** How long a run of words may grow before it's flushed into its own segment
  *  (also flushed at sentence-final punctuation) — keeps click-to-seek useful. */
 const MAX_SEGMENT_S = 12;
@@ -76,33 +81,47 @@ export class ElevenLabsProvider implements TranscriptionProvider {
     form.append("timestamps_granularity", "word");
     if (language) form.append("language_code", language);
 
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "xi-api-key": apiKey },
-      body: form,
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`ElevenLabs ${res.status}: ${detail.slice(0, 300)}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "xi-api-key": apiKey },
+        body: form,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`ElevenLabs ${res.status}: ${detail.slice(0, 300)}`);
+      }
+      const data = (await res.json()) as {
+        language_code?: string;
+        text?: string;
+        words?: ScribeWord[];
+      };
+
+      const fullText = (data.text ?? "").trim();
+      const words = data.words ?? [];
+      const segments = words.length
+        ? segmentsFromWords(words)
+        : fullText
+          ? [{ start: 0, end: 0, text: fullText }]
+          : [];
+
+      return {
+        language: data.language_code ?? language ?? "en",
+        fullText,
+        segments,
+      };
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `ElevenLabs timed out after ${TIMEOUT_MS / 60_000} min`,
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    const data = (await res.json()) as {
-      language_code?: string;
-      text?: string;
-      words?: ScribeWord[];
-    };
-
-    const fullText = (data.text ?? "").trim();
-    const words = data.words ?? [];
-    const segments = words.length
-      ? segmentsFromWords(words)
-      : fullText
-        ? [{ start: 0, end: 0, text: fullText }]
-        : [];
-
-    return {
-      language: data.language_code ?? language ?? "en",
-      fullText,
-      segments,
-    };
   }
 }

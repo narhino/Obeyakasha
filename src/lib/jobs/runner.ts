@@ -22,6 +22,29 @@ const REGISTRY = new Map<string, Registration>();
 /** In-process count of currently-running jobs per kind (single-worker model). */
 const active = new Map<string, number>();
 
+/**
+ * A job left in `running` whose worker died mid-run (a restart, a deploy, a
+ * crash) is never re-claimed — the claim query only takes `queued` rows — so it
+ * shows "transcribing…" forever. Once its lock is older than this, requeue it so
+ * the work resumes. The window is deliberately LONGER than any handler's own
+ * request timeout (transcription aborts at 12 min), so a job that is genuinely
+ * still working is never yanked out from under a live worker.
+ */
+const STALE_LOCK_MS = 15 * 60_000;
+
+async function reclaimStale(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_LOCK_MS);
+  await db
+    .update(jobs)
+    .set({
+      status: "queued",
+      runAt: new Date(),
+      lastError: "requeued after a stale lock (worker restart or hang)",
+      updatedAt: new Date(),
+    })
+    .where(sql`${jobs.status} = 'running' and ${jobs.lockedAt} < ${cutoff}`);
+}
+
 export function registerHandler(
   kind: string,
   handler: JobHandler,
@@ -139,6 +162,8 @@ async function runJob(job: ClaimedJob): Promise<void> {
  * run in the background and free their slot on completion.
  */
 export async function jobsTick(): Promise<void> {
+  // First, rescue anything a dead worker left stranded in `running`.
+  await reclaimStale().catch(() => {});
   for (const [kind, reg] of REGISTRY) {
     const slots = reg.concurrency - (active.get(kind) ?? 0);
     if (slots <= 0) continue;

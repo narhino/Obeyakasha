@@ -19,23 +19,37 @@ export class WhisperProvider implements TranscriptionProvider {
     form.append("file", new Blob([bytes as BlobPart]), filename);
     if (language) form.append("language", language);
 
-    const res = await fetch(`${base}/transcribe`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Transcriber ${res.status}: ${text.slice(0, 200)}`);
+    // Abort a hung sidecar so the job fails and retries rather than blocking the
+    // single transcribe slot forever. Below the queue's 15-min reclaim window.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12 * 60_000);
+    try {
+      const res = await fetch(`${base}/transcribe`, {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Transcriber ${res.status}: ${text.slice(0, 200)}`);
+      }
+      const data = (await res.json()) as {
+        language: string;
+        full_text: string;
+        segments: { start: number; end: number; text: string }[];
+      };
+      return {
+        language: data.language ?? "en",
+        fullText: data.full_text ?? "",
+        segments: data.segments ?? [],
+      };
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error("Transcriber timed out after 12 min");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    const data = (await res.json()) as {
-      language: string;
-      full_text: string;
-      segments: { start: number; end: number; text: string }[];
-    };
-    return {
-      language: data.language ?? "en",
-      fullText: data.full_text ?? "",
-      segments: data.segments ?? [],
-    };
   }
 }
