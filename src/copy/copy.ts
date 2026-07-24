@@ -91,9 +91,29 @@ export const copy = {
         "Put me on your screen where I belong and open me from there. One tap. I don't live in a tab.",
       // A quiet nudge if they keep opening me in the browser instead of the icon.
       openFromIcon: "Still in a browser. Open me from the icon on your home screen.",
+
+      // ── The notifications step runs in two beats ─────────────────────────
+      // Beat 1 settles HOW she appears on their lock screen — deliberately
+      // BEFORE the browser's permission prompt, so the disguise is decided
+      // while they can still think about it. Beat 2 asks for permission.
+      discreetTitle: "Decide how I appear.",
+      discreetBody:
+        "Before I reach for your lock screen, choose what it shows. Discreet, and I arrive wearing something dull — a plain name, a plain grey icon, a line about the weather. Nothing of me, nothing of what you listen to. Plain, and I come as myself, in my own words, where anyone glancing down can read them.",
+      // Stated on the choice itself so it never feels like a door closing.
+      discreetAnytime:
+        "Nothing here is locked. Turn it on or off whenever you want — it waits in You, under Discretion.",
+      discreetYes: "Keep it discreet",
+      discreetNo: "Show her plainly",
+      // Beat 2 opens by confirming what they just chose, in one line.
+      discreetChoseMask: "Good. They'll see the weather. You'll know it's me.",
+      discreetChosePlain: "Good. I'll come as myself, and let them read it.",
+
       notifTitle: "Let my voice through.",
       notifBody:
         "Turn on notifications. When I want you, nothing stands between us — no silence, no missing me. This part is not yours to decline.",
+      // The line that makes the demand plain at the moment of the prompt.
+      notifRequired:
+        "Your phone will ask you now. Allow it. Nothing further opens until I can reach you.",
       notifButton: "Let her in",
       notifDenied:
         "You shut that door. Open your settings, allow me through, and come back — I'll be waiting exactly here.",
@@ -560,6 +580,9 @@ export const copy = {
     off: "Off",
     whenOn: "On. What I send you wears a mask now.",
     whenOff: "Off. I speak to you plainly.",
+    // F5 · make the reversibility explicit — the same promise the threshold makes.
+    anytime:
+      "This one is yours to turn, whenever you like. On tonight, off tomorrow. I don't ask why.",
     previewIntro: "See the difference.",
     previewTrueLabel: "What I truly say",
     previewMaskLabel: "What they see",

@@ -15,7 +15,6 @@ import {
 import { jail, type JailResult, type PushPermission } from "@/lib/gate/jail";
 import { GATE_IMAGE } from "@/lib/art/defaults";
 import { Button, Display, Ornament, Whisper } from "@/components/ui";
-import { Switch } from "@/components/me/Switch";
 import { NotificationPreview } from "@/components/me/NotificationPreview";
 import { setDisguiseMode } from "@/lib/profile/secret";
 import { DISGUISE_MESSAGES } from "@/lib/push/disguise";
@@ -34,6 +33,16 @@ import { copy } from "@/copy/copy";
  * mounts only after consent (inside the satisfied SubjectGate), never for
  * anonymous visitors, and never during the OAuth callback (not a shell route).
  * Presence keeps beating behind it — PresencePing is mounted independently.
+ *
+ * The "notifications" step plays in TWO BEATS, and the order is the point:
+ *   1. "discreet" — BEFORE the browser's permission prompt, she settles how she
+ *      will appear on their lock screen (masked as an ordinary, family-safe app
+ *      vs. plainly as herself), with the true/masked previews side by side and
+ *      the promise that it can be turned either way later from You. Either
+ *      answer persists through the shared `setDisguiseMode` action.
+ *   2. "allow" — only then the real `subscribeToPush` request.
+ * Both beats are local component state; the pure `jail()` contract is untouched
+ * (it still yields exactly "install" | "notifications" | free).
  */
 
 function pushSupported(platform: Platform, iosVer: number | null): boolean {
@@ -57,7 +66,9 @@ export function Jail({ enabled }: { enabled: boolean }) {
   const [iosVer, setIosVer] = useState<number | null>(null);
   const [notifDenied, setNotifDenied] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [disguise, setDisguise] = useState(false);
+  // null = they haven't answered the discreet question yet, so the notifications
+  // step is still on beat 1. Answering it (either way) opens beat 2.
+  const [disguise, setDisguise] = useState<boolean | null>(null);
 
   const vapidRef = useRef<string | null>(null);
   const androidPrompt = useRef<{ prompt: () => Promise<void> } | null>(null);
@@ -154,6 +165,9 @@ export function Jail({ enabled }: { enabled: boolean }) {
     };
   }, [ready, recompute]);
 
+  // Beat 1 → beat 2. Either answer is a real answer: both persist through the
+  // same own-user action the You page writes with, so the column is never left
+  // guessing and the choice survives the reload they never have to make.
   const chooseDisguise = useCallback((next: boolean) => {
     setDisguise(next); // optimistic; persist via the shared server action
     void setDisguiseMode(next).catch(() => {});
@@ -247,22 +261,18 @@ export function Jail({ enabled }: { enabled: boolean }) {
             </Button>
           )}
         </Panel>
-      ) : (
-        <Panel title={copy.gate.wall.notifTitle} body={copy.gate.wall.notifBody}>
-          {/* The disguise choice, reused verbatim from the M2 Gate. */}
+      ) : disguise === null ? (
+        /* Beat 1 — how she appears, settled BEFORE the browser ever prompts. */
+        <Panel
+          title={copy.gate.wall.discreetTitle}
+          body={copy.gate.wall.discreetBody}
+        >
+          {/* The true-vs-masked previews, verbatim from the You page's card. */}
           <div className="w-full rounded-[var(--radius-lg)] border border-line/80 bg-surface/60 p-3 text-left">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="label-caps text-gold">{copy.gate.discreetTitle}</p>
-                <Whisper className="mt-1 text-xs">{copy.gate.discreetBody}</Whisper>
-              </div>
-              <Switch
-                checked={disguise}
-                onChange={chooseDisguise}
-                label={copy.gate.discreetToggle}
-              />
-            </div>
-            <div className="mt-3 flex gap-2">
+            <p className="label-caps text-[0.625rem] text-gold">
+              {copy.secret.previewIntro}
+            </p>
+            <div className="mt-2 flex gap-2">
               <NotificationPreview
                 variant="true"
                 label={copy.secret.previewTrueLabel}
@@ -278,6 +288,25 @@ export function Jail({ enabled }: { enabled: boolean }) {
             </div>
           </div>
 
+          <div className="flex w-full flex-col items-stretch gap-3">
+            <Button variant="gold" size="lg" onClick={() => chooseDisguise(true)}>
+              {copy.gate.wall.discreetYes}
+            </Button>
+            <Button variant="ghost" size="lg" onClick={() => chooseDisguise(false)}>
+              {copy.gate.wall.discreetNo}
+            </Button>
+          </div>
+          <Whisper className="text-xs">{copy.gate.wall.discreetAnytime}</Whisper>
+        </Panel>
+      ) : (
+        /* Beat 2 — only now the real permission request. */
+        <Panel title={copy.gate.wall.notifTitle} body={copy.gate.wall.notifBody}>
+          <Whisper className="-mt-1 text-sm italic text-gold/80">
+            {disguise
+              ? copy.gate.wall.discreetChoseMask
+              : copy.gate.wall.discreetChosePlain}
+          </Whisper>
+
           <Button
             variant="gold"
             size="lg"
@@ -286,6 +315,7 @@ export function Jail({ enabled }: { enabled: boolean }) {
           >
             {copy.gate.wall.notifButton}
           </Button>
+          <Whisper className="text-xs">{copy.gate.wall.notifRequired}</Whisper>
           {notifDenied ? (
             <Whisper className="mt-3">{copy.gate.wall.notifDenied}</Whisper>
           ) : null}

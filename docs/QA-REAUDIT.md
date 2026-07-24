@@ -164,3 +164,159 @@ the graceful net (D6-05). No store/state change.
 
 `pnpm typecheck` · `pnpm lint` (0 warnings) · `pnpm test` (**291 passed**) ·
 `pnpm build` (✓ compiled, 39/39 pages) — all green.
+
+## Anonymous barrier audit (2026-07-24)
+
+> Owner requirement: someone **without an account** may browse normally, but must
+> not be able to (a) message her, (b) reach the You / Messages / Tasks tabs,
+> (c) play anything but a free sample, (d) see any whisper that isn't `public`.
+> This pass enumerates every server-side entry point reachable without a session
+> — API route handlers, `"use server"` actions, and page-level guards — and
+> checks each returns 401/403 (or redirects) for anonymous. Read-only audit
+> except for the one gap in §E.
+
+### A. API route handlers (`src/app/api/**`)
+
+`withSubject` → 401 `{error:"unauthorized"}`. `withGoddess` → 403
+`{error:"forbidden"}`. Both live in `src/lib/api.ts` and call `auth()` first.
+
+| Route | Method | Guard | Anonymous | Fixed? |
+|---|---|---|---|---|
+| `/api/auth/[...nextauth]` | — | NextAuth | public **by design** | n/a |
+| `/api/health` | GET | none | public **by design** (uptime probe, `{ok,service}` only) | n/a |
+| `/api/push/vapid-key` | GET | none | public **by design** (VAPID *public* key) | n/a |
+| `/api/stream` | GET | HMAC `verifyStreamToken` (expiry + `timingSafeEqual`) | 403 without a valid, unexpired token | n/a |
+| `/api/tracks/[id]/stream-url` | GET | `auth()` → `getAccessibleTrack`, else `getSampleTrack` | free sample only → else 404 | n/a |
+| `/api/chain/mantra` | POST | `withSubject` | 401 | — |
+| `/api/commissions` | POST | `auth()` → 401 | 401 | — |
+| `/api/consents` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/devices` | GET·POST | `withSubject` (+ zod) | 401 | — |
+| `/api/drop-report` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/inbox` | GET | `withSubject` | 401 | — |
+| `/api/intake` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/listen/end` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/listen/heartbeat` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/me` | PATCH | `withSubject` (+ zod) | 401 | — |
+| `/api/me/delete` | POST | `auth()` → 401 | 401 | — |
+| `/api/me/export` | GET | `auth()` → 401 | 401 | — |
+| `/api/me/moments` | GET·POST | `withSubject` | 401 | — |
+| `/api/me/surrender` | GET | `withSubject` | 401 | — |
+| `/api/me/upload` | POST | `auth()` → 401 | 401 | — |
+| `/api/oath/petition` | POST | `withSubject` | 401 | — |
+| `/api/offline/grant` | POST | `withSubject` (+ zod) → `getAccessibleTrack` | 401 | — |
+| `/api/offline/sync` | POST | `withSubject` | 401 | — |
+| `/api/orders/[id]/proof` | POST | `auth()` → 401, then own-assignment join | 401 | — |
+| `/api/orders/[id]/respond` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/polls/[id]/vote` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/presence` | POST | `withSubject` | 401 | — |
+| `/api/presence/goddess` | GET | `withSubject` | 401 | — |
+| `/api/questions/[id]/answer` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/thread` (message her) | GET·POST | `withSubject` (+ zod) | 401 | — |
+| `/api/whispers/[id]/comments` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/whispers/[id]/kneel` | POST | `withSubject` | 401 | — |
+| `/api/whispers/[id]/love` | POST | `withSubject` | 401 | — |
+| `/api/whispers/seen` | POST | `withSubject` | 401 | — |
+| `/api/wishes` | POST | `withSubject` (+ zod) | 401 | — |
+| `/api/sanctum/drafts` | POST | `withGoddess` (+ zod) | 403 | — |
+| `/api/sanctum/live` | GET | `withGoddess` | 403 | — |
+| `/api/sanctum/live/touch` | POST | `withGoddess` (+ zod) | 403 | — |
+| `/api/sanctum/presence/room` | GET | `withGoddess` | 403 | — |
+| `/api/sanctum/series-art` | POST | `auth()` + role → 403 | 403 | — |
+| `/api/sanctum/tracks` | GET | `withGoddess` | 403 | — |
+| `/api/sanctum/tracks/[id]/analysis-status` | GET | `withGoddess` | 403 | — |
+| `/api/sanctum/upload` | POST | `auth()` + role → 403 | 403 | — |
+
+Every `/api/sanctum/*` handler carries its **own** role check in addition to the
+middleware prefix gate — none of them relies on the matcher alone.
+
+### B. Server actions (every `"use server"` file)
+
+Server Actions dispatch by action id and can be POSTed at *any* path, so a
+middleware pathname gate is not a guard for them. Checked all 22:
+
+| File | Guard | Anonymous | Fixed? |
+|---|---|---|---|
+| `src/lib/profile/secret.ts` (`setDisguiseMode`) | `requireSubject()` + zod + `logAudit` | → `/signin` | — |
+| `src/app/(subject)/library/actions.ts` (delete own upload) | `auth()` → throw + `requireOwner` | throws | — |
+| `src/app/signin/page.tsx` | sign-in action (public by design) | n/a | n/a |
+| `src/app/sanctum/layout.tsx` | `requireGoddess()` | → `/signin` | — |
+| `sanctum/{access,broadcast,commissions,import,library,messages,orders,organize,polls,programs,questions,series,subjects,their-files,tracks/[id],whispers,wishes}/actions.ts` and `sanctum/actions.ts` | **every exported action** opens with `requireGoddess()`; mutations `logAudit()` | → `/signin` | — |
+
+### C. Route gating (middleware + page guards — belt and braces)
+
+`src/auth.config.ts#authorized` gates `/sanctum` + `/api/sanctum` to
+`role === "goddess"` and these subject prefixes to any session:
+`/programs · /inbox · /asks · /orders · /messages · /commissions · /settings · /me`.
+That list covers **every** page in `src/app/(subject)/` except `/library`
+(deliberately public, R2a). Each of those pages *also* calls `requireSubject()`
+server-side, so the barrier does not depend on the matcher alone:
+
+| Page | Middleware | Page guard | Anonymous |
+|---|---|---|---|
+| `/me` (**You**) | ✅ | `requireSubject()` | → `/signin` |
+| `/messages` (**Messages**) | ✅ | `requireSubject()` | → `/signin` |
+| `/orders` (**Tasks**) | ✅ | `requireSubject()` | → `/signin` |
+| `/asks` · `/inbox` · `/programs` · `/commissions` | ✅ | `requireSubject()` | → `/signin` |
+| `/settings` | ✅ | redirects to `/me` (itself gated) | → `/signin` |
+| `/` · `/about` · `/whispers` · `/threshold` · `/library/**` · `/privacy` · `/terms` · `/signin` | public **by design** | — | browsable |
+
+The anonymous branch of `src/app/(subject)/layout.tsx` renders no `SubjectShell`
+— no tab bar, no Gate, no intake, no inbox bell, no presence — so none of the
+gated tabs is even reachable by a link.
+
+### D. Audio path
+
+1. `GET /api/tracks/:id/stream-url` with no session → `getAccessibleTrack` is
+   **skipped entirely** (it needs a `userId`), falling to `getSampleTrack(id)`,
+   which returns a row only when `ownerUserId IS NULL` **and**
+   `visibility = 'published'` **and** `freeSample` **and** `streamKey` is set.
+   Anything else → `404 not_found_or_sealed` **before `signStreamUrl` is called**,
+   so no signed URL is ever minted for a locked track. A future premiere is
+   sealed for everyone, sample or not.
+2. `GET /api/stream` only trusts the HMAC that step 1 issued (`AUTH_SECRET`,
+   expiry-checked, `timingSafeEqual`), so the bytes route cannot be reached by
+   guessing a key.
+3. `/api/offline/grant` (the download path) is `withSubject` **and** re-checks
+   `getAccessibleTrack` + `downloadable` — a free sample is not downloadable
+   anonymously at all.
+
+### E. Anonymous library UI
+
+`LibraryClient`, `SeriesClient` and the file page all compute
+`state = !signedIn ? "anon" : unlocked ? "entitled" : "locked"`, and only allow
+play when `state === "entitled" || freeSample`. Locked cards render a dimmed
+cover + lock and link to `/signin` — never a play control, never a stream URL.
+
+**One real gap found and fixed** — the file page's *"After this"* rail
+(`src/app/(subject)/library/track/[slug]/page.tsx`) sealed on `!t.unlocked`
+alone. `unlocked` is a pure **level** test and an anonymous viewer resolves to
+level 0, so every `minAccessLevel = 0` track showed **undimmed and unsealed** to
+a logged-out visitor, contradicting the catalog grid and the page's own CTA on
+the same screen. Now `railSealed = !t.freeSample && (!signedIn || !t.unlocked)`.
+UI-only — the server already refused those tracks (§D).
+
+### F. Whispers (D7)
+
+Logged-out `/` calls `publicWhispers()`, which filters
+`(w.audience).type === 'public'` — no level, no oath, no direct audience ever
+reaches it. It hard-codes `knelt: false`, `loved: false` and `comments: []`
+(comment threads are per-viewer and private), passes `userId: null` into
+`pollViewsFor` (so no vote is attributed and tallies still require
+`resultsShared`), and exposes only the **aggregate** `loveCount` — never who,
+never a name, never a subject count. Attached images are short-lived signed URLs,
+never raw keys.
+
+### Verdict
+
+**Barrier closed.** All 43 API route handlers, all 22 server-action files and
+every gated page are session-checked server-side; the five unauthenticated
+endpoints (`auth`, `health`, `vapid-key`, `stream`, `stream-url`) are each
+intentionally public with their own proof (NextAuth, no data, a public key, an
+HMAC, and the free-sample check respectively). One UI-consistency gap (§E) found
+and fixed. **No new server-side hole**, so no new test was added.
+
+*Observation, not a fix:* catalog search matches transcript text for everyone
+(the transcript itself is never returned, only a "she speaks it here" flag). It
+is a designed R2a feature and behaves identically for anonymous and signed-in
+viewers, but it is a weak keyword oracle over transcripts — worth a look if
+transcript secrecy is ever tightened.

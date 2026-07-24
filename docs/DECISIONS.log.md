@@ -1257,3 +1257,64 @@ trigger before approving it** and **edit any trigger after it's applied**.
   moved there too. **Scope note:** tag *value* editing was deliberately NOT added
   (only "don't regress tag approval" was required) to keep the tag `kind+value`
   dedup surface untouched. Verified: typecheck + lint + build all green.
+
+## 2026-07-24 — Anonymous barrier audit + discreet-first notifications gate
+
+- **Anonymous barrier: audited end-to-end, no server-side hole.** Enumerated every
+  entry point reachable without a session — all 43 route handlers under
+  `src/app/api/**`, all 22 `"use server"` files, and every gated page — and
+  confirmed each checks the session **in the handler/action itself**, not merely
+  behind the middleware pathname gate (Server Actions dispatch by action id and
+  can be POSTed at any path, so a pathname gate is never their guard). Full
+  route-by-route checklist in `docs/QA-REAUDIT.md` §"Anonymous barrier audit".
+  Five endpoints are unauthenticated **by design**, each with its own proof:
+  `/api/auth/*` (NextAuth), `/api/health` (no data), `/api/push/vapid-key` (a
+  *public* key), `/api/stream` (expiry-checked HMAC, `timingSafeEqual`), and
+  `/api/tracks/:id/stream-url` (falls to `getSampleTrack`, which demands
+  published + `freeSample` + no `ownerUserId`, and returns 404 **before**
+  `signStreamUrl` is ever called). No new test was added because no server-side
+  hole was found — the one fix below is presentational.
+
+- **Fixed (UI): the file page's "After this" rail showed locked files as open to
+  logged-out visitors.** It sealed on `!t.unlocked` alone, but `unlocked` is a
+  pure *level* test and an anonymous viewer resolves to level 0 — so every
+  `minAccessLevel = 0` track rendered undimmed and unsealed in the rail, while
+  the catalog grid and the page's own CTA on the same screen correctly read it as
+  `anon` → locked. Now `railSealed = !t.freeSample && (!signedIn || !t.unlocked)`,
+  matching `LibraryClient`. The server always refused those tracks; this only
+  closes the contradiction on screen.
+
+- **The threshold's notifications step now plays in two beats (F4 + R6).**
+  Previously one panel carried both the disguise switch and the "allow
+  notifications" button, so the browser permission prompt could be answered
+  before the subject had understood — or even noticed — the discreet option.
+  Restructured into an explicit order inside the same `"notifications"` step:
+  1. **Beat 1 (before any permission prompt)** — she asks how she should appear on
+     the lock screen, explains plainly what discreet mode does (an ordinary,
+     family-safe app: neutral title, neutral grey icon, nothing about her or the
+     content), shows the existing true-vs-masked `NotificationPreview` pair
+     (`DISGUISE_MESSAGES[0]`, reused verbatim from the You card), states that it
+     can be turned either way at any time from **You → Discretion**, and offers
+     two equal choices — *"Keep it discreet"* / *"Show her plainly"*. Both persist
+     through the existing `setDisguiseMode` server action (`requireSubject`, zod,
+     audited), so an explicit "plainly" is recorded rather than left to default.
+  2. **Beat 2 (only after that choice)** — the real `subscribeToPush` flow, opening
+     by confirming the choice they just made and carrying a new line making the
+     demand plain at the moment of the prompt.
+  The switch/toggle affordance is gone from the threshold (two buttons make the
+  choice unavoidable rather than skippable); the M2 `SubjectGate` desktop path
+  keeps its original single-panel toggle untouched.
+
+- **The pure `jail()` contract is unchanged** — still `install | notifications |
+  free`, `src/lib/gate/jail.ts` untouched and its 7 tests still pass. The two
+  beats are local component state (`disguise: boolean | null`, `null` = unanswered),
+  which also means the QA-only `?qaJail=notifications` hook still lands on beat 1
+  and walks to beat 2, reduced-motion behaviour is untouched, the iOS-vs-Android
+  install instructions are untouched, and desktop + the goddess are still never held.
+
+- **Copy.** New keys under `copy.gate.wall`: `discreetTitle`, `discreetBody`,
+  `discreetAnytime`, `discreetYes`, `discreetNo`, `discreetChoseMask`,
+  `discreetChosePlain`, `notifRequired`. Preview labels are reused from
+  `copy.secret.*` verbatim rather than duplicated. Also added `copy.secret.anytime`
+  and rendered it in `SecretModeCard` so the You tab states the reversibility
+  explicitly beside the switch (F5) instead of only implying it.

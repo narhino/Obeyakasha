@@ -49,6 +49,8 @@ export function SecretModeCard({ initialOn }: { initialOn: boolean }) {
       <p className="mt-3 text-xs text-text-dim/80">
         {on ? copy.secret.whenOn : copy.secret.whenOff}
       </p>
+      {/* F5: the choice is never final — say so where the switch lives. */}
+      <Whisper className="mt-2 text-xs">{copy.secret.anytime}</Whisper>
 
       <p className="label-caps mt-5 text-[0.625rem]">{copy.secret.previewIntro}</p>
       <div className="mt-2 flex gap-3">

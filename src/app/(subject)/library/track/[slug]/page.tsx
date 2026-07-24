@@ -255,28 +255,36 @@ export default async function TrackFilePage({
             {copy.library.filePage.afterThisTitle}
           </p>
           <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2">
-            {page.afterThis.map((t) => (
-              <Link
-                key={t.id}
-                href={`/library/track/${t.slug}`}
-                className="group w-36 shrink-0 sm:w-40"
-              >
-                <Cover
-                  src={t.cover}
-                  dimmed={!t.unlocked}
-                  className="aspect-square"
-                />
-                <p className="mt-2 line-clamp-2 text-sm text-text transition-colors duration-[var(--dur-med)] group-hover:text-gold">
-                  {t.title}
-                </p>
-                <p className="text-xs text-text-dim">
-                  {t.durationS != null ? formatDuration(t.durationS) : ""}
-                  {!t.unlocked
-                    ? `${t.durationS != null ? " · " : ""}${copy.library.filePage.railSealed}`
-                    : ""}
-                </p>
-              </Link>
-            ))}
+            {page.afterThis.map((t) => {
+              // `t.unlocked` is a LEVEL test, and a logged-out visitor reads as
+              // level 0 — so on its own it showed level-0 files as open to the
+              // anonymous. The rail now seals exactly what the catalog grid and
+              // this page's own CTA seal: everything but a free sample, unless
+              // they are signed in and entitled.
+              const railSealed = !t.freeSample && (!signedIn || !t.unlocked);
+              return (
+                <Link
+                  key={t.id}
+                  href={`/library/track/${t.slug}`}
+                  className="group w-36 shrink-0 sm:w-40"
+                >
+                  <Cover
+                    src={t.cover}
+                    dimmed={railSealed}
+                    className="aspect-square"
+                  />
+                  <p className="mt-2 line-clamp-2 text-sm text-text transition-colors duration-[var(--dur-med)] group-hover:text-gold">
+                    {t.title}
+                  </p>
+                  <p className="text-xs text-text-dim">
+                    {t.durationS != null ? formatDuration(t.durationS) : ""}
+                    {railSealed
+                      ? `${t.durationS != null ? " · " : ""}${copy.library.filePage.railSealed}`
+                      : ""}
+                  </p>
+                </Link>
+              );
+            })}
           </div>
         </div>
       ) : null}
