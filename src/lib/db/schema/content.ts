@@ -167,8 +167,11 @@ export const userTriggers = pgTable(
     triggerId: uuid("trigger_id")
       .notNull()
       .references(() => triggers.id, { onDelete: "cascade" }),
+    // SET NULL: this is only provenance ("acquired via this track"). Deleting the
+    // track must not block — the subject keeps the trigger, we lose the link.
     acquiredViaTrackId: uuid("acquired_via_track_id").references(
       () => tracks.id,
+      { onDelete: "set null" },
     ),
     acquiredAt: timestamp("acquired_at", { withTimezone: true })
       .notNull()

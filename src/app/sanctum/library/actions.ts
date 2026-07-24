@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq, isNotNull } from "drizzle-orm";
+import { eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tracks, transcripts } from "@/lib/db/schema";
+import { jobs, tracks, transcripts } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { enqueue } from "@/lib/jobs/queue";
+import { mediaProvider } from "@/lib/media";
 import { broadcast } from "@/lib/push/broadcast";
 import { parsePremiereInput } from "@/lib/premiere/logic";
 import { copy } from "@/copy/copy";
@@ -192,6 +193,59 @@ export async function transcribeAllPending(): Promise<{ queued: number }> {
   });
   revalidatePath("/sanctum/library");
   return { queued: pending.length };
+}
+
+const deleteTrackSchema = z.object({ trackId: z.string().uuid() });
+
+/**
+ * Permanently delete a CATALOG track (goddess). Removes its stored audio +
+ * artwork from media storage best-effort — a storage hiccup must never strand
+ * the row undeletable, so each delete is guarded (mirrors `deleteUpload`). Drops
+ * any durable jobs still referencing the track (jsonb payload, no FK) so the
+ * worker never wakes to transcribe/organize a track that's gone, then deletes
+ * the row. Every association either cascades (tags, triggers, transcript,
+ * analysis, playlist/program items, listens, offline grants) or SET-NULLs (a
+ * whisper's attached track, a shipped/delivered commission track, a trigger's
+ * provenance) via the schema — see migration 0019. Personal uploads are NOT
+ * reachable here (the Library feed lists only catalog rows); those go through
+ * `deleteUpload` on "Their files".
+ */
+export async function deleteTrack(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = deleteTrackSchema.safeParse({
+    trackId: formData.get("trackId"),
+  });
+  if (!parsed.success) throw new Error("Invalid track");
+  const { trackId } = parsed.data;
+
+  const [row] = await db
+    .select({
+      title: tracks.title,
+      storageKey: tracks.storageKey,
+      streamKey: tracks.streamKey,
+      artworkKey: tracks.artworkKey,
+    })
+    .from(tracks)
+    .where(eq(tracks.id, trackId))
+    .limit(1);
+  if (!row) throw new Error("No such track");
+
+  const provider = mediaProvider();
+  for (const key of [row.streamKey, row.storageKey, row.artworkKey]) {
+    if (key) await provider.delete(key).catch(() => {});
+  }
+
+  // No FK from jobs → tracks; the trackId lives in the jsonb payload, so prune
+  // matching jobs explicitly before the row goes.
+  await db.delete(jobs).where(sql`payload->>'trackId' = ${trackId}`);
+
+  await db.delete(tracks).where(eq(tracks.id, trackId));
+
+  await logAudit(session.user.id, "track.deleted", {
+    trackId,
+    title: row.title,
+  });
+  revalidatePath("/sanctum/library");
 }
 
 /** Save Akasha's edits to a transcript (fixing mishears). PLAN §8.2. */

@@ -75,6 +75,21 @@ export async function updateSeries(formData: FormData) {
   revalidatePath("/sanctum/series");
 }
 
+/**
+ * Delete a whole series (curated playlist). Its `playlistItems` cascade off
+ * `playlistId`, but the TRACKS THEMSELVES ARE UNTOUCHED — only the collection is
+ * unmade. Goddess-only; audited.
+ */
+export async function deleteSeries(formData: FormData) {
+  const session = await requireGoddess();
+  const playlistId = String(formData.get("playlistId"));
+  if (!UUID_RE.test(playlistId)) throw new Error("Invalid series");
+
+  await db.delete(playlists).where(eq(playlists.id, playlistId));
+  await logAudit(session.user.id, "series.deleted", { playlistId });
+  revalidatePath("/sanctum/collections");
+}
+
 /** Add a track to the end of a series. */
 export async function addSeriesItem(formData: FormData) {
   const session = await requireGoddess();

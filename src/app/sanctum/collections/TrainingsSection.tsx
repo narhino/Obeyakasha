@@ -1,8 +1,11 @@
 import { Badge, Button, Card, Input, Label, Select, Whisper } from "@/components/ui";
 import { programs } from "@/lib/db/schema";
+import { copy } from "@/copy/copy";
+import { ConfirmDelete } from "../ConfirmDelete";
 import {
   addProgramItem,
   createProgram,
+  deleteProgram,
   removeProgramItem,
   setProgramCadence,
   setProgramVisibility,
@@ -186,6 +189,15 @@ export function TrainingsSection({
                     Set cadence
                   </Button>
                 </form>
+              </div>
+
+              {/* Unmake the whole training (its tracks are left untouched). */}
+              <div className="mt-4 flex justify-end border-t border-line/60 pt-3">
+                <ConfirmDelete
+                  action={deleteProgram}
+                  fields={{ programId: p.id }}
+                  warn={copy.sanctum.delete.warnProgram}
+                />
               </div>
             </Card>
           );

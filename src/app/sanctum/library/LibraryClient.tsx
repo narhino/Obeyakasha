@@ -3,9 +3,12 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Badge, Button, Card, Input, Whisper } from "@/components/ui";
 import { UploadQueue } from "./UploadQueue";
+import { ConfirmDelete } from "../ConfirmDelete";
 import { usePolling } from "@/lib/hooks/usePolling";
+import { copy } from "@/copy/copy";
 import type { LibraryRow } from "./types";
 import {
+  deleteTrack,
   requestTranscription,
   setFreeSample,
   setTrackVisibility,
@@ -144,6 +147,13 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
     run(id, fd, setFreeSample);
   };
 
+  // deleteTrack has already resolved when this fires (ConfirmDelete awaits it):
+  // drop the row optimistically, then reconcile against the server feed.
+  const onDeleted = (id: string) => {
+    setTracks((prev) => prev.filter((t) => t.id !== id));
+    void refetch();
+  };
+
   return (
     <div>
       <Card className="mt-6">
@@ -266,6 +276,13 @@ export function LibraryClient({ initial }: { initial: LibraryRow[] }) {
                 >
                   Open
                 </a>
+                <ConfirmDelete
+                  action={deleteTrack}
+                  fields={{ trackId: t.id }}
+                  warn={copy.sanctum.delete.warnTrack}
+                  onDone={() => onDeleted(t.id)}
+                  className="ml-auto"
+                />
               </div>
 
               <details className="mt-3">

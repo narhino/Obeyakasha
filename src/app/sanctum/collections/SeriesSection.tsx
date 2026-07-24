@@ -1,9 +1,12 @@
 import { Badge, Button, Card, Input, Label, Select, Whisper } from "@/components/ui";
 import { playlists } from "@/lib/db/schema";
+import { copy } from "@/copy/copy";
 import { SeriesCover } from "../series/SeriesCover";
+import { ConfirmDelete } from "../ConfirmDelete";
 import {
   addSeriesItem,
   createSeries,
+  deleteSeries,
   moveSeriesItem,
   removeSeriesItem,
   updateSeries,
@@ -223,6 +226,15 @@ export function SeriesSection({
                   Add
                 </Button>
               </form>
+
+              {/* Unmake the whole series (its tracks are left untouched). */}
+              <div className="mt-4 flex justify-end border-t border-line/60 pt-3">
+                <ConfirmDelete
+                  action={deleteSeries}
+                  fields={{ playlistId: p.id }}
+                  warn={copy.sanctum.delete.warnSeries}
+                />
+              </div>
             </Card>
           );
         })}

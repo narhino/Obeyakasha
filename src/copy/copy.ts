@@ -776,6 +776,29 @@ export const copy = {
   },
 
   // ── System / PWA ───────────────────────────────────────────────────────
+  // ── Sanctum: the goddess unmaking her own work (delete affordances) ───────
+  // Admin-facing, but still her voice — firm and final. Two-tap: a quiet
+  // "Delete", then the irreversible confirm. NEVER generic app-speak, never
+  // "Are you sure?". The warn line arms beside the confirm so "forever" is
+  // never a surprise; series/trainings reassure the recordings themselves stay.
+  sanctum: {
+    delete: {
+      action: "Delete",
+      forever: "Delete forever",
+      cancel: "Keep it",
+      working: "Letting it go…",
+      // A catalog track: its audio and everything derived from it is destroyed.
+      warnTrack:
+        "The recording and all it became — gone for good. This can't be undone.",
+      // A series: only the collection unravels; the recordings remain.
+      warnSeries:
+        "The series comes undone. Every recording inside it stays — only the collection goes.",
+      // A training: only the sequence unravels; the recordings remain.
+      warnProgram:
+        "The training comes undone. Every recording inside it stays — only the sequence goes.",
+    },
+  },
+
   system: {
     updated: "I've changed something. Tap to see.",
     offline: "You're offline. What I kept for you still plays.",

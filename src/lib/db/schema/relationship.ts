@@ -44,7 +44,11 @@ export const whispers = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     body: text("body"),
-    audioTrackId: uuid("audio_track_id").references(() => tracks.id),
+    // SET NULL, not cascade: deleting the attached track just detaches it — the
+    // whisper (its body / image / poll) survives with no audio. Column nullable.
+    audioTrackId: uuid("audio_track_id").references(() => tracks.id, {
+      onDelete: "set null",
+    }),
     imageKey: text("image_key"),
     audience: jsonb("audience").$type<Audience>().notNull(),
     // R1: pinned whispers sort first everywhere (her toggle in the Sanctum).
@@ -316,7 +320,10 @@ export const wishClusters = pgTable("wish_clusters", {
   label: text("label").notNull(),
   wishIds: jsonb("wish_ids").$type<string[]>().notNull().default([]),
   status: wishStatus("status").notNull().default("clustered"),
-  shippedTrackId: uuid("shipped_track_id").references(() => tracks.id),
+  // SET NULL: deleting the shipped track detaches it; the cluster/answer stays.
+  shippedTrackId: uuid("shipped_track_id").references(() => tracks.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -334,7 +341,10 @@ export const commissions = pgTable("commissions", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   waitlist: boolean("waitlist").notNull().default(false),
   adminNotes: text("admin_notes"),
-  deliveredTrackId: uuid("delivered_track_id").references(() => tracks.id),
+  // SET NULL: deleting the delivered track detaches it; the commission stays.
+  deliveredTrackId: uuid("delivered_track_id").references(() => tracks.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -48,6 +48,26 @@ export async function createProgram(formData: FormData) {
   revalidatePath("/sanctum/programs");
 }
 
+const deleteProgramSchema = z.object({ programId: z.string().uuid() });
+
+/**
+ * Delete a whole training (program). Its `programItems` and every subject's
+ * `programProgress` cascade off `programId`, but the TRACKS THEMSELVES ARE
+ * UNTOUCHED — only the sequence is unmade. Goddess-only; audited.
+ */
+export async function deleteProgram(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = deleteProgramSchema.safeParse({
+    programId: formData.get("programId"),
+  });
+  if (!parsed.success) throw new Error("Invalid program");
+  const { programId } = parsed.data;
+
+  await db.delete(programs).where(eq(programs.id, programId));
+  await logAudit(session.user.id, "program.deleted", { programId });
+  revalidatePath("/sanctum/collections");
+}
+
 export async function setProgramCadence(formData: FormData) {
   const session = await requireGoddess();
   const programId = String(formData.get("programId"));

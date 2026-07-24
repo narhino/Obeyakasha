@@ -1161,3 +1161,46 @@ push disguise, and F1 untouched.
   client hashes the whole file via `file.arrayBuffer()` (one transient in-memory
   copy) — Web Crypto has no streaming digest and no new deps were allowed; chunk
   *sending* stays memory-bounded (lazy `file.slice`), and the server hash streams.
+
+---
+
+## 2026-07-24 — Delete controls for tracks, series & trainings (goddess)
+
+The goddess can now permanently delete her own catalog content from the Sanctum:
+catalog **tracks** (Library), **series** (curated playlists) and **trainings**
+(programs). New server actions `deleteTrack` (`sanctum/library/actions.ts`),
+`deleteSeries` (`sanctum/series/actions.ts`) and `deleteProgram`
+(`sanctum/programs/actions.ts`) — each `requireGoddess`, zod-validates its id,
+`logAudit`s (`track.deleted` / `series.deleted` / `program.deleted`) and
+revalidates. UI is a shared two-tap inline confirm (`sanctum/ConfirmDelete.tsx`,
+tokens only, danger tone, **no** browser `confirm()`); copy is hers in
+`copy.sanctum.delete`. Track delete removes the audio/artwork from storage
+(best-effort, mirroring `deleteUpload`) and prunes durable `jobs` rows carrying
+the trackId in their jsonb payload (no FK) before deleting the row. Series /
+program delete NEVER touch the underlying tracks — only the collection + its
+memberships (`playlistItems` / `programItems` / `programProgress` cascade).
+
+- **SET NULL migration (`drizzle/0019_black_harry_osborn.sql`) — the safety fix.**
+  Deleting a `tracks` row must not be blocked by a non-cascade FK. Most refs to
+  `tracks.id` are already `ON DELETE CASCADE`; the ones that weren't (nullable, no
+  `onDelete` → NO ACTION, which raises 23503) are changed to `ON DELETE SET NULL` —
+  semantically a deleted track just *detaches* from the thing that pointed at it,
+  which survives:
+  - `whispers.audio_track_id` (a whisper's attached track)
+  - `wish_clusters.shipped_track_id`
+  - `commissions.delivered_track_id`
+  - **`user_triggers.acquired_via_track_id`** — NOT in the original brief's list of
+    three, but it is a fourth nullable non-cascade FK to `tracks.id`, and it **is**
+    populated in practice (`src/lib/listen/record.ts` writes it on qualifying
+    completion). Left as NO ACTION, deleting any trigger-installing catalog track
+    would fail with an FK violation — exactly the class of bug this SET NULL pass
+    exists to prevent. Changed to SET NULL for the same detach-on-delete reason
+    (the subject keeps the trigger; only the provenance link is lost). Flagged as a
+    deliberate deviation from the brief.
+  Verified by a functional test: a track referenced by both a whisper and a
+  `user_triggers` row is deleted successfully and both references go NULL (the rows
+  survive). A full from-scratch `db:migrate` replay is clean and the drift check
+  reports no schema/migration divergence.
+- **"Their files" left as-is.** The goddess already has a delete affordance there
+  (`deleteTheirFile` → `deleteUpload`, which permits the goddess), so nothing was
+  added; F1's owner-scoped `deleteUpload` was not touched.
