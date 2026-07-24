@@ -1204,3 +1204,56 @@ memberships (`playlistItems` / `programItems` / `programProgress` cascade).
 - **"Their files" left as-is.** The goddess already has a delete affordance there
   (`deleteTheirFile` → `deleteUpload`, which permits the goddess), so nothing was
   added; F1's owner-scoped `deleteUpload` was not touched.
+
+## 2026-07-24 — Edit AI trigger findings before & after approval (goddess)
+
+The organize/analyze reading proposes triggers, but a proposal is often partial (a
+half name, no description, no safety notes). The goddess can now **complete/fix a
+trigger before approving it** and **edit any trigger after it's applied**.
+
+- **One trigger-write hub (`src/lib/organize/apply.ts`).** Added `upsertTrigger`
+  (find-or-create canonical trigger by slug, returns id), `uniqueTriggerSlug`
+  (trigger-scoped uniqueness loop mirroring media `uniqueSlug`, with an
+  `excludeId` so a rename that keeps its own slug doesn't self-collide),
+  `editTrigger` (rename → fresh unique slug + set description/safetyNotes; logs
+  `trigger.edited`), and exported the existing `slugify`. `applyTriggers` was
+  refactored to a richer `TriggerToApply[]` (adds optional description/safetyNotes)
+  and now routes every trigger through `upsertTrigger` — so the dossier-approve
+  and organize-review paths share one create/link/slug core. Dedup is by slug: an
+  existing trigger is **linked, not duplicated**; her completed description/safety
+  fill only *still-empty* fields (non-destructive — a shared trigger another track
+  carries is never clobbered on link). `applyReview` gained an optional
+  `TriggerEdit[]` that folds her edits over the proposal (matched by original AI
+  name); relation + evidence always stay from the proposal. Fully backward
+  compatible — the existing `apply.test.ts` (create + idempotency) passes
+  untouched.
+
+- **Edit BEFORE approving.** On the dossier (`DossierClient` → `TriggerFinding`)
+  each un-applied found trigger renders editable name (required) / description /
+  safety-notes pre-filled with the reading's values (description empty where it was
+  silent; safety pre-filled from `suggestedSafetyNotes`), evidence phrase read-only
+  for context. `approveTriggerAction` now zod-parses `originalName` (the ledger
+  key) + her edited `name`/`description`/`safetyNotes` and `approveTrigger`
+  materialises from HER values. On rename it **syncs the ledger finding's name** to
+  the approved name (`setTriggerApproved`) so the dossier's "on the track" match
+  (finding-name vs applied-trigger-name) still holds and a re-run won't re-propose
+  it as new. The organize review queue got the same treatment via a new client
+  `ReviewCard` (tags/playlists stay read-only — tag approval not regressed;
+  triggers editable) posting `editedTriggers` JSON to the extended
+  `approveReviewAction`. Dismiss/reject unchanged.
+
+- **Edit AFTER approving.** New `editTriggerAction` (requireGoddess, zod: triggerId
+  uuid, name 1..200, description/safety optional) → `editTrigger`. The dossier
+  shows a quiet **"Refine"** inline form on every applied trigger (both those that
+  match a finding and a new "Already bound to this recording" list for triggers the
+  current reading didn't re-surface), pre-filled from the canonical row, with copy
+  noting a trigger is **shared** — refining it here reshapes it on every track that
+  carries it (intended, F5). Optimistic `router.refresh()` after save. The dossier
+  page now passes full applied-trigger rows (`{id,name,description,safetyNotes}`,
+  deduped by id) instead of just lowercased names.
+
+- **Copy.** All new strings live in `copy.sanctum.triggers` (in her voice, no
+  app-speak); the previously-inlined dossier "Triggers" heading/blurb/badges were
+  moved there too. **Scope note:** tag *value* editing was deliberately NOT added
+  (only "don't regress tag approval" was required) to keep the tag `kind+value`
+  dedup surface untouched. Verified: typecheck + lint + build all green.

@@ -12,7 +12,8 @@ import {
 import { logAudit } from "@/lib/audit";
 import { organizeProposalSchema, type OrganizeProposal } from "./types";
 
-function slugify(s: string): string {
+/** Slugify a name into an id-safe token. Shared by the trigger up-serts. */
+export function slugify(s: string): string {
   return (
     s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) ||
     "item"
@@ -48,39 +49,140 @@ export async function applyTags(
   }
 }
 
+/**
+ * A trigger slug that stays unique in the shared `triggers` table. Mirrors the
+ * media `uniqueSlug` loop but against triggers, and can exclude one id so an
+ * edit that keeps (or only re-cases) its own slug never collides with itself.
+ */
+export async function uniqueTriggerSlug(
+  base: string,
+  excludeId?: string,
+): Promise<string> {
+  let slug = base;
+  let n = 1;
+  // Cheap uniqueness loop; trigger-slug collisions are rare at this scale.
+  while (true) {
+    const [row] = await db
+      .select({ id: triggers.id })
+      .from(triggers)
+      .where(eq(triggers.slug, slug))
+      .limit(1);
+    if (!row || row.id === excludeId) return slug;
+    slug = `${base}-${++n}`;
+  }
+}
+
+/**
+ * Find-or-create a canonical trigger by slug (triggers are shared entities,
+ * PLAN §8.4). Returns its id. When one already exists for the slug we link to it
+ * rather than duplicate; the goddess's completed description / safetyNotes fill
+ * only still-empty fields, so linking never clobbers a trigger another track
+ * already carries. New triggers are born with her edited values.
+ */
+export async function upsertTrigger(input: {
+  name: string;
+  description?: string | null;
+  safetyNotes?: string | null;
+}): Promise<string> {
+  const name = input.name.trim();
+  const slug = slugify(name);
+  const description = input.description?.trim() ? input.description.trim() : null;
+  const safetyNotes = input.safetyNotes?.trim() ? input.safetyNotes.trim() : null;
+
+  const [existing] = await db
+    .select({
+      id: triggers.id,
+      description: triggers.description,
+      safetyNotes: triggers.safetyNotes,
+    })
+    .from(triggers)
+    .where(eq(triggers.slug, slug))
+    .limit(1);
+  if (existing) {
+    const patch: { description?: string; safetyNotes?: string } = {};
+    if (description && !existing.description) patch.description = description;
+    if (safetyNotes && !existing.safetyNotes) patch.safetyNotes = safetyNotes;
+    if (Object.keys(patch).length > 0) {
+      await db.update(triggers).set(patch).where(eq(triggers.id, existing.id));
+    }
+    return existing.id;
+  }
+
+  const [created] = await db
+    .insert(triggers)
+    .values({ name, slug, description, safetyNotes })
+    .onConflictDoNothing({ target: triggers.slug })
+    .returning({ id: triggers.id });
+  if (created) return created.id;
+  // Lost a race on the slug between select and insert — read the winner back.
+  const [row] = await db
+    .select({ id: triggers.id })
+    .from(triggers)
+    .where(eq(triggers.slug, slug))
+    .limit(1);
+  if (!row) throw new Error("Failed to upsert trigger");
+  return row.id;
+}
+
+export interface TriggerToApply {
+  name: string;
+  relation: OrganizeProposal["triggers"][number]["relation"];
+  evidence: OrganizeProposal["triggers"][number]["evidence"];
+  description?: string | null;
+  safetyNotes?: string | null;
+}
+
 /** Triggers → canonical triggers + track_triggers (with evidence). Idempotent. */
 export async function applyTriggers(
   trackId: string,
-  trigsProp: OrganizeProposal["triggers"],
+  trigs: TriggerToApply[],
 ): Promise<void> {
-  for (const t of trigsProp) {
-    const slug = slugify(t.name);
-    const [trig] = await db
-      .insert(triggers)
-      .values({ name: t.name, slug })
-      .onConflictDoNothing({ target: triggers.slug })
-      .returning();
-    const triggerId =
-      trig?.id ??
-      (
-        await db
-          .select({ id: triggers.id })
-          .from(triggers)
-          .where(eq(triggers.slug, slug))
-          .limit(1)
-      )[0]?.id;
-    if (triggerId) {
-      await db
-        .insert(trackTriggers)
-        .values({
-          trackId,
-          triggerId,
-          relation: t.relation,
-          timestamps: t.evidence,
-        })
-        .onConflictDoNothing();
-    }
+  for (const t of trigs) {
+    const triggerId = await upsertTrigger({
+      name: t.name,
+      description: t.description,
+      safetyNotes: t.safetyNotes,
+    });
+    await db
+      .insert(trackTriggers)
+      .values({
+        trackId,
+        triggerId,
+        relation: t.relation,
+        timestamps: t.evidence,
+      })
+      .onConflictDoNothing();
   }
+}
+
+/**
+ * Rename / re-describe a shared trigger — the goddess editing after approval.
+ * The final name drives a fresh unique slug (excluding this row, so an unchanged
+ * or only-re-cased slug is kept); description / safetyNotes are set as given (a
+ * blank clears them). Shared entity: this reshapes the trigger on every track
+ * that carries it — intended (F5).
+ */
+export async function editTrigger(
+  triggerId: string,
+  input: {
+    name: string;
+    description?: string | null;
+    safetyNotes?: string | null;
+  },
+  actorId: string | null,
+): Promise<void> {
+  const name = input.name.trim();
+  const slug = await uniqueTriggerSlug(slugify(name), triggerId);
+  await db
+    .update(triggers)
+    .set({
+      name,
+      slug,
+      description: input.description?.trim() ? input.description.trim() : null,
+      safetyNotes: input.safetyNotes?.trim() ? input.safetyNotes.trim() : null,
+    })
+    .where(eq(triggers.id, triggerId));
+  await logAudit(actorId, "trigger.edited", { triggerId, name });
 }
 
 /** Playlists → find/create by title + placement. Idempotent. */
@@ -118,10 +220,22 @@ async function applyPlaylists(
   }
 }
 
+/**
+ * Her edit of a proposed trigger before approving it (matched to the proposal by
+ * its original AI name). Overrides the name and completes description/safetyNotes.
+ */
+export interface TriggerEdit {
+  originalName: string;
+  name: string;
+  description?: string | null;
+  safetyNotes?: string | null;
+}
+
 /** Apply an approved organize proposal to the track (PLAN §8.3). Idempotent. */
 export async function applyReview(
   reviewId: string,
   actorId: string,
+  triggerEdits?: TriggerEdit[],
 ): Promise<void> {
   const [row] = await db
     .select()
@@ -134,7 +248,21 @@ export async function applyReview(
 
   const proposal = organizeProposalSchema.parse(row.proposal);
   await applyTags(trackId, proposal.tags);
-  await applyTriggers(trackId, proposal.triggers);
+  await applyTriggers(
+    trackId,
+    // Materialise each proposed trigger with her edits (if any) folded in; the
+    // relation + evidence always come from the proposal.
+    proposal.triggers.map((t) => {
+      const e = triggerEdits?.find((x) => x.originalName === t.name);
+      return {
+        name: e?.name?.trim() ? e.name.trim() : t.name,
+        relation: t.relation,
+        evidence: t.evidence,
+        description: e?.description,
+        safetyNotes: e?.safetyNotes,
+      };
+    }),
+  );
   await applyPlaylists(trackId, proposal.playlists);
 
   await db

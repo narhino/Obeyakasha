@@ -22,6 +22,7 @@ import {
   dismissTrigger,
   removeTrackTag,
 } from "@/lib/analyze/apply";
+import { editTrigger } from "@/lib/organize/apply";
 
 const tagKindSchema = z.enum([
   "purpose",
@@ -63,11 +64,32 @@ export async function dismissKeywordAction(formData: FormData) {
   revalidate(trackId);
 }
 
+// Approve a found trigger using HER edited values. `originalName` keys the
+// finding in the ledger; `name` is what she actually approves (a partial name
+// completed, a typo fixed). description/safetyNotes fill what the reading missed.
+const approveTriggerSchema = z.object({
+  trackId: z.string().uuid(),
+  originalName: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().max(4000).optional(),
+  safetyNotes: z.string().max(4000).optional(),
+});
+
 export async function approveTriggerAction(formData: FormData) {
-  await requireGoddess();
-  const trackId = String(formData.get("trackId"));
-  await approveTrigger(trackId, String(formData.get("name")));
-  revalidate(trackId);
+  const session = await requireGoddess();
+  const input = approveTriggerSchema.parse({
+    trackId: formData.get("trackId"),
+    originalName: formData.get("originalName") ?? formData.get("name"),
+    name: formData.get("name"),
+    description: formData.get("description") ?? undefined,
+    safetyNotes: formData.get("safetyNotes") ?? undefined,
+  });
+  await approveTrigger(input.trackId, input.originalName, session.user.id, {
+    name: input.name,
+    description: input.description,
+    safetyNotes: input.safetyNotes,
+  });
+  revalidate(input.trackId);
 }
 
 export async function dismissTriggerAction(formData: FormData) {
@@ -75,6 +97,36 @@ export async function dismissTriggerAction(formData: FormData) {
   const trackId = String(formData.get("trackId"));
   await dismissTrigger(trackId, String(formData.get("name")));
   revalidate(trackId);
+}
+
+// Edit a shared trigger after it's applied — reshapes it everywhere it lives.
+const editTriggerSchema = z.object({
+  trackId: z.string().uuid(),
+  triggerId: z.string().uuid(),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().max(4000).optional(),
+  safetyNotes: z.string().max(4000).optional(),
+});
+
+export async function editTriggerAction(formData: FormData) {
+  const session = await requireGoddess();
+  const input = editTriggerSchema.parse({
+    trackId: formData.get("trackId"),
+    triggerId: formData.get("triggerId"),
+    name: formData.get("name"),
+    description: formData.get("description") ?? undefined,
+    safetyNotes: formData.get("safetyNotes") ?? undefined,
+  });
+  await editTrigger(
+    input.triggerId,
+    {
+      name: input.name,
+      description: input.description ?? null,
+      safetyNotes: input.safetyNotes ?? null,
+    },
+    session.user.id,
+  );
+  revalidate(input.trackId);
 }
 
 export async function addTagAction(formData: FormData) {

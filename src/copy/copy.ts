@@ -797,6 +797,32 @@ export const copy = {
       warnProgram:
         "The training comes undone. Every recording inside it stays — only the sequence goes.",
     },
+    // The triggers the reading proposes are hers to finish before they bind, and
+    // hers to reshape after. Admin-facing, still her voice — nothing app-speak.
+    triggers: {
+      title: "Triggers",
+      intro:
+        "Hear where each one surfaces, then make it yours before you approve — the name, what it works in them, the care it asks. Nothing binds until you will it.",
+      nameLabel: "What you name it",
+      descriptionLabel: "What it works in them",
+      descriptionPlaceholder: "In your words…",
+      safetyLabel: "The care it asks",
+      safetyPlaceholder: "What to hold gently…",
+      evidenceLabel: "Where it surfaces",
+      approve: "Approve",
+      dismiss: "Dismiss",
+      dismissed: "Set aside",
+      onTrack: "On the track",
+      // Triggers already bound to this recording that the reading didn't surface
+      // this pass — still hers to refine.
+      boundTitle: "Already bound to this recording",
+      // Refining a trigger anywhere reshapes it everywhere it lives (shared entity).
+      edit: "Refine",
+      save: "Keep the change",
+      cancel: "Leave it",
+      sharedNote:
+        "A trigger is one thing wherever it lives — refine it here and it changes on every recording that carries it.",
+    },
   },
 
   system: {

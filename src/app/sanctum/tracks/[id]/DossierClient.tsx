@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,6 +21,7 @@ import {
   Whisper,
 } from "@/components/ui";
 import { IconPause, IconPlay } from "@/components/ui/icons";
+import { copy } from "@/copy/copy";
 import { formatClock } from "@/lib/format/duration";
 import { usePolling } from "@/lib/hooks/usePolling";
 import type {
@@ -35,6 +42,7 @@ import {
   approveTriggerAction,
   dismissKeywordAction,
   dismissTriggerAction,
+  editTriggerAction,
   removeFromPlaylistAction,
   removeFromProgramAction,
   removeTagAction,
@@ -72,6 +80,13 @@ interface Placement {
   title: string;
   contains: boolean;
 }
+/** A canonical trigger already bound to this track (shared entity, editable). */
+interface AppliedTrigger {
+  id: string;
+  name: string;
+  description: string | null;
+  safetyNotes: string | null;
+}
 
 function fmt(s: number): string {
   const m = Math.floor(s / 60);
@@ -105,7 +120,7 @@ export function DossierClient({
   transcript,
   dossier,
   appliedTags,
-  appliedTriggerNames,
+  appliedTriggers,
   analysisUpdatedAt,
   analyzeJobActive,
   programs,
@@ -120,7 +135,7 @@ export function DossierClient({
   } | null;
   dossier: DossierData | null;
   appliedTags: { tagId: string; kind: string; value: string }[];
-  appliedTriggerNames: string[];
+  appliedTriggers: AppliedTrigger[];
   analysisUpdatedAt: string | null;
   analyzeJobActive: boolean;
   programs: Placement[];
@@ -190,7 +205,18 @@ export function DossierClient({
   const appliedTagSet = new Set(
     appliedTags.map((t) => `${t.kind}:${t.value.toLowerCase()}`),
   );
-  const appliedTrigSet = new Set(appliedTriggerNames);
+  const appliedTrigByName = new Map(
+    appliedTriggers.map((t) => [t.name.toLowerCase(), t]),
+  );
+  const appliedTrigSet = new Set(appliedTrigByName.keys());
+  // Triggers already bound to this track that this reading didn't re-surface —
+  // still hers to refine (they show under "Already bound to this recording").
+  const findingNames = new Set(
+    (dossier?.triggers ?? []).map((t) => t.name.toLowerCase()),
+  );
+  const boundWithoutFinding = appliedTriggers.filter(
+    (t) => !findingNames.has(t.name.toLowerCase()),
+  );
 
   const keywordsByCat = (cat: KeywordCategory) =>
     (dossier?.keywords ?? []).filter((k) => k.category === cat);
@@ -505,73 +531,41 @@ export function DossierClient({
         </Card>
       ) : null}
 
-      {/* Triggers */}
-      {dossier && dossier.triggers.length > 0 ? (
+      {/* Triggers — hers to complete before approving, and to refine after */}
+      {dossier && (dossier.triggers.length > 0 || appliedTriggers.length > 0) ? (
         <Card className="mt-6">
-          <Label>Triggers</Label>
+          <Label>{copy.sanctum.triggers.title}</Label>
           <Whisper className="mt-1 text-xs">
-            Tap the evidence to hear the exact moment before you approve. These
-            never auto-apply — they&apos;re yours to confirm.
+            {copy.sanctum.triggers.intro}
           </Whisper>
           <div className="mt-3 space-y-3">
-            {dossier.triggers.map((t) => {
-              const applied = appliedTrigSet.has(t.name.toLowerCase());
-              const dismissed = t.status === "dismissed";
-              return (
-                <div
-                  key={t.name}
-                  className="rounded-[var(--radius)] border border-line/70 bg-bg/30 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-[family-name:var(--font-display)] text-base text-text">
-                        {t.name}
-                      </span>
-                      <Badge tone="neutral">{t.relation}</Badge>
-                      {applied ? <Badge tone="gold">on the track</Badge> : null}
-                    </div>
-                    {!applied ? (
-                      <div className="flex items-center gap-2">
-                        <form action={approveTriggerAction}>
-                          <input type="hidden" name="trackId" value={track.id} />
-                          <input type="hidden" name="name" value={t.name} />
-                          <Button type="submit" size="sm" variant="gold">
-                            Approve
-                          </Button>
-                        </form>
-                        {!dismissed ? (
-                          <form action={dismissTriggerAction}>
-                            <input type="hidden" name="trackId" value={track.id} />
-                            <input type="hidden" name="name" value={t.name} />
-                            <Button type="submit" size="sm" variant="ghost">
-                              Dismiss
-                            </Button>
-                          </form>
-                        ) : (
-                          <Badge tone="sealed">dismissed</Badge>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                  {t.evidence.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {t.evidence.map((e, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => seek(e.start)}
-                          className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-line bg-surface-raised px-2 py-0.5 text-xs text-text-dim hover:border-gold/40 hover:text-gold"
-                        >
-                          <IconPlay size={12} />
-                          {fmt(e.start)}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+            {dossier.triggers.map((t) => (
+              <TriggerFinding
+                key={t.name}
+                trackId={track.id}
+                finding={t}
+                applied={appliedTrigSet.has(t.name.toLowerCase())}
+                appliedTrigger={appliedTrigByName.get(t.name.toLowerCase())}
+                onSeek={seek}
+              />
+            ))}
           </div>
+          {boundWithoutFinding.length > 0 ? (
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="text-[0.7rem] uppercase tracking-[0.14em] text-text-dim/70">
+                {copy.sanctum.triggers.boundTitle}
+              </p>
+              <div className="mt-2 space-y-3">
+                {boundWithoutFinding.map((trig) => (
+                  <BoundTrigger
+                    key={trig.id}
+                    trackId={track.id}
+                    trigger={trig}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -815,5 +809,245 @@ function PlacementColumn({
         </form>
       ) : null}
     </div>
+  );
+}
+
+// One token-only textarea look for the trigger edit fields (matches the
+// description box above; never a raw colour).
+const TRIGGER_TEXTAREA =
+  "w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/45 focus:border-gold/70 focus:outline-none";
+
+/**
+ * A found trigger from the reading. Until she approves it, its name / what-it-does
+ * / care-it-asks are EDITABLE (pre-filled with the reading's values, empty where
+ * it was silent) so she completes it before it binds — approving materialises the
+ * trigger from HER values, not the raw AI ones. Once bound it shows "Refine"
+ * (edit-after). Relation + evidence stay from the reading; evidence is read-only.
+ */
+function TriggerFinding({
+  trackId,
+  finding,
+  applied,
+  appliedTrigger,
+  onSeek,
+}: {
+  trackId: string;
+  finding: AnalysisTrigger;
+  applied: boolean;
+  appliedTrigger: AppliedTrigger | undefined;
+  onSeek: (start: number) => void;
+}) {
+  const dismissed = finding.status === "dismissed";
+  return (
+    <div className="rounded-[var(--radius)] border border-line/70 bg-bg/30 p-3">
+      <div className="flex items-center gap-2">
+        <span className="font-[family-name:var(--font-display)] text-base text-text">
+          {appliedTrigger?.name ?? finding.name}
+        </span>
+        <Badge tone="neutral">{finding.relation}</Badge>
+        {applied ? (
+          <Badge tone="gold">{copy.sanctum.triggers.onTrack}</Badge>
+        ) : null}
+      </div>
+
+      {finding.evidence.length > 0 ? (
+        <div className="mt-2">
+          <p className="text-[0.7rem] uppercase tracking-[0.14em] text-text-dim/70">
+            {copy.sanctum.triggers.evidenceLabel}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {finding.evidence.map((e, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onSeek(e.start)}
+                className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-line bg-surface-raised px-2 py-0.5 text-xs text-text-dim hover:border-gold/40 hover:text-gold"
+              >
+                <IconPlay size={12} />
+                {fmt(e.start)}
+              </button>
+            ))}
+          </div>
+          {finding.evidence[0]?.phrase ? (
+            <p className="mt-1.5 text-xs italic text-text-dim/70">
+              &ldquo;{finding.evidence[0].phrase}&rdquo;
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {applied && appliedTrigger ? (
+        <div className="mt-3">
+          <EditTrigger trackId={trackId} trigger={appliedTrigger} />
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <form action={approveTriggerAction} className="space-y-2">
+            <input type="hidden" name="trackId" value={trackId} />
+            <input type="hidden" name="originalName" value={finding.name} />
+            <label className="flex flex-col gap-1 text-xs text-text-dim">
+              {copy.sanctum.triggers.nameLabel}
+              <Input name="name" defaultValue={finding.name} required />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-text-dim">
+              {copy.sanctum.triggers.descriptionLabel}
+              <textarea
+                name="description"
+                rows={2}
+                defaultValue=""
+                placeholder={copy.sanctum.triggers.descriptionPlaceholder}
+                className={TRIGGER_TEXTAREA}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-text-dim">
+              {copy.sanctum.triggers.safetyLabel}
+              <textarea
+                name="safetyNotes"
+                rows={2}
+                defaultValue={finding.suggestedSafetyNotes ?? ""}
+                placeholder={copy.sanctum.triggers.safetyPlaceholder}
+                className={TRIGGER_TEXTAREA}
+              />
+            </label>
+            <Button type="submit" size="sm" variant="gold">
+              {copy.sanctum.triggers.approve}
+            </Button>
+          </form>
+          {dismissed ? (
+            <Badge tone="sealed">{copy.sanctum.triggers.dismissed}</Badge>
+          ) : (
+            <form action={dismissTriggerAction}>
+              <input type="hidden" name="trackId" value={trackId} />
+              <input type="hidden" name="name" value={finding.name} />
+              <Button type="submit" size="sm" variant="ghost">
+                {copy.sanctum.triggers.dismiss}
+              </Button>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A trigger bound to this track that the current reading didn't re-surface —
+ *  still hers to refine (edit-after). */
+function BoundTrigger({
+  trackId,
+  trigger,
+}: {
+  trackId: string;
+  trigger: AppliedTrigger;
+}) {
+  return (
+    <div className="rounded-[var(--radius)] border border-line/70 bg-bg/30 p-3">
+      <div className="flex items-center gap-2">
+        <span className="font-[family-name:var(--font-display)] text-base text-text">
+          {trigger.name}
+        </span>
+        <Badge tone="gold">{copy.sanctum.triggers.onTrack}</Badge>
+      </div>
+      {trigger.description ? (
+        <p className="mt-1.5 text-sm text-text-dim">{trigger.description}</p>
+      ) : null}
+      <div className="mt-3">
+        <EditTrigger trackId={trackId} trigger={trigger} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Edit-after-approval control for a shared trigger. A quiet "Refine" opens an
+ * inline token form pre-filled from the canonical row; saving updates the trigger
+ * EVERYWHERE it's bound (a shared entity — the copy says so) and refreshes.
+ */
+function EditTrigger({
+  trackId,
+  trigger,
+}: {
+  trackId: string;
+  trigger: AppliedTrigger;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => setOpen(true)}
+      >
+        {copy.sanctum.triggers.edit}
+      </Button>
+    );
+  }
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPending(true);
+    const fd = new FormData(e.currentTarget);
+    try {
+      await editTriggerAction(fd);
+      setOpen(false);
+      setPending(false);
+      router.refresh();
+    } catch {
+      setPending(false); // stay open so she can try again
+    }
+  };
+
+  return (
+    <form
+      onSubmit={submit}
+      className="space-y-2 rounded-[var(--radius)] border border-line/70 bg-surface-raised p-3"
+    >
+      <input type="hidden" name="trackId" value={trackId} />
+      <input type="hidden" name="triggerId" value={trigger.id} />
+      <label className="flex flex-col gap-1 text-xs text-text-dim">
+        {copy.sanctum.triggers.nameLabel}
+        <Input name="name" defaultValue={trigger.name} required />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-text-dim">
+        {copy.sanctum.triggers.descriptionLabel}
+        <textarea
+          name="description"
+          rows={2}
+          defaultValue={trigger.description ?? ""}
+          placeholder={copy.sanctum.triggers.descriptionPlaceholder}
+          className={TRIGGER_TEXTAREA}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-text-dim">
+        {copy.sanctum.triggers.safetyLabel}
+        <textarea
+          name="safetyNotes"
+          rows={2}
+          defaultValue={trigger.safetyNotes ?? ""}
+          placeholder={copy.sanctum.triggers.safetyPlaceholder}
+          className={TRIGGER_TEXTAREA}
+        />
+      </label>
+      <Whisper className="text-xs text-text-dim/70">
+        {copy.sanctum.triggers.sharedNote}
+      </Whisper>
+      <div className="flex items-center gap-2">
+        <Button type="submit" size="sm" variant="gold" loading={pending}>
+          {copy.sanctum.triggers.save}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={() => setOpen(false)}
+        >
+          {copy.sanctum.triggers.cancel}
+        </Button>
+      </div>
+    </form>
   );
 }

@@ -77,6 +77,36 @@ async function setTriggerStatus(
     .where(eq(trackAnalysis.trackId, trackId));
 }
 
+/**
+ * Mark a trigger finding approved AND fold her edits back into the ledger: the
+ * finding takes her final name (so the dossier's "on the track" match — which
+ * compares finding names to the applied trigger — still holds after a rename,
+ * and a re-run doesn't re-propose it as new) and remembers her safety note.
+ */
+async function setTriggerApproved(
+  trackId: string,
+  originalName: string,
+  finalName: string,
+  safetyNotes: string | null,
+): Promise<void> {
+  const f = await loadFindings(trackId);
+  if (!f) return;
+  const triggers = f.triggers.map((t) =>
+    t.name === originalName
+      ? {
+          ...t,
+          name: finalName,
+          status: "approved" as const,
+          ...(safetyNotes ? { suggestedSafetyNotes: safetyNotes } : {}),
+        }
+      : t,
+  );
+  await db
+    .update(trackAnalysis)
+    .set({ triggers, updatedAt: new Date() })
+    .where(eq(trackAnalysis.trackId, trackId));
+}
+
 /** Approve a keyword → create/link the tag and mark the finding approved. */
 export async function approveKeyword(
   trackId: string,
@@ -97,21 +127,46 @@ export async function dismissKeyword(
   await logAudit(null, "dossier.keyword_dismissed", { trackId, phrase });
 }
 
-/** Approve a trigger finding → create/link the trigger + track_trigger. */
+/**
+ * Approve a trigger finding → create/link the trigger + track_trigger, using the
+ * goddess's EDITED values (she can complete a partial name, add the description
+ * and safety notes the reading missed). `originalName` locates the finding in the
+ * ledger; `edited` carries what she actually approves. Relation + evidence stay
+ * from the finding. Falls back to the raw finding when nothing was edited.
+ */
 export async function approveTrigger(
   trackId: string,
-  name: string,
+  originalName: string,
+  actorId: string | null,
+  edited?: {
+    name?: string;
+    description?: string | null;
+    safetyNotes?: string | null;
+  },
 ): Promise<void> {
   const f = await loadFindings(trackId);
-  const found = f?.triggers.find((t) => t.name === name);
+  const found = f?.triggers.find((t) => t.name === originalName);
   if (!found) throw new Error("Trigger finding not found");
+  const finalName = (edited?.name ?? found.name).trim() || found.name;
+  const description = edited?.description?.trim() ? edited.description.trim() : null;
+  const safetyNotes = edited?.safetyNotes?.trim()
+    ? edited.safetyNotes.trim()
+    : found.suggestedSafetyNotes?.trim()
+      ? found.suggestedSafetyNotes.trim()
+      : null;
   await applyTriggers(trackId, [
-    { name: found.name, relation: found.relation, evidence: found.evidence },
+    {
+      name: finalName,
+      relation: found.relation,
+      evidence: found.evidence,
+      description,
+      safetyNotes,
+    },
   ]);
-  await setTriggerStatus(trackId, name, "approved");
-  await logAudit(null, "dossier.trigger_approved", {
+  await setTriggerApproved(trackId, originalName, finalName, safetyNotes);
+  await logAudit(actorId, "dossier.trigger_approved", {
     trackId,
-    name,
+    name: finalName,
     relation: found.relation,
   });
 }

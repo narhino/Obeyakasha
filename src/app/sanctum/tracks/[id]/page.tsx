@@ -65,7 +65,12 @@ export default async function TrackDossier({
       .innerJoin(tags, eq(tags.id, trackTags.tagId))
       .where(eq(trackTags.trackId, id)),
     db
-      .select({ name: triggers.name, relation: trackTriggers.relation })
+      .select({
+        id: triggers.id,
+        name: triggers.name,
+        description: triggers.description,
+        safetyNotes: triggers.safetyNotes,
+      })
       .from(trackTriggers)
       .innerJoin(triggers, eq(triggers.id, trackTriggers.triggerId))
       .where(eq(trackTriggers.trackId, id)),
@@ -145,7 +150,10 @@ export default async function TrackDossier({
           : null
       }
       appliedTags={appliedTagRows}
-      appliedTriggerNames={appliedTriggerRows.map((t) => t.name.toLowerCase())}
+      // Dedup by id: a trigger bound under two relations returns twice.
+      appliedTriggers={Array.from(
+        new Map(appliedTriggerRows.map((t) => [t.id, t])).values(),
+      )}
       analysisUpdatedAt={analysis?.updatedAt ? analysis.updatedAt.toISOString() : null}
       analyzeJobActive={analyzeJobActive}
       programs={allPrograms.map((p) => ({
