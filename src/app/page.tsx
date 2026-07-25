@@ -12,7 +12,14 @@ import { HERO_IMAGE } from "@/lib/art/defaults";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
 import { WhispersSeen } from "@/components/whispers/WhispersSeen";
 import { SubjectShell } from "@/components/nav/SubjectShell";
-import { Button, Card, Display, Eyebrow, Voice } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Display,
+  Eyebrow,
+  Voice,
+  Whisper,
+} from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 // Reads the session + DB per request; never prerender at build.
@@ -191,11 +198,19 @@ export default async function Home() {
           <Voice className="mx-auto mt-3 max-w-md">
             {copy.home.tasteBody}
           </Voice>
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link href="/library">
               <Button variant="gold">{copy.home.tasteCta}</Button>
             </Link>
+            {/* Commissions take guests now (email, no account) — but nothing
+                pointed here, so the request form was unreachable. */}
+            <Link href="/commissions">
+              <Button variant="ghost">{copy.home.commissionCta}</Button>
+            </Link>
           </div>
+          <Whisper className="mt-3 text-xs">
+            {copy.home.commissionHint}
+          </Whisper>
         </Card>
       </section>
     </main>

@@ -155,7 +155,15 @@ export default async function LibraryPage({
       {!signedIn ? (
         <>
           <Ornament className="mb-4 w-40" />
-          <Voice className="mb-6 max-w-md">{copy.library.publicIntro}</Voice>
+          <Voice className="mb-4 max-w-md">{copy.library.publicIntro}</Voice>
+          {/* A visitor who came to listen may want one made for them; guests
+              can commission without an account, so offer the door here too. */}
+          <Link
+            href="/commissions"
+            className="mb-6 inline-block text-[0.6875rem] uppercase tracking-[0.2em] text-gold/80 transition-colors duration-[var(--dur-med)] hover:text-gold"
+          >
+            {copy.home.commissionCta} →
+          </Link>
         </>
       ) : null}
 

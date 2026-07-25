@@ -527,6 +527,8 @@ export const copy = {
     tasteBody:
       "A few of my recordings are open to anyone. Take one. The rest wait behind the door.",
     tasteCta: "Take a taste",
+    commissionCta: "Ask me for your own",
+    commissionHint: "You don't need an account to ask. Leave me a way to reach you.",
   },
 
   // ── Polls ──────────────────────────────────────────────────────────────
