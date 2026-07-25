@@ -5,6 +5,7 @@ import { resolveAccess } from "@/lib/entitlements/resolve";
 import {
   continueListening,
   listCatalogTracks,
+  listFreeSamples,
   listMyUploads,
   listSeriesCards,
   listTagGroups,
@@ -18,6 +19,7 @@ import { getRawSetting, getSetting } from "@/lib/settings";
 import { EMPTY_IMAGE } from "@/lib/art/defaults";
 import { LibraryClient } from "@/components/library/LibraryClient";
 import { ContinueShelf } from "@/components/library/ContinueShelf";
+import { SampleShelf } from "@/components/library/SampleShelf";
 import { SurrenderBand } from "@/components/library/SurrenderBand";
 import { YoursShelf } from "@/components/library/YoursShelf";
 import {
@@ -94,7 +96,7 @@ export default async function LibraryPage({
     const cards = await listSeriesCards();
     content = <SeriesGrid cards={cards} />;
   } else {
-    const [tagGroups, catalog, continueRow, myUploads, uploadsEnabled] =
+    const [tagGroups, catalog, continueRow, samples, myUploads, uploadsEnabled] =
       await Promise.all([
         listTagGroups(),
         listCatalogTracks(
@@ -104,6 +106,11 @@ export default async function LibraryPage({
         signedIn && userId
           ? continueListening(userId, access.accessLevel)
           : Promise.resolve([] as { track: LibraryTrack; positionS: number }[]),
+        // R9.8: the free-sample shelf is the logged-out visitor's way in — a
+        // subject already has their own shelves, so it is never fetched for them.
+        signedIn
+          ? Promise.resolve([] as LibraryTrack[])
+          : listFreeSamples(),
         // F1: their private shelf + whether she's taking files right now.
         signedIn && userId
           ? listMyUploads(userId)
@@ -118,6 +125,7 @@ export default async function LibraryPage({
         tracks={catalog.tracks}
         fallback={catalog.fallback}
         continueRow={continueRow}
+        samples={samples}
         signedIn={signedIn}
         entitled={entitled}
         patreonPageUrl={patreonPageUrl}
@@ -206,6 +214,7 @@ function FilesSegment({
   tracks,
   fallback,
   continueRow,
+  samples,
   signedIn,
   entitled,
   patreonPageUrl,
@@ -218,6 +227,7 @@ function FilesSegment({
   tracks: CatalogTrack[];
   fallback: "related" | "popular" | null;
   continueRow: { track: LibraryTrack; positionS: number }[];
+  samples: LibraryTrack[];
   signedIn: boolean;
   entitled: boolean;
   patreonPageUrl: string;
@@ -230,9 +240,13 @@ function FilesSegment({
   // Only offer Surrender when the shelf isn't already narrowed by a search —
   // "let her choose" reads oddly under an active filter (F-consistency).
   const showSurrender = entitled && !filtersActive;
+  // "Taste her" (R9.8) — logged-out only, and never under an active search: a
+  // shelf of open files reads as noise when they've asked for one thing.
+  const showSamples = !signedIn && !filtersActive && samples.length > 0;
   return (
     <div>
       {showSurrender ? <SurrenderBand /> : null}
+      {showSamples ? <SampleShelf tracks={samples} /> : null}
       {continueRow.length > 0 ? <ContinueShelf rows={continueRow} /> : null}
 
       <form

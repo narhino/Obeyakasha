@@ -40,13 +40,17 @@ export const authConfig = {
       // public redirect to `/`, so it is intentionally NOT gated either.
       // `/library` is the public catalog (R2a): browsable logged-out, with
       // streaming (`/api/tracks`, `/api/stream`) still gated at the endpoints.
+      // `/commissions` is likewise public (R-anon): a stranger may read the
+      // terms and petition her with an email address. The page renders an
+      // anonymous variant, and `POST /api/commissions` carries its own guards
+      // (identity invariant, the open/sealed state machine, and the throttle) —
+      // a pathname gate was never the protection there.
       const subjectPrefixes = [
         "/programs",
         "/inbox",
         "/asks",
         "/orders",
         "/messages",
-        "/commissions",
         "/settings",
         "/me",
       ];

@@ -158,9 +158,11 @@ export const copy = {
       title: "{series} deepens.",
       body: "Another file joins it. Fall into what's new.",
     },
-    // R2a — public catalog, smart search, segments
+    // R2a — public catalog, smart search, segments. The second sentence is
+    // deliberately true of the logged-out visitor: a handful of files really do
+    // play for them (R9.8), so the line no longer promises a wall it doesn't have.
     publicIntro:
-      "Everything I've made lives here. Look all you like — only the claimed may play.",
+      "Everything I've made lives here. Look all you like. A few I leave open — the rest, only the claimed may play.",
     searchPlaceholder: "Name what you're reaching for.",
     searchAction: "Find it",
     clearSearch: "Clear",
@@ -183,6 +185,13 @@ export const copy = {
     sampleUpsell: {
       title: "You've had a taste.",
       body: "The rest is earned. Come in, and I'll give you all of it.",
+    },
+    // R9.8 — the free-sample shelf: the ONE place a logged-out visitor is told,
+    // plainly, which files already open for them. Sits above the sealed grid.
+    sampleShelf: {
+      title: "Taste her",
+      lead: "These few I leave open. Press one and let me show you what I do. What comes after, you earn.",
+      playLabel: "Play {title}",
     },
     unlockCta: "Rise to earn it",
     sealedAnon: "Sealed until you enter.",
@@ -537,8 +546,33 @@ export const copy = {
     waitlisted: "You're on my waitlist. Wait — I'll call you when a slot opens.",
     // Shown when a subject already has one in my hands (open, but one at a time).
     oneAtATime: "One at a time. Yours is already in my hands — let me finish it before you ask again.",
+    // Under the request form. Was inlined in the JSX; her voice belongs here.
+    payment: "Payment is arranged in her reply, if she accepts.",
     delivered: "I made something only for you. Come listen.",
     declined: "Not this one. Ask me again another time.",
+    // ── Guests: asking without an account (R-anon) ────────────────────────
+    // A visitor with no Patreon connection may still petition her. She needs a
+    // way to answer them, and they need to know that a delivery lands nowhere
+    // until they come in properly.
+    guest: {
+      emailLabel: "Where do I answer you?",
+      emailPlaceholder: "your@email",
+      emailHint: "I reply here. Nowhere else.",
+      emailMissing: "Give me an address, or I have no way to answer you.",
+      nameLabel: "What do I call you?",
+      namePlaceholder: "A name, a handle — whatever you answer to.",
+      // The Patreon nudge on the anonymous form — never a wall, just the truth
+      // about where a finished file can actually be put.
+      connectTitle: "You're asking as a stranger.",
+      connectBody:
+        "That's allowed. But a finished file lands in a library, and you don't have one yet. Come in through Patreon and whatever I make for you waits there, yours, the moment it's done.",
+      submitted:
+        "I have it. Watch your inbox — I'll answer there when I've decided.",
+      waitlisted:
+        "You're on my waitlist. I have your address; I'll use it when a slot opens.",
+      // The refusal when someone hammers the public form (anti-abuse).
+      tooMany: "Enough. You've asked more than once already — wait, and try me later.",
+    },
     // Milestone labels for the buyer's progress stepper (F32), keyed by stage.
     stageSteps: {
       queued: "Queued",

@@ -330,11 +330,25 @@ export const wishClusters = pgTable("wish_clusters", {
 });
 
 // ── Commissions (F3 request flow, D2) ────────────────────────────────────
+// A commission may come from a SUBJECT (userId) or from a stranger who has not
+// connected Patreon yet (guestEmail). Exactly one identity is required, and the
+// invariant is enforced in code — `assertCommissionIdentity` in
+// `src/lib/commissions/ops.ts` is the single writing gate. Drizzle has no
+// portable CHECK helper here, so the code guard IS the constraint; every insert
+// path (subject route, guest route, tests) goes through it.
+//
+// D7: a guest row has a NULL userId, so every subject-facing read —
+// `getUserCommissions`, `hasActiveCommission` — silently excludes it (NULL never
+// equals a uuid). No subject can ever perceive that a stranger asked her.
 export const commissions = pgTable("commissions", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+  // NULLABLE for guests. The FK + cascade still hold for real accounts, so
+  // releasing an account still takes its commissions with it.
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  /** Guest reply address — the ONLY way she can answer someone with no account. */
+  guestEmail: text("guest_email"),
+  /** What the guest asked to be called (optional; the email is the identity). */
+  guestName: text("guest_name"),
   answers: jsonb("answers").$type<Record<string, unknown>>().notNull(),
   status: commissionStatus("status").notNull().default("new"),
   stage: commissionStage("stage").notNull().default("queued"),

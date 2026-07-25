@@ -11,9 +11,10 @@ export default async function SubjectLayout({
 }) {
   const session = await auth();
 
-  // Anonymous browsing (R2a public catalog). Only /library and its subroutes
-  // land here — middleware still gates every other subject prefix to a
-  // session. No gate/intake/player; a slim header that funnels to Enter.
+  // Anonymous browsing (R2a public catalog, R-anon commissions). Only /library
+  // and its subroutes, plus /commissions, land here — middleware still gates
+  // every other subject prefix to a session, and each of these two renders its
+  // own anonymous variant. No gate/intake; a slim header that funnels to Enter.
   if (!session?.user) {
     return (
       <div className="min-h-dvh pb-20">

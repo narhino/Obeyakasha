@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import { toast } from "@/lib/player/toast";
 import type { LibraryTrack } from "@/lib/library/queries";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { Button } from "@/components/ui";
 import { IconLock, IconPlay } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format/duration";
@@ -23,6 +24,12 @@ function toQueueTrack(t: LibraryTrack): QueueTrack {
  * The series track list (R4). Plays as a NAMED source so the queue sheet shows
  * "Next from: <series>". Row states mirror the catalog: entitled → play/queue,
  * locked → Upgrade, anonymous → Enter. Every row links to its file page.
+ *
+ * One exception, matching the catalog grid and the file page exactly (R9.8): a
+ * PUBLISHED FREE SAMPLE plays for the unentitled and the logged-out alike. It
+ * plays alone — never inside the named series queue, which stays the entitled
+ * subject's — so the taste ends into the upsell instead of rolling on into
+ * files nobody has earned. Nothing else here loosens.
  */
 export function SeriesClient({
   tracks,
@@ -36,6 +43,7 @@ export function SeriesClient({
   patreonPageUrl: string;
 }) {
   const playSource = usePlayer((s) => s.playSource);
+  const playNow = usePlayer((s) => s.playNow);
   const addToQueue = usePlayer((s) => s.addToQueue);
 
   const entitled = tracks.filter((t) => signedIn && t.unlocked);
@@ -51,6 +59,10 @@ export function SeriesClient({
   function queueTrack(t: LibraryTrack) {
     addToQueue(toQueueTrack(t));
     toast(fill(copy.player.queue.queued, { title: t.title }));
+  }
+  /** The public taste — one track, on its own, never the series queue (R9.8). */
+  function playSample(t: LibraryTrack) {
+    playNow([toQueueTrack(t)], 0);
   }
 
   if (tracks.length === 0) {
@@ -76,7 +88,13 @@ export function SeriesClient({
             : t.unlocked
               ? "entitled"
               : "locked";
-          const sealed = state !== "entitled";
+          // A published free sample is playable by anyone — unless a premiere
+          // still seals it, which seals it for everyone (R9.6).
+          const canTaste =
+            state !== "entitled" &&
+            t.freeSample &&
+            !isPremiereSealed(t.premiereAt);
+          const sealed = state !== "entitled" && !canTaste;
           return (
             <li
               key={t.id}
@@ -88,9 +106,11 @@ export function SeriesClient({
                 {i + 1}
               </span>
 
-              {state === "entitled" ? (
+              {state === "entitled" || canTaste ? (
                 <button
-                  onClick={() => playFromId(t.id)}
+                  onClick={() =>
+                    state === "entitled" ? playFromId(t.id) : playSample(t)
+                  }
                   aria-label={`Play ${t.title}`}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold text-bg transition-colors duration-[var(--dur-med)] hover:bg-gold-deep"
                 >
@@ -121,6 +141,12 @@ export function SeriesClient({
                           : copy.library.sealedAnon
                       }`
                     : ""}
+                  {canTaste ? (
+                    <span className="text-gold/90">
+                      {formatDuration(t.durationS) ? " · " : ""}
+                      {copy.library.sampleChip}
+                    </span>
+                  ) : null}
                 </p>
               </div>
 
@@ -131,7 +157,7 @@ export function SeriesClient({
                 >
                   {copy.library.queue}
                 </button>
-              ) : state === "locked" ? (
+              ) : canTaste ? null : state === "locked" ? (
                 <a href={patreonPageUrl} target="_blank" rel="noreferrer" className="shrink-0">
                   <Button size="sm" variant="primary">
                     {copy.library.unlockCta}

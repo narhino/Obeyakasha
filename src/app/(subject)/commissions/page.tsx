@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSubject } from "@/lib/auth-helpers";
+import { auth } from "@/auth";
 import { getSetting } from "@/lib/settings";
 import { getCommissionForm } from "@/lib/commissions/form";
 import {
@@ -12,19 +12,31 @@ import {
   stageInfo,
 } from "@/lib/commissions/stages";
 import { CommissionForm } from "@/components/commissions/CommissionForm";
-import { Badge, Card, Display, Whisper } from "@/components/ui";
+import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 export const dynamic = "force-dynamic";
 
 const ACTIVE = new Set<string>(ACTIVE_COMMISSION_STATUSES);
 
+/**
+ * The commission room. Public since R-anon: a stranger may read the same terms
+ * and petition her with an address, and gets an anonymous variant of the form.
+ * A signed-in subject's page is unchanged — their progress cards, their
+ * one-at-a-time rule, no email field (their account IS the address).
+ */
 export default async function CommissionsPage() {
-  const session = await requireSubject();
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+  const guest = !userId;
   const [open, fields, mine, etaDays] = await Promise.all([
     getSetting("commissions_open"),
     getCommissionForm(),
-    getUserCommissions(session.user.id),
+    // D7 + guests: a stranger has no rows of their own, and must never be shown
+    // anyone else's. No id, no query.
+    userId
+      ? getUserCommissions(userId)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getUserCommissions>>),
     getSetting("commission_eta_days"),
   ]);
 
@@ -45,6 +57,22 @@ export default async function CommissionsPage() {
       <Whisper className="mt-1">
         {open ? copy.comm.openBody : copy.comm.sealed}
       </Whisper>
+
+      {/* R-anon: a stranger is told plainly where a finished file would land,
+          and offered the door — never blocked by it. */}
+      {guest ? (
+        <Card className="mt-6 border-gold/30">
+          <p className="font-[family-name:var(--font-display)] text-lg italic text-text">
+            {copy.comm.guest.connectTitle}
+          </p>
+          <Whisper className="mt-1.5">{copy.comm.guest.connectBody}</Whisper>
+          <Link href="/signin" className="mt-4 inline-block">
+            <Button size="sm" variant="gold">
+              {copy.auth.signInButton}
+            </Button>
+          </Link>
+        </Card>
+      ) : null}
 
       {shown.length > 0 ? (
         <div className="mt-6 space-y-3">
@@ -123,7 +151,9 @@ export default async function CommissionsPage() {
         </div>
       ) : null}
 
-      {/* State machine (F04):
+      {/* State machine (F04) — IDENTICAL for a stranger, who has no rows and so
+          always falls to the form branch. A guest can never walk past a sealed
+          board; sealed still means the waitlist petition, never the full form.
           · sealed + not waiting → the waitlist petition ONLY (no field form)
           · sealed + waiting     → "you're on my waitlist" note
           · open + has active    → "one at a time" (progress shown above)
@@ -134,14 +164,14 @@ export default async function CommissionsPage() {
             {copy.comm.waitlisted}
           </Whisper>
         ) : (
-          <CommissionForm fields={[]} variant="waitlist" />
+          <CommissionForm fields={[]} variant="waitlist" guest={guest} />
         )
       ) : hasActive ? (
         <Whisper className="mt-8 font-[family-name:var(--font-display)] text-base italic text-gold">
           {copy.comm.oneAtATime}
         </Whisper>
       ) : (
-        <CommissionForm fields={fields} variant="full" />
+        <CommissionForm fields={fields} variant="full" guest={guest} />
       )}
     </main>
   );

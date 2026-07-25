@@ -1352,3 +1352,92 @@ need a product decision or a version bump.
   tallies, and the obedience percentile all do. Left in place — removing visible
   features is her call, not an auditor's — and written up as S-08 with the exact
   render sites.
+
+## 2026-07-25 — Anonymous visitors may taste, and may ask
+
+Two doors opened for someone with no account, without loosening a single
+entitlement.
+
+### 1 · Free samples actually play for the logged-out
+
+- **The server was never the blocker.** `getSampleTrack` already returns exactly
+  "published + `freeSample` + real audio + not a personal upload", and
+  `/api/tracks/[id]/stream-url` already falls through to it when the caller has
+  no session; `/api/stream` only ever trusted its own HMAC. Verified live
+  end-to-end while logged out: card play → signed URL (200) → audio bytes (200),
+  with a non-sample still refused (404). The catalog grid and the file page
+  already offered the control too. Nothing there was changed.
+- **The real gap was the series list.** `SeriesClient` decided everything on
+  `signedIn && t.unlocked` alone, so inside a published series a free sample wore
+  a padlock and an "Enter with Patreon" button — contradicting the same track's
+  own card and file page. It now plays for the unentitled and the logged-out,
+  with the "A taste. Free." line beside it. A premiere still seals it (R9.6), and
+  the sample plays ALONE — never inside the named series queue, so the taste ends
+  into the upsell instead of rolling on into files nobody has earned.
+- **Discovery: one shelf, not scattered badges.** `SampleShelf` ("Taste her")
+  sits above the sealed grid for logged-out visitors only, in the same larger-art
+  D5 shelf treatment as "Where I left you". Hidden under an active search, where
+  a shelf of unrelated open files reads as noise. Backed by `listFreeSamples()`,
+  which returns precisely the set the stream endpoint will serve and drops
+  still-future premieres — a shelf whose whole promise is "this one plays" must
+  never offer a dead tap.
+- **Copy corrected, deliberately.** `library.publicIntro` promised "only the
+  claimed may play", which has been untrue since R9.8. It now says a few are left
+  open. Telemetry stays subject-only: `PlayerRoot` already skips every listen
+  endpoint for the anonymous, and no listen is recorded for a sample.
+
+### 2 · Guest commissions (`commissions.userId` is now NULLABLE)
+
+- **Schema.** `user_id` drops NOT NULL (FK + cascade kept, so releasing an
+  account still takes its commissions with it); `guest_email` and `guest_name`
+  added, both nullable. Migration `drizzle/0020_boring_patch.sql`.
+- **THE INVARIANT, and why it is code and not a CHECK.** Every row must carry
+  EITHER `userId` OR `guestEmail` — a row with neither is unanswerable,
+  undeliverable and invisible. Drizzle has no portable CHECK-constraint helper at
+  this version, so `assertCommissionIdentity()` in `src/lib/commissions/ops.ts`
+  **is** the constraint, and every insert path calls it (subject submit, guest
+  submit, tests). This is a documented deviation from "constraints belong in the
+  database": if a raw insert ever bypasses the ops layer, nothing stops it.
+- **Routing.** `/commissions` left `subjectPrefixes` in `auth.config.ts`. The
+  pathname gate was never the protection — the page renders an anonymous variant
+  and `POST /api/commissions` carries its own guards. Signed-in behaviour is
+  untouched: their progress cards, their one-at-a-time rule, no email field.
+- **Same state machine, no bypass.** A guest hits the identical open/sealed
+  machine: sealed still means the waitlist petition only (with an address, so she
+  can call them), never the field form, and `submitGuestCommission` writes
+  `waitlist: !open`. "One at a time" is deliberately NOT applied — it keys off an
+  account a guest does not have; the throttle stands in its place.
+- **Validation.** Body capped at 32 KB *before* `JSON.parse` (S-10 flagged
+  `req.json()` parsing an unbounded body before zod saw it); answers are now
+  `z.record(key ≤ 64 chars, value ≤ 4000 chars)` with at most 40 fields, instead
+  of the old unbounded `z.record(z.string(), z.unknown())`; guest email is a real
+  email ≤ 200 chars, name ≤ 100.
+
+- **THROTTLE — and its limitation, stated plainly.** `src/lib/commissions/
+  throttle.ts`: at most **3 accepted submissions per IP per hour**, and an
+  identical (email + answers) inside **10 minutes** is accepted to their face and
+  never stored, so a double-tapped button cannot make her two rows. Duplicates
+  are checked first and cost no quota. Refusal is a 429 rendered as
+  `copy.comm.guest.tooMany`, never a stack trace.
+  **The state is a plain Map in ONE process.** A second web container, or a
+  restart, starts from zero, and a caller who rotates IP addresses is not slowed
+  at all. This is a partial mitigation of S-10 for one new public endpoint — it
+  raises the cost of casual flooding and kills accidental duplicates. It is not a
+  rate limiter, and it does not close S-10, which still wants a shared store.
+- **Every null-user path is guarded.** `setCommissionStage` advances the stage but
+  sends no push; `deliverCommission` refuses outright (a delivery is a GRANT
+  against a user row — there is no library to put the file in);
+  `notifyWaitlistReopened` excludes null userIds in SQL and again in the map. No
+  code path can now push or message a null user.
+- **Sanctum.** The board's `innerJoin(users)` became a `leftJoin` — an inner join
+  would have hidden guest requests from her entirely. A guest row is labelled
+  "no account yet", shows the reply address as a `mailto:` beside the same
+  accept / decline / stage controls, replaces the Deliver form with the reason it
+  cannot run, and notes that the stage is tracked for her eyes only.
+- **D7 holds.** A guest row has a NULL `userId`, and NULL never equals a uuid, so
+  `getUserCommissions` and `hasActiveCommission` exclude it without a special
+  case. No subject-facing list or count can perceive that a stranger asked her.
+  Covered by the one new test, `src/lib/commissions/guest.test.ts`.
+- **Not built (noted for later):** a guest who later connects with Patreon is not
+  automatically linked to their earlier request by email. She re-asks them, or it
+  is matched by hand.

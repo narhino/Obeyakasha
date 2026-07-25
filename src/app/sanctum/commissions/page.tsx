@@ -28,6 +28,8 @@ const STATUSES = [
 export default async function SanctumCommissions() {
   const [open, rows, deliverable] = await Promise.all([
     getSetting("commissions_open"),
+    // LEFT join (R-anon): a guest commission has no user row, and an inner join
+    // would have hidden it from her board entirely.
     db
       .select({
         c: commissions,
@@ -35,7 +37,7 @@ export default async function SanctumCommissions() {
         email: users.email,
       })
       .from(commissions)
-      .innerJoin(users, eq(users.id, commissions.userId))
+      .leftJoin(users, eq(users.id, commissions.userId))
       .orderBy(desc(commissions.createdAt))
       .limit(50),
     db
@@ -69,17 +71,36 @@ export default async function SanctumCommissions() {
             <Whisper>No requests yet.</Whisper>
           </Card>
         ) : (
-          rows.map(({ c, name, email }) => (
+          rows.map(({ c, name, email }) => {
+            // R-anon: no user row → this came from a stranger. Her only way back
+            // to them is the address they left, so it is shown plainly, right
+            // beside the same accept / decline / stage controls.
+            const isGuest = c.userId == null;
+            const who = isGuest
+              ? (c.guestName ?? c.guestEmail)
+              : (name ?? email);
+            const replyTo = isGuest ? c.guestEmail : email;
+            return (
             <Card key={c.id} raised>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm text-text">{name ?? email}</p>
+                <p className="text-sm text-text">{who}</p>
                 <div className="flex items-center gap-2">
+                  {isGuest ? <Badge tone="sealed">no account yet</Badge> : null}
                   {c.waitlist ? <Badge tone="sealed">waitlist</Badge> : null}
                   <Badge tone={c.status === "delivered" ? "gold" : "neutral"}>
                     {commissionStatusLabel(c.status)}
                   </Badge>
                 </div>
               </div>
+
+              {replyTo ? (
+                <p className="mt-1 text-xs text-text-dim">
+                  Reply to:{" "}
+                  <a href={`mailto:${replyTo}`} className="text-gold underline">
+                    {replyTo}
+                  </a>
+                </p>
+              ) : null}
 
               <dl className="mt-2 space-y-1 text-sm">
                 {Object.entries(c.answers as Record<string, unknown>).map(
@@ -120,6 +141,12 @@ export default async function SanctumCommissions() {
                     Update stage
                   </Button>
                 </form>
+                {isGuest ? (
+                  <Whisper className="mt-1 text-xs">
+                    Tracked for you only — with no account there is nowhere to
+                    push this, and no progress page for them to open.
+                  </Whisper>
+                ) : null}
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -137,23 +164,34 @@ export default async function SanctumCommissions() {
                   </Button>
                 </form>
 
-                <form action={deliverCommissionAction} className="flex items-center gap-1">
-                  <input type="hidden" name="commissionId" value={c.id} />
-                  <Select name="trackId">
-                    <option value="">deliver track…</option>
-                    {deliverable.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button type="submit" size="sm" variant="gold">
-                    Deliver
-                  </Button>
-                </form>
+                {/* Delivery is a GRANT against a user row. A guest has none, so
+                    the control is replaced by the reason rather than left to
+                    fail — she must get them to connect first. */}
+                {isGuest ? (
+                  <Whisper className="text-xs">
+                    No library to deliver into yet — have them connect with
+                    Patreon, then deliver.
+                  </Whisper>
+                ) : (
+                  <form action={deliverCommissionAction} className="flex items-center gap-1">
+                    <input type="hidden" name="commissionId" value={c.id} />
+                    <Select name="trackId">
+                      <option value="">deliver track…</option>
+                      {deliverable.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button type="submit" size="sm" variant="gold">
+                      Deliver
+                    </Button>
+                  </form>
+                )}
               </div>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
     </div>

@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   grants,
@@ -17,6 +27,7 @@ import {
   userTriggers,
 } from "@/lib/db/schema";
 import { canAccess } from "@/lib/entitlements/core";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { COLLECTION_COVER, DEFAULT_COVER } from "@/lib/art/defaults";
 import {
   resolveCollectionCover,
@@ -449,6 +460,42 @@ export async function listCatalogTracks(
     tracks: withFlag(sorted.slice(0, POPULAR_LIMIT), false),
     fallback: "popular",
   };
+}
+
+/** How many free samples the public "Taste her" shelf shows at most. */
+const SAMPLE_SHELF_LIMIT = 8;
+
+/**
+ * The free-sample shelf (R9.8) — the tracks a logged-out visitor may actually
+ * press play on, newest first. Exactly the set `getSampleTrack` will stream:
+ * published, `freeSample`, with real audio, and never a personal upload (D7).
+ * A still-future premiere is excluded because it refuses playback for everyone,
+ * and a shelf whose whole promise is "this one plays" must not offer a dead tap.
+ */
+export async function listFreeSamples(
+  limit = SAMPLE_SHELF_LIMIT,
+): Promise<LibraryTrack[]> {
+  const rows = await db
+    .select()
+    .from(tracks)
+    .where(
+      and(
+        eq(tracks.visibility, "published"),
+        eq(tracks.freeSample, true),
+        isNotNull(tracks.streamKey),
+        isNull(tracks.ownerUserId),
+      ),
+    )
+    .orderBy(desc(tracks.publishedAt))
+    .limit(limit);
+  const playable = rows.filter((r) => !isPremiereSealed(r.premiereAt));
+  // Annotated as the anonymous viewer sees them (level 0, no grants) — the
+  // shelf is theirs, so nothing here may depend on a session.
+  return annotateTracks(playable, {
+    userId: null,
+    accessLevel: 0,
+    granted: new Set(),
+  });
 }
 
 export interface TagGroup {
