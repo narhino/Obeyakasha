@@ -863,6 +863,9 @@ export const copy = {
       // A training: only the sequence unravels; the recordings remain.
       warnProgram:
         "The training comes undone. Every recording inside it stays — only the sequence goes.",
+      // A whisper: unsayable once taken back — with everything it gathered.
+      warnWhisper:
+        "Taken back, as though never spoken. What it gathered goes with it.",
     },
     // The triggers the reading proposes are hers to finish before they bind, and
     // hers to reshape after. Admin-facing, still her voice — nothing app-speak.

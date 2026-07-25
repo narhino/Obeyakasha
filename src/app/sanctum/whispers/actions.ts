@@ -209,6 +209,32 @@ export async function cancelScheduledWhisper(formData: FormData) {
   revalidatePath("/sanctum/whispers");
 }
 
+/**
+ * Take a whisper back — published or not. There is no editing a whisper (the
+ * audience it went out to is part of what it *was*), so the way to fix one sent
+ * to the wrong audience is to remove it and speak again. Loves and comments
+ * cascade with the row; a poll it carried is left alone.
+ */
+export async function deleteWhisper(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = cancelSchema.safeParse({
+    whisperId: formData.get("whisperId"),
+  });
+  if (!parsed.success) throw new Error("Invalid whisper");
+
+  const removed = await db
+    .delete(whispers)
+    .where(eq(whispers.id, parsed.data.whisperId))
+    .returning({ id: whispers.id });
+
+  await logAudit(session.user.id, "whisper.deleted", {
+    whisperId: parsed.data.whisperId,
+    removed: removed.length > 0,
+  });
+  revalidatePath("/sanctum/whispers");
+  revalidatePath("/");
+}
+
 // ── F3 · private comments under whispers ───────────────────────────────────
 
 const replySchema = z.object({

@@ -9,7 +9,13 @@ import { listOpenPolls } from "@/lib/polls/ops";
 import { Badge, Button, Card, Label, PageHeading, Whisper } from "@/components/ui";
 import { WhisperComposer } from "./WhisperComposer";
 import { PollsPanel } from "./PollsPanel";
-import { cancelScheduledWhisper, setWhisperPinned } from "./actions";
+import {
+  cancelScheduledWhisper,
+  deleteWhisper,
+  setWhisperPinned,
+} from "./actions";
+import { ConfirmDelete } from "../ConfirmDelete";
+import { copy } from "@/copy/copy";
 
 /** Admin-facing when-label for a scheduled whisper (server-rendered only). */
 function whenLabel(d: Date): string {
@@ -105,21 +111,30 @@ export default async function SanctumWhispers() {
                   </Button>
                 </form>
               ) : (
-                <form action={setWhisperPinned}>
-                  <input type="hidden" name="whisperId" value={w.id} />
-                  <input
-                    type="hidden"
-                    name="pinned"
-                    value={w.pinned ? "false" : "true"}
+                <div className="flex shrink-0 items-center gap-2">
+                  <form action={setWhisperPinned}>
+                    <input type="hidden" name="whisperId" value={w.id} />
+                    <input
+                      type="hidden"
+                      name="pinned"
+                      value={w.pinned ? "false" : "true"}
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant={w.pinned ? "ghost" : "gold"}
+                    >
+                      {w.pinned ? "Unpin" : "Pin"}
+                    </Button>
+                  </form>
+                  {/* A whisper can't be edited — sent to the wrong audience,
+                      the fix is to take it back and speak again. */}
+                  <ConfirmDelete
+                    action={deleteWhisper}
+                    fields={{ whisperId: w.id }}
+                    warn={copy.sanctum.delete.warnWhisper}
                   />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    variant={w.pinned ? "ghost" : "gold"}
-                  >
-                    {w.pinned ? "Unpin" : "Pin"}
-                  </Button>
-                </form>
+                </div>
               )}
             </Card>
           );
