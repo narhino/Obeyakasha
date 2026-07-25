@@ -12,7 +12,7 @@ import { HERO_IMAGE } from "@/lib/art/defaults";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
 import { WhispersSeen } from "@/components/whispers/WhispersSeen";
 import { SubjectShell } from "@/components/nav/SubjectShell";
-import { Button, Display, Eyebrow, Voice } from "@/components/ui";
+import { Button, Card, Display, Eyebrow, Voice } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
 // Reads the session + DB per request; never prerender at build.
@@ -101,9 +101,17 @@ export default async function Home() {
             {copy.brand.name}
           </Link>
           <div className="flex items-center gap-4">
+            {/* Without this a visitor has no route to the catalogue at all —
+                the free samples would never be found. */}
+            <Link
+              href="/library"
+              className="text-[0.6875rem] tracking-[0.2em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:text-text"
+            >
+              {copy.home.catalogueLink}
+            </Link>
             <Link
               href="/about"
-              className="text-[0.6875rem] tracking-[0.2em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:text-text"
+              className="hidden text-[0.6875rem] tracking-[0.2em] uppercase text-text-dim transition-colors duration-[var(--dur-med)] hover:text-text sm:inline"
             >
               {copy.home.aboutLink}
             </Link>
@@ -174,6 +182,21 @@ export default async function Home() {
         </div>
         <Voice className="mt-3 max-w-md">{copy.home.publicIntro}</Voice>
         <WhispersFeed items={items} signedIn={false} />
+
+        {/* The way in for someone who hasn't committed yet. The feed is empty
+            until she publishes a public whisper, so without this the front
+            door offers a stranger nothing but a sign-in button. */}
+        <Card className="enter mt-10 text-center" raised>
+          <Eyebrow className="text-gold/80">{copy.home.tasteTitle}</Eyebrow>
+          <Voice className="mx-auto mt-3 max-w-md">
+            {copy.home.tasteBody}
+          </Voice>
+          <div className="mt-5">
+            <Link href="/library">
+              <Button variant="gold">{copy.home.tasteCta}</Button>
+            </Link>
+          </div>
+        </Card>
       </section>
     </main>
   );

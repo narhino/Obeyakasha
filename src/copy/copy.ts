@@ -519,6 +519,14 @@ export const copy = {
     libraryLink: "Your library",
     publicIntro:
       "This is where I speak. Read a while. When you're ready to be known, come in.",
+    // The public front door's way through to the catalogue — without it a
+    // visitor lands on the feed and has nowhere to go but the sign-in button,
+    // so the free samples are never found.
+    catalogueLink: "The library",
+    tasteTitle: "Hear me first",
+    tasteBody:
+      "A few of my recordings are open to anyone. Take one. The rest wait behind the door.",
+    tasteCta: "Take a taste",
   },
 
   // ── Polls ──────────────────────────────────────────────────────────────
