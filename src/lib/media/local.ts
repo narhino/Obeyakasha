@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, normalize, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { env } from "@/lib/env";
 import { makeStreamToken } from "./sign";
@@ -14,9 +14,16 @@ import type { MediaProvider, ReadResult } from "./provider";
 const ROOT = resolve(process.env.MEDIA_LOCAL_DIR ?? "./media-local");
 
 function keyToPath(key: string): string {
-  // Prevent path traversal: the resolved path must stay under ROOT.
-  const p = normalize(join(ROOT, key));
-  if (!p.startsWith(ROOT)) throw new Error("invalid media key");
+  // Prevent path traversal: the resolved path must stay *inside* ROOT. A plain
+  // `startsWith(ROOT)` test is not enough — a sibling directory whose name
+  // merely extends ROOT's (…/media-x next to …/media) would pass it — so the
+  // containment is proven with a relative path instead. An absolute key is
+  // rejected here too, because resolve() would otherwise honour it.
+  const p = resolve(ROOT, key);
+  const rel = relative(ROOT, p);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error("invalid media key");
+  }
   return p;
 }
 

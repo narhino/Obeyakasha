@@ -61,6 +61,9 @@ export async function recordHeartbeat(params: {
     })
     .onConflictDoUpdate({
       target: listenSessions.id,
+      // The sessionId comes from the client, so the update only ever touches a
+      // session that already belongs to this listener — never another's.
+      setWhere: eq(listenSessions.userId, userId),
       set: {
         secondsListened: sql`greatest(${listenSessions.secondsListened}, ${secondsListened})`,
         maxPositionS: sql`greatest(${listenSessions.maxPositionS}, ${Math.round(positionS)})`,
@@ -105,16 +108,23 @@ export async function recordEnd(params: {
     })
     .onConflictDoNothing({ target: listenSessions.id });
 
+  // Both reads are scoped to the caller: a client-supplied sessionId must never
+  // let one listener read (or take chain credit from) another's session.
+  const mine = and(
+    eq(listenSessions.id, sessionId),
+    eq(listenSessions.userId, userId),
+  );
+
   const [existing] = await db
     .select({ maxPositionS: listenSessions.maxPositionS })
     .from(listenSessions)
-    .where(eq(listenSessions.id, sessionId))
+    .where(mine)
     .limit(1);
 
   const [sessionRow] = await db
     .select({ secondsListened: listenSessions.secondsListened })
     .from(listenSessions)
-    .where(eq(listenSessions.id, sessionId))
+    .where(mine)
     .limit(1);
   const maxPos = Math.max(existing?.maxPositionS ?? 0, Math.round(positionS));
   const completed = isComplete(maxPos, track?.durationS);

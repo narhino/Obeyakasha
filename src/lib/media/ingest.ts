@@ -9,6 +9,22 @@ import { probeDurationSeconds } from "./probe";
 
 const ALLOWED_EXT = new Set([".mp3", ".m4a", ".mp4", ".wav", ".aac", ".ogg"]);
 
+/**
+ * SECURITY — a filename is caller-supplied (a subject's own upload, F1) and it
+ * becomes part of a storage KEY, so it must never carry a path. Reduced to a
+ * bare basename with a conservative charset: no separators, no `..`, nothing
+ * URL-significant. Without this a crafted name could address (overwrite, and
+ * later delete) any other object in the media root.
+ */
+export function safeStorageName(filename: string): string {
+  const base = filename.split(/[\\/]/).pop() ?? "";
+  const cleaned = base
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^[.-]+/, "")
+    .slice(0, 120);
+  return cleaned || "upload";
+}
+
 export function slugify(title: string): string {
   return (
     title
@@ -80,7 +96,7 @@ export async function ingestUpload(params: {
   // Record BOTH keys so deletion can remove every stored object (F1 delete).
   const storageKey = await provider.putOriginal(
     trackId,
-    params.filename,
+    safeStorageName(params.filename),
     params.bytes,
   );
   const streamKey = await provider.putStream(trackId, params.bytes, ext);
@@ -155,7 +171,11 @@ export async function attachUploadToTrack(params: {
   const bytes = new Uint8Array(await readFile(params.path));
 
   const provider = mediaProvider();
-  await provider.putOriginal(params.trackId, params.filename, bytes);
+  await provider.putOriginal(
+    params.trackId,
+    safeStorageName(params.filename),
+    bytes,
+  );
   const streamKey = await provider.putStream(params.trackId, bytes, ext);
 
   let durationS = params.clientDurationS ?? null;

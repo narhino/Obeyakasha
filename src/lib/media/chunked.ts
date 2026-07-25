@@ -76,6 +76,8 @@ export interface ChunkParams {
 }
 
 interface ChunkMeta {
+  /** The user id this assembly belongs to (see {@link ChunkHooks.owner}). */
+  owner: string;
   received: number;
   count: number;
   filename: string;
@@ -86,6 +88,13 @@ interface ChunkMeta {
 }
 
 export interface ChunkHooks {
+  /**
+   * The authenticated caller this assembly belongs to. `uploadId` is chosen by
+   * the client, so the owner is recorded on the first chunk and re-checked on
+   * every later one: nobody can append bytes into — or restart — an assembly
+   * that isn't theirs.
+   */
+  owner: string;
   /** Hard server-side ceiling for this upload's assembled size. */
   maxBytes: number;
   /** Bodies for helper-generated failures — copy lives in the routes, not here. */
@@ -269,6 +278,11 @@ export async function receiveChunk(
     if (params.index === 0) {
       await mkdir(root, { recursive: true });
       await sweepStale(root);
+      // An id already in flight for someone else is refused, not wiped.
+      const prior = await readMeta(metaPath);
+      if (prior && prior.owner !== hooks.owner) {
+        return Response.json(failBody(), { status: 409 });
+      }
       // Fresh start (also absorbs an index-0 retry after a lost response): wipe
       // any prior state for this id before re-gating.
       await cleanup();
@@ -289,6 +303,7 @@ export async function receiveChunk(
       }
       await mkdir(dir, { recursive: true });
       await writeMeta(metaPath, {
+        owner: hooks.owner,
         received: 0,
         count: params.count,
         filename: params.filename,
@@ -302,6 +317,10 @@ export async function receiveChunk(
     const meta = await readMeta(metaPath);
     if (!meta) {
       // A non-first chunk with no active assembly (never started, or swept).
+      return Response.json(failBody(), { status: 409 });
+    }
+    // Only the caller who started this assembly may add to it.
+    if (meta.owner !== hooks.owner) {
       return Response.json(failBody(), { status: 409 });
     }
     // Strict ordering guard: the client retries the RIGHT chunk, so anything

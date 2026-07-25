@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   const title = searchParams.get("title") || undefined;
 
   return receiveChunk(req, params, {
+    owner: userId,
     maxBytes: SANCTUM_MAX_BYTES,
     exposeErrors: true, // goddess-only UI — surface the real ingest error
     errors: {

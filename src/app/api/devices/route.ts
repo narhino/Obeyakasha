@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { withSubject } from "@/lib/api";
 import { db } from "@/lib/db";
 import { devices } from "@/lib/db/schema";
@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
       })
       .onConflictDoUpdate({
         target: devices.id,
+        // D7 — the deviceId is client-chosen, so an id that already belongs to
+        // someone else must not be re-pointed (or its push subscription
+        // rewritten) by this caller. The update simply does nothing then.
+        setWhere: eq(devices.userId, userId),
         set: {
           userId,
           platform: d.platform,
@@ -69,7 +73,9 @@ export async function GET(req: NextRequest) {
         pushEnabled: devices.pushEnabled,
       })
       .from(devices)
-      .where(eq(devices.id, deviceId))
+      // Scoped to the caller: another subject's device must not be readable —
+      // not its state, not even the fact that it exists (D7).
+      .where(and(eq(devices.id, deviceId), eq(devices.userId, userId)))
       .limit(1);
     return { device: row ?? null, userId: userId ? true : false };
   });

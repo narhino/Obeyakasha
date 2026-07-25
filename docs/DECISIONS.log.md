@@ -1318,3 +1318,37 @@ trigger before approving it** and **edit any trigger after it's applied**.
   `copy.secret.*` verbatim rather than duplicated. Also added `copy.secret.anytime`
   and rendered it in `SecretModeCard` so the You tab states the reversibility
   explicitly beside the switch (F5) instead of only implying it.
+
+## 2026-07-25 — Pre-launch security audit + fixes
+
+Full read-and-report audit written to `docs/SECURITY-AUDIT.md` (verdict: GO WITH
+CAVEATS). Seven vulnerabilities were fixed in the same commit; the rest are
+recorded there as RECOMMENDED / ACCEPTED-RISK rather than changed, because they
+need a product decision or a version bump.
+
+- **Storage keys are no longer caller-shaped.** A subject's upload filename fed
+  straight into `originals/<trackId>/<filename>`, so `../../stream/<id>.mp3`
+  addressed any other object — overwrite on upload, and delete via the F1
+  "take it back" path. `safeStorageName()` in `src/lib/media/ingest.ts` reduces
+  a filename to a bare basename before it can ever address an object, and the
+  local provider now proves containment with `relative()` instead of a
+  `startsWith(ROOT)` prefix test (which a sibling `…/media-x` directory passed).
+- **Production refuses the development `AUTH_SECRET`.** It signs both the
+  session JWT and the media stream tokens, so the published fallback was a
+  goddess-session forgery waiting for one missing env var. `src/lib/env.ts` now
+  fails the boot in production on the default, or on anything under 32 chars.
+- **Three client-chosen ids are now owner-scoped:** `deviceId` (read *and* the
+  upsert), the listen `sessionId` (both reads plus the heartbeat upsert), and
+  the chunked-upload `uploadId` (recorded in the assembly's meta and re-checked
+  on every chunk). Each was reachable only by guessing a UUID, but each crossed
+  the subject boundary — the device read leaked another subject's existence
+  outright (D7).
+- **`withSubject` stopped echoing raw errors.** A driver or filesystem message
+  could carry table names or paths; it goes to the server log now and the
+  subject gets `request_failed`. `withGoddess` still surfaces the real message —
+  that surface is hers alone and she needs it to debug.
+- **Deviation noted, not changed:** PLAN §"Never expose" forbids showing
+  subjects *counts* of each other, but whisper loves ("{n} surrendered"), poll
+  tallies, and the obedience percentile all do. Left in place — removing visible
+  features is her call, not an auditor's — and written up as S-08 with the exact
+  render sites.

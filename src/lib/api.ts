@@ -12,8 +12,10 @@ export async function withSubject<T>(
     const data = await handler(session.user.id);
     return Response.json(data ?? { ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "error";
-    return Response.json({ error: message }, { status: 400 });
+    // Never hand a subject the raw failure: a driver/DB/filesystem message can
+    // carry table names, paths, or config. It goes to the server log instead.
+    console.error("[api] subject request failed:", err);
+    return Response.json({ error: "request_failed" }, { status: 400 });
   }
 }
 

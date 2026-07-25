@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
   const maxBytes = Math.max(1, Math.round(maxMb)) * 1024 * 1024;
 
   return receiveChunk(req, params, {
+    owner: userId,
     maxBytes, // the per-file ceiling, enforced exactly (declared size) + hard as bytes stream
     exposeErrors: false, // subject-facing — always speak in her voice
     errors: {
