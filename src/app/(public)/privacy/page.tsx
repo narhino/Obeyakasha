@@ -29,6 +29,21 @@ export default function Privacy() {
           own server.
         </p>
         <p>
+          <strong className="text-text">How visits are counted.</strong> So she
+          can see whether this place is working, the site keeps its own simple
+          count of page visits — on her server, for her eyes only, never shared
+          with anyone and never sent anywhere. Each visit stores which page (the
+          page&apos;s name, never the address bar, never anything you typed),
+          roughly how long it was open, whether you were signed in, one of
+          &ldquo;mobile&rdquo;, &ldquo;tablet&rdquo; or &ldquo;desktop&rdquo;,
+          and the name of the site you arrived from if you followed a link. Your
+          IP address is never stored. Your browser is remembered only by a
+          random number in a cookie that says nothing about you. Counts are
+          deleted after about a year. If your browser sends &ldquo;Do Not
+          Track&rdquo;, nothing is counted at all — and if you delete your
+          account, the visits linked to it go with it.
+        </p>
+        <p>
           <strong className="text-text">Notifications.</strong> Push
           notifications are sent only by Akasha, and honor your quiet hours.
         </p>

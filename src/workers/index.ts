@@ -16,6 +16,7 @@ import { broadcast } from "@/lib/push/broadcast";
 import { sendWhisperPush } from "@/lib/feed/publish";
 import { announceDuePremieres } from "@/lib/premiere/announce";
 import { grantMonthlyGift } from "@/lib/oath/gift";
+import { pruneOldPageViews } from "@/lib/analytics/retention";
 import { logAudit } from "@/lib/audit";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
@@ -235,6 +236,16 @@ async function oathGiftTick() {
   await grantMonthlyGift();
 }
 
+/**
+ * Analytics retention (A21). Daily: drop `page_views` rows past the
+ * `analytics_retention_days` window. First-party traffic data is still data —
+ * it ages out on its own rather than accumulating forever.
+ */
+async function analyticsRetentionTick() {
+  const n = await pruneOldPageViews();
+  if (n > 0) console.log(`[worker] analytics retention: pruned ${n} page views.`);
+}
+
 async function safe(name: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -257,6 +268,11 @@ async function main() {
   setInterval(() => void safe("premiere", premiereTick), 60_000);
   // The collared's monthly gift: daily (guarded once-per-month) (R9.5).
   setInterval(() => void safe("oathGift", oathGiftTick), 24 * 60 * 60_000);
+  // Analytics retention: daily (A21).
+  setInterval(
+    () => void safe("analyticsRetention", analyticsRetentionTick),
+    24 * 60 * 60_000,
+  );
   // Presence automations: hourly.
   setInterval(() => void safe("inactiveReclaim", inactiveReclaimTick), 60 * 60_000);
   setInterval(() => void safe("chainBroken", chainBrokenTick), 60 * 60_000);
@@ -268,6 +284,10 @@ async function main() {
   setTimeout(() => void safe("premiere", premiereTick), 17_000);
   setTimeout(() => void safe("deadlineWarn", deadlineWarnTick), 20_000);
   setTimeout(() => void safe("oathGift", oathGiftTick), 25_000);
+  setTimeout(
+    () => void safe("analyticsRetention", analyticsRetentionTick),
+    30_000,
+  );
 }
 
 main().catch((err) => {

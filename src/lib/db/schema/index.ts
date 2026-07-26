@@ -5,3 +5,4 @@ export * from "./listening";
 export * from "./relationship";
 export * from "./jobs";
 export * from "./analysis";
+export * from "./analytics";

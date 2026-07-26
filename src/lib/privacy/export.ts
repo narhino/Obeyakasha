@@ -7,6 +7,7 @@ import {
   listenSessions,
   messages,
   orderAssignments,
+  pageViews,
   pollVotes,
   questionAnswers,
   threads,
@@ -29,6 +30,7 @@ export async function exportUserData(userId: string) {
     triggers,
     [chain],
     [userThread],
+    visits,
   ] = await Promise.all([
     db.select().from(users).where(eq(users.id, userId)),
     db.select().from(consents).where(eq(consents.userId, userId)),
@@ -41,6 +43,19 @@ export async function exportUserData(userId: string) {
     db.select().from(userTriggers).where(eq(userTriggers.userId, userId)),
     db.select().from(chains).where(eq(chains.userId, userId)),
     db.select().from(threads).where(eq(threads.userId, userId)),
+    // A21: the first-party page views recorded while they were signed in. The
+    // anonymous half of their browsing carries no user id and cannot be tied to
+    // them by anyone, including us — so there is nothing there to hand over.
+    db
+      .select({
+        path: pageViews.path,
+        referrerHost: pageViews.referrerHost,
+        device: pageViews.device,
+        dwellMs: pageViews.dwellMs,
+        at: pageViews.createdAt,
+      })
+      .from(pageViews)
+      .where(eq(pageViews.userId, userId)),
   ]);
 
   const threadId = userThread?.id;
@@ -70,5 +85,6 @@ export async function exportUserData(userId: string) {
     triggersHeld: triggers,
     chain,
     messages: msgs,
+    pageViews: visits,
   };
 }

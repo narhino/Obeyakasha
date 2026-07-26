@@ -189,3 +189,11 @@ export const pipelineStatus = pgEnum("pipeline_status", [
   "failed_transcribe",
   "failed_organize",
 ]);
+
+// First-party visitor analytics (A21). The device BUCKET is all we ever keep —
+// the raw user-agent string is parsed at the edge of the request and discarded.
+export const visitorDevice = pgEnum("visitor_device", [
+  "mobile",
+  "tablet",
+  "desktop",
+]);

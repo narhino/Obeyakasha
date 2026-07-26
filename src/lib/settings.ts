@@ -61,6 +61,11 @@ export const SETTINGS_DEFAULTS = {
   // her voice (push) allowed through, or the app takes over until they do. Off
   // lets mobile web through. Desktop and the goddess are never held.
   notification_jail_enabled: true as boolean,
+  // A21 first-party analytics: how long a `page_views` row lives before the
+  // worker's daily tick deletes it. 400 days keeps a year-on-year comparison
+  // possible and nothing beyond that; lowering it here shortens retention with
+  // no deploy.
+  analytics_retention_days: 400 as number,
 };
 
 export type SettingsKey = keyof typeof SETTINGS_DEFAULTS;

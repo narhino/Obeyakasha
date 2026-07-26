@@ -1441,3 +1441,144 @@ entitlement.
 - **Not built (noted for later):** a guest who later connects with Patreon is not
   automatically linked to their earlier request by email. She re-asks them, or it
   is matched by hand.
+
+---
+
+## 2026-07-26 — First-party visitor analytics + the Sanctum dashboard (A21)
+
+She had a Sanctum "Analytics" page that could answer two questions (top tracks,
+who listened today) and nothing about the thing she actually needs to know:
+whether anyone is finding this place, and what happens to them when they do.
+That is normally bought from Google, which is exactly what this project cannot
+do — so it is built here, first-party, end to end.
+
+### 1 · Privacy stance (this is the design, not a footnote)
+
+- **No third party, ever.** Nothing calls out. The CSP (`next.config.ts`) would
+  refuse the request anyway; this is one `INSERT` into her own Postgres.
+- **No IP address is stored, in any form** — not raw, not hashed, not truncated.
+  The IP is read once inside `POST /api/track` as a throttle bucket key and is
+  gone when the request ends.
+- **No raw user-agent is stored.** It is bucketed to `mobile|tablet|desktop`
+  (`deviceFromUa`) while the request is in memory; the string is dropped.
+- **No full referrer URL.** `normalizeReferrerHost` reduces whatever arrives to a
+  bare hostname, and *refuses* anything it cannot parse as one — so a Reddit
+  thread title or a search query can never land in the table.
+- **No query strings, ever**, and no free-form paths (see normalization below).
+- **Do Not Track is honoured at the source**, client-side, before anything is
+  sent — so an opted-out visitor generates no row to have to delete later.
+- **Her own browsing is not counted.** The root layout passes
+  `enabled={!isGoddess}`; her movements are not a funnel.
+- `visitorId` is a random uuid minted server-side into an httpOnly, Lax,
+  Secure-in-production `oa_vid` cookie (~180 days). It identifies a browser, is
+  derived from nothing about the caller, and is never joined to identity except
+  through `userId`, which the visitor supplied by signing in. httpOnly rather
+  than the readable cookie the brief allowed: nothing client-side needs to read
+  it, and `sendBeacon` carries cookies on same-origin requests regardless.
+
+### 2 · Path normalization is an ALLOWLIST, not a sanitiser
+
+`normalizePath` (`src/lib/analytics/core.ts`, the tested file) maps a pathname to
+a route PATTERN from a fixed list — `/library/track/[slug]`, `/messages/[id]`,
+the entire Sanctum collapsed to one `/sanctum` marker — and anything it does not
+recognise collapses to its first segment (`/newthing/*`) or to `/other`. Query
+strings and fragments are cut first. `/api/**`, `/_next/**`, icons, art and
+anything ending in a dotted suffix are refused outright (return `null`, no row).
+
+This is deliberately stricter than "strip the ids": a sanitiser has to be right
+about every URL that will ever exist, whereas an allowlist is wrong in the safe
+direction. It is also what makes "top pages" aggregate into something readable
+instead of ten thousand one-view slugs. The two patterns the funnel counts on
+are exported as `PATH_FILE`/`PATH_GATE` and bound into the SQL, so a rename here
+cannot silently zero the funnel there.
+
+### 3 · Dwell: two calls, one row, monotonic
+
+The simpler of the two designs offered. The first call inserts the view and
+returns its row id; the client holds that id and, on every hide / unload / route
+change, beacons `{ viewId, dwellMs }` with its running total of **visible**
+milliseconds. The server folds it in with `GREATEST(COALESCE(dwell_ms,0), $1)`
+after clamping to 6h.
+
+Why this and not "insert the dwell on exit": an exit-only insert loses the view
+entirely whenever the exit beacon does not fire, and cannot tell a bounce from a
+crash. Why `GREATEST` and not write-once: tabbing away and coming back would
+otherwise freeze the number at the first hide. The id in the client's hands is a
+random uuid whose only power is to refine one dwell figure upward to a clamp —
+there is no unbounded write behind it. `sendBeacon` cannot read a response,
+which is exactly why the insert is an ordinary `fetch` and the dwell is the
+beacon.
+
+### 4 · Abuse
+
+`src/lib/analytics/throttle.ts`, mirroring `src/lib/commissions/throttle.ts`:
+**60 events per visitor per minute** and **300 per IP per minute** (the IP bucket
+is spent first, so dropping the cookie to get a fresh visitor bucket does not
+buy anything). Body capped at **1 KB before `JSON.parse` runs**, zod after that.
+Same stated limitation as the commissions throttle: it is a Map in ONE process,
+so a restart or a second container starts from zero and a caller rotating IPs is
+not stopped. It bounds casual flooding; it does not close S-10.
+
+### 5 · Retention, export, erasure
+
+- **Retention:** `analytics_retention_days` (default **400** — a year-on-year
+  comparison and nothing more) in `SETTINGS_DEFAULTS`; the worker's new daily
+  `analyticsRetentionTick` deletes older rows in SQL against the `created_at`
+  index. Floor of 1 day so a bad value cannot mean "keep forever".
+- **Export:** `exportUserData` now returns a `pageViews` array (path, referrer
+  host, device, dwell, timestamp) for rows carrying their `userId`.
+- **Erasure:** the FK is `ON DELETE SET NULL` (traffic history survives a release
+  as anonymous rows), so `POST /api/me/delete` deletes that subject's rows
+  **outright and first**, while the id is still there to find them by. Verified:
+  65 linked rows removed, the 195 anonymous ones untouched, user row gone.
+- **Privacy policy:** a new plain-language paragraph on `/privacy` says what is
+  stored, what is not (IP), that it is first-party only, the ~1 year window, the
+  DNT opt-out, and that deletion takes it. Written inline in that page like every
+  other paragraph there — a deviation from "copy lives in `copy.ts`", matching
+  the file's existing convention rather than splitting one policy across two
+  files.
+
+### 6 · The dashboard (`/sanctum/analytics`, rebuilt)
+
+Server-rendered, `requireGoddess()` on top of the layout and middleware gates,
+range via `?range=7d|30d|90d|all` (default 30d). Five sections: **Who came**
+(visits, unique visitors, signed-in share, median time on site, a CSS-only
+per-day bar row, top 10 pages with average dwell, referrer hosts, device split);
+**From stranger to claimed**; **How deep they went** (hours, plays, completion,
+top tracks, and drop-off); **Hers**; **What they asked for**. Every query is
+wrapped like `navCounts` — a broken one renders a dash, never a 500 (proven: the
+first run had a driver bug in every dated query and the page still rendered).
+All aggregation is SQL against indexed columns; the largest result any query
+returns is a top-10 list. No chart library, no new dependency, tokens only.
+
+**Drop reports are surfaced for the first time.** They have been collected since
+M1 and shown nowhere. The table now reads the count, the average self-reported
+depth (1–5), and — by joining the listen session the report belongs to — where
+the listener had actually reached when they fell out, as `mm:ss` and as a share
+of the track. That last figure is the real "worst drop point".
+
+### 7 · What the funnel can and cannot know, said out loud
+
+Visitors → opened a file → played a free sample → reached the gate → claimed an
+account → entitled now. Four of those six come straight from `page_views`,
+`users` and `entitlements`.
+
+**"Played a free sample" cannot be complete, and the page says so on the page
+rather than inventing a number.** `listen_sessions.user_id` is NOT NULL and
+`PlayerRoot` deliberately skips every listen endpoint when logged out (R9.8), so
+an anonymous sample play leaves no record anywhere in this system. The row shows
+the signed-in figure with a one-line explanation and no conversion percentage,
+since it sits on a different base from the steps around it. Closing that gap
+would mean recording anonymous playback, which is a product decision about
+telemetry, not a dashboard bug — noted here, not quietly patched.
+
+"Entitled now" likewise shows no percentage: it is a state, not a period.
+
+### 8 · Not done, on purpose
+
+- `/api/track` is left inside the middleware matcher (it costs one edge auth
+  check per beacon) rather than editing `middleware.ts` for a measurement route.
+- The legacy `analytics_events` table is untouched; nothing new writes to it.
+- The dashboard's `Stat` / `Table` / `Tally` / funnel-row pieces are local to the
+  page, built from existing primitives, so `/styleguide` gains nothing new —
+  same pattern as the other Sanctum surfaces (`RoomPanel`, `LivePanel`).

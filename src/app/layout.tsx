@@ -3,6 +3,7 @@ import { Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { auth } from "@/auth";
 import { PlayerRoot } from "@/components/player/PlayerRoot";
+import { PageViews } from "@/components/analytics/PageViews";
 import { PageGlow } from "@/components/ui";
 import { copy } from "@/copy/copy";
 
@@ -51,8 +52,10 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // Session is read here only to tell the audio engine whether to run subject
-  // telemetry — a logged-out visitor may still play a free sample (R9.8).
+  // telemetry — a logged-out visitor may still play a free sample (R9.8) — and
+  // to keep the goddess's own browsing out of her own traffic numbers (A21).
   const session = await auth();
+  const isGoddess = session?.user?.role === "goddess";
   return (
     <html lang="en" className={cormorant.variable}>
       <body className="min-h-dvh text-text antialiased">
@@ -65,6 +68,10 @@ export default async function RootLayout({
             the Whispers Home). Inert until a track is playing; hides its own
             chrome on the Sanctum and ritual screens. */}
         <PlayerRoot signedIn={Boolean(session?.user)} />
+        {/* First-party page-view beacon (A21). One row per route change in her
+            own database — no third party, no IP, no user-agent, Do Not Track
+            respected client-side. Her own visits are not counted. */}
+        <PageViews enabled={!isGoddess} />
         <div className="grain" aria-hidden />
       </body>
     </html>
