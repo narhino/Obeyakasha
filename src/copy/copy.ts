@@ -611,6 +611,8 @@ export const copy = {
     answered: "She answered:",
     pending: "I haven't answered this. Wait.",
     // The push when she replies — reaches only that one subject.
+    // Quoted above her answer in the thread so it never lands contextless.
+    threadBanner: "You asked me for",
     answeredPushTitle: "She answered your petition.",
     answeredPushBody: "Come and read what I told you.",
   },

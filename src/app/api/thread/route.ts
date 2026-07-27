@@ -12,6 +12,7 @@ export async function GET() {
         id: m.id,
         sender: m.sender,
         body: m.body,
+        contextNote: m.contextNote,
         createdAt: m.createdAt,
       })),
     };

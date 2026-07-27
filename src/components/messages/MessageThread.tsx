@@ -8,6 +8,8 @@ interface Msg {
   id: string;
   sender: "subject" | "goddess";
   body: string | null;
+  /** What she was answering (an ask), quoted above her words. */
+  contextNote?: string | null;
   createdAt: string;
 }
 
@@ -71,6 +73,11 @@ export function MessageThread() {
                   : "mr-auto border border-line bg-surface text-text"
               }`}
             >
+              {m.contextNote ? (
+                <p className="mb-1.5 border-l-2 border-gold/40 pl-2 text-xs italic text-text-dim">
+                  {m.contextNote}
+                </p>
+              ) : null}
               {m.body}
             </div>
           ))

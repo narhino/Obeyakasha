@@ -262,6 +262,10 @@ export const messages = pgTable(
     sender: messageSender("sender").notNull(),
     body: text("body"),
     audioKey: text("audio_key"),
+    // What this message is an answer to (e.g. the ask she is replying to),
+    // rendered as a quiet banner above it so the answer never arrives without
+    // its context. Null for ordinary messages.
+    contextNote: text("context_note"),
     readAt: timestamp("read_at", { withTimezone: true }),
     flaggedSafety: boolean("flagged_safety").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -34,9 +35,19 @@ export default async function SanctumThread({
   return (
     <div className="grid max-w-4xl gap-6 md:grid-cols-[1fr_260px]">
       <div>
-        <Display className="text-2xl">
-          {card?.chosenName ?? "subject"}
-        </Display>
+        <Link
+          href="/sanctum/messages"
+          className="text-xs uppercase tracking-[0.14em] text-text-dim transition-colors hover:text-gold"
+        >
+          ← All threads
+        </Link>
+        {/* Her name opens who they are — she should never have to hunt for the
+            person she's answering. */}
+        <Link href={`/sanctum/subjects/${thread.userId}`} className="block">
+          <Display className="mt-1 text-2xl transition-colors hover:text-gold">
+            {card?.chosenName ?? "subject"}
+          </Display>
+        </Link>
         {flagged ? (
           <div className="mt-2 rounded-[var(--radius)] border border-danger bg-danger/10 p-2 text-sm text-danger">
             Flagged for personal handling — no AI draft offered. Respond with care.
@@ -56,6 +67,13 @@ export default async function SanctumThread({
                     : "border border-line bg-surface text-text"
                 }`}
               >
+                {/* What she was answering — an ask, quoted so the reply never
+                    lands without its context. */}
+                {m.contextNote ? (
+                  <p className="mb-1.5 border-l-2 border-gold/40 pl-2 text-xs italic text-text-dim">
+                    {m.contextNote}
+                  </p>
+                ) : null}
                 {m.body}
                 {m.flaggedSafety ? (
                   <span className="ml-2 inline-flex translate-y-0.5 text-danger">
@@ -102,7 +120,15 @@ export default async function SanctumThread({
       {/* Profile context — she never answers blind (A1). */}
       <aside className="space-y-3">
         <Card raised>
-          <Whisper className="text-xs uppercase tracking-wide">Collar</Whisper>
+          <div className="flex items-center justify-between gap-2">
+            <Whisper className="text-xs uppercase tracking-wide">Collar</Whisper>
+            <Link
+              href={`/sanctum/subjects/${thread.userId}`}
+              className="text-[0.6875rem] uppercase tracking-[0.14em] text-text-dim transition-colors hover:text-gold"
+            >
+              Full profile →
+            </Link>
+          </div>
           {card ? (
             <div className="mt-2 space-y-1 text-sm">
               <p>{card.honorific ?? "Goddess"}&apos;s {card.chosenName}</p>

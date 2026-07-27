@@ -66,10 +66,11 @@ export async function sendSubjectMessage(
 export async function sendGoddessMessage(
   threadId: string,
   body: string,
+  contextNote?: string,
 ): Promise<string> {
   const [msg] = await db
     .insert(messages)
-    .values({ threadId, sender: "goddess", body })
+    .values({ threadId, sender: "goddess", body, contextNote })
     .returning({ id: messages.id });
   await db
     .update(messages)

@@ -1,6 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, wishes } from "@/lib/db/schema";
+import { threads, users, wishes } from "@/lib/db/schema";
 import { Badge, Button, Card, PageHeading, Select, Whisper } from "@/components/ui";
 import { replyToWish, setWishStatus } from "./actions";
 
@@ -16,6 +17,19 @@ export default async function SanctumWishes() {
     .innerJoin(users, eq(users.id, wishes.userId))
     .orderBy(desc(wishes.createdAt))
     .limit(100);
+
+  // Answered asks continue in Messages; map each subject to their thread so the
+  // card can link straight there (no thread yet = nothing answered yet).
+  const answeredUserIds = [
+    ...new Set(rows.filter((r) => r.w.reply).map((r) => r.w.userId)),
+  ];
+  const threadRows = answeredUserIds.length
+    ? await db
+        .select({ id: threads.id, userId: threads.userId })
+        .from(threads)
+        .where(inArray(threads.userId, answeredUserIds))
+    : [];
+  const threadByUser = new Map(threadRows.map((t) => [t.userId, t.id]));
 
   return (
     <div className="max-w-2xl">
@@ -42,7 +56,13 @@ export default async function SanctumWishes() {
                   ) : null}
                   <p className="text-sm text-text">{w.body}</p>
                   <Whisper className="mt-1 text-xs">
-                    {name ?? "someone"} · {w.source}
+                    <Link
+                      href={`/sanctum/subjects/${w.userId}`}
+                      className="transition-colors hover:text-gold"
+                    >
+                      {name ?? "someone"}
+                    </Link>{" "}
+                    · {w.source}
                   </Whisper>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -71,6 +91,14 @@ export default async function SanctumWishes() {
                     Your answer
                   </p>
                   <p className="mt-1 text-sm text-text">{w.reply}</p>
+                  {/* Answering opens a real thread — this is where the rest of
+                      it happens, so the board is never the end of the road. */}
+                  <Link
+                    href={`/sanctum/messages/${threadByUser.get(w.userId) ?? ""}`}
+                    className="mt-1 inline-block text-[0.6875rem] uppercase tracking-[0.14em] text-text-dim transition-colors hover:text-gold"
+                  >
+                    Continue in Messages →
+                  </Link>
                 </div>
               ) : null}
 
