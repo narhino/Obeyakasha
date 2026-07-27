@@ -1582,3 +1582,90 @@ telemetry, not a dashboard bug — noted here, not quietly patched.
 - The dashboard's `Stat` / `Table` / `Tally` / funnel-row pieces are local to the
   page, built from existing primitives, so `/styleguide` gains nothing new —
   same pattern as the other Sanctum surfaces (`RoomPanel`, `LivePanel`).
+
+---
+
+## R-DEADENDS · The feed, the composer, and delivery truth (2026-07-27)
+
+The brief was "find the dead ends", so each entry below names the dead end
+first and the change second.
+
+### 1 · A whisper could only be words or a poll
+
+`whispers` already carried `image_key` and `audio_track_id` columns from M4-B;
+nothing ever wrote to them. The composer now does, and the feed renders both.
+Attaching a track needed one decision PLAN did not settle: what a subject who
+may NOT hear that track sees on the card.
+
+**Chosen: resolve playability server-side against the same rule
+`/api/tracks/[id]/stream-url` enforces, and render a sealed row for the rest.**
+The alternatives were worse. Hiding the attachment entirely loses the pull that
+makes an attached track worth posting; showing a play button that 404s is a lie
+the UI tells once per card. `audioViewsFor()` (src/lib/feed/whispers.ts)
+duplicates the gate's logic — published, has a stream key, not a personal
+upload, not premiere-sealed, then free-sample OR level — and that duplication is
+deliberate: the feed must decide without issuing a signed URL. If the stream
+gate's rule changes, this must change with it.
+
+Only the live catalog is offered in the picker (`published_at` not null,
+`owner_user_id` null), so a subject's private upload can never be attached to a
+whisper — D7 holds by construction rather than by review.
+
+### 2 · Every whisper woke everyone
+
+`sendWhisperPush` fired unconditionally on publish. A "post without waking them"
+switch skips it. Deliberately NOT a new column: silence is a property of the
+send, not of the whisper, so nothing about the stored row changes and the
+scheduled-publish path (which has no composer) is untouched.
+
+### 3 · "Sent" was the only word the platform had
+
+`notification_deliveries.status` recorded whether the push SERVICE accepted the
+message. Nothing recorded whether a phone ever drew it. Every "did he get it?"
+was unanswerable.
+
+**Added `delivered_at` + `opened_at` (0023), stamped by the service worker
+through `/api/push/ack`.** Two columns rather than new `delivery_status` enum
+values on purpose: `ALTER TYPE ... ADD VALUE` cannot run inside a transaction
+block, and this project's migrations do. Timestamps also answer "when", which an
+enum cannot.
+
+The ack route is same-origin and credentialed and scopes every write to
+`session.user.id`, so a caller can only stamp their own rows. No session → it
+returns `{recorded:false}` rather than an error, because a notification can be
+drawn on a device whose cookie has since expired and the SW must not retry.
+
+A push that is accepted but never delivered is now a visible, meaningful state
+(phone off, OS-level mute, stale subscription) — shown as "never landed", in
+danger tone, rather than hidden inside a success count.
+
+### 4 · Her messages had a read receipt but no delivery receipt
+
+`messages.push_notification_id` (0024) binds a reply to the push it fired, so a
+thread shows both facts side by side. They are genuinely different: a subject
+can open the app and read her words having never seen the notification, and a
+notification can sit unopened on a locked screen. Neither implies the other, so
+neither is derived from the other.
+
+### 5 · The Sanctum's read-through let her skew her own numbers
+
+`/sanctum/whispers` rendered the subject card verbatim, offering her Kneel, a
+love toggle and a vote on her own poll. `preview` mode keeps the card identical
+and removes exactly those three affordances.
+
+### 6 · Names were text
+
+Commissions, ritual answers, their-files groups and the message inbox now open
+the person; a profile links out to their conversation, asks, commissions and
+files; analytics track and drop-off rows open the dossier. The inbox row needed
+restructuring rather than a nested link — an `<a>` inside an `<a>` is invalid
+HTML and the browser silently drops the inner one.
+
+### 7 · Not done, on purpose
+
+- The Broadcast page stays separate from the whisper composer. A broadcast is a
+  push with no feed card; folding it in would have made "post" and "notify"
+  the same control, which they are not.
+- No backfill of `delivered_at` for past notifications. There is no honest value
+  to write — those pushes were never observed landing, and stamping them now
+  would manufacture data.
