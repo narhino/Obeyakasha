@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { orderAssignments, orders } from "@/lib/db/schema";
 import { mediaProvider } from "@/lib/media";
+import { notifyGoddess } from "@/lib/push/broadcast";
+import { alertOnce } from "@/lib/push/alerts";
 
 /**
  * Photo proof for a task (R5). Accepts a raw image body (not multipart) and
@@ -86,6 +88,16 @@ export async function POST(
         eq(orderAssignments.userId, userId),
       ),
     );
+
+  // A proof sits waiting on her word — tell her, linked to the board where she
+  // praises it. One alert per subject+task; never blocks the upload.
+  if (alertOnce(`proof:${userId}:${orderId}`)) {
+    await notifyGoddess(
+      "A proof waits for you.",
+      "Someone showed you they obeyed.",
+      "/sanctum/orders",
+    ).catch(() => {});
+  }
 
   const proofUrl = await mediaProvider().signStreamUrl(key, PROOF_TTL_S);
   return Response.json({ ok: true, proofUrl });

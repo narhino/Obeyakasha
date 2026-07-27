@@ -2,7 +2,8 @@ import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages, threads, users, voiceCorpus } from "@/lib/db/schema";
 import { getSetting } from "@/lib/settings";
-import { broadcast } from "@/lib/push/broadcast";
+import { broadcast, notifyGoddess } from "@/lib/push/broadcast";
+import { alertOnce, excerpt } from "@/lib/push/alerts";
 import { copy } from "@/copy/copy";
 import { triageMessage } from "./triage";
 
@@ -46,6 +47,17 @@ export async function sendSubjectMessage(
     body,
     flaggedSafety: flag !== "none",
   });
+
+  // Tell her — a message is the one thing a subject sends that expects her
+  // answer. Deep-links to that thread. Deduped so a talkative subject can't
+  // buzz her once per line; a flagged message always gets through.
+  if (flag !== "none" || alertOnce(`msg:${userId}`)) {
+    await notifyGoddess(
+      flag !== "none" ? "A message that needs care." : "A message for you.",
+      excerpt(body),
+      `/sanctum/messages/${threadId}`,
+    ).catch(() => {});
+  }
   return { ok: true };
 }
 

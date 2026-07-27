@@ -17,6 +17,13 @@ import { SanctumNav, type NavCounts } from "./SanctumNav";
 // The rail carries live counts, so never serve a stale shell.
 export const dynamic = "force-dynamic";
 
+/**
+ * Installing from anywhere under /sanctum installs the ADMIN app (its own
+ * icon, opening on Today) rather than the subject Home. Overrides the root
+ * layout's manifest for this subtree only.
+ */
+export const metadata = { manifest: "/sanctum/manifest.webmanifest" };
+
 /** One cheap COUNT, fail-soft to 0 so a slow/absent table never blanks the rail. */
 function count(where: Promise<{ n: number }[]>): Promise<number> {
   return where.then((r) => r[0]?.n ?? 0).catch(() => 0);

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { jobs } from "@/lib/db/schema";
 import { logAudit } from "@/lib/audit";
 import { nextBackoffMs } from "./queue";
+import { alertOnce } from "@/lib/push/alerts";
 
 /**
  * Job queue consumer side (ROADMAP-v1.5 C1.1). A single worker process calls
@@ -145,6 +146,18 @@ async function markFailedOrRetry(
     attempts: job.attempts,
     message: trimmed,
   });
+
+  // Out of retries — she'd want to know a file never finished rather than
+  // discover it later. One alert per kind per 15 min so a bad batch doesn't
+  // become a stream. Never let a notification failure break the queue.
+  if (alertOnce(`job:${job.kind}`, 15 * 60_000)) {
+    const { notifyGoddess } = await import("@/lib/push/broadcast");
+    await notifyGoddess(
+      "Something didn't finish.",
+      `A ${job.kind} gave up after ${job.attempts} tries.`,
+      "/sanctum/library",
+    ).catch(() => {});
+  }
 }
 
 async function runJob(job: ClaimedJob): Promise<void> {

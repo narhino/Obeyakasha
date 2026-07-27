@@ -2,6 +2,8 @@ import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages, users, whisperComments } from "@/lib/db/schema";
 import { getOrCreateThread, sendGoddessMessage } from "@/lib/messages/ops";
+import { notifyGoddess } from "@/lib/push/broadcast";
+import { alertOnce, excerpt } from "@/lib/push/alerts";
 
 /**
  * Private comments under whispers (F3). A comment is visible ONLY to its author
@@ -104,6 +106,16 @@ export async function createComment(
     .insert(whisperComments)
     .values({ whisperId, userId, body: clipped })
     .returning();
+
+  // Someone spoke under a whisper — she'd want to know, deep-linked to that
+  // whisper's thread. Deduped per subject+whisper so a burst is one alert.
+  if (alertOnce(`comment:${userId}:${whisperId}`)) {
+    await notifyGoddess(
+      "Someone spoke under you.",
+      excerpt(clipped),
+      `/sanctum/whispers/${whisperId}`,
+    ).catch(() => {});
+  }
 
   return {
     ok: true,

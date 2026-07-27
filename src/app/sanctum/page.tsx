@@ -17,6 +17,7 @@ import { getSetting } from "@/lib/settings";
 import { formatWhen } from "@/lib/format/when";
 import { LivePanel } from "./live/LivePanel";
 import { RoomPanel } from "./RoomPanel";
+import { AlertsCard } from "./AlertsCard";
 import { toggleCloak } from "./actions";
 import { acceptOathAction, declineOathAction } from "./subjects/actions";
 
@@ -105,6 +106,9 @@ export default async function SanctumToday() {
             </form>
           }
         />
+        {/* Her own notifications. The subject threshold never runs for her, so
+            this is the only place she can subscribe her device. */}
+        <AlertsCard />
       </div>
 
       {/* R9.1: who is under right now — one-tap touch, fuller room one click away. */}
