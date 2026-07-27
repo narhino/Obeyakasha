@@ -9,6 +9,7 @@ import { attentionFor } from "@/lib/attention/resolve";
 import { NO_ATTENTION } from "@/lib/attention/types";
 import { SubjectGate } from "@/components/gate/SubjectGate";
 import { Jail } from "@/components/gate/Jail";
+import { PushHeal } from "@/components/gate/PushHeal";
 import { IntakeGuard } from "@/components/intake/IntakeGuard";
 import { InboxBell } from "@/components/inbox/InboxBell";
 import { OfflineSync } from "@/components/offline/OfflineSync";
@@ -68,6 +69,8 @@ export async function SubjectShell({
     <SubjectGate alreadyConsented={consented} jailActive={jailEnabled}>
       {/* Beats for every signed-in role, and keeps beating behind the takeover. */}
       <PresencePing />
+      {/* Repairs a "granted but subscribed to nothing" device (silent, no prompt). */}
+      <PushHeal />
       {/* Auto-refresh: pulls new whispers / messages / burns without a reload. */}
       <LiveRefresh />
       {/* The threshold — mobile subjects only; the goddess is never held. */}
