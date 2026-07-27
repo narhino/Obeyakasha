@@ -13,13 +13,17 @@ import type { WhisperPollView } from "@/lib/feed/whispers";
  *   after she shares results.
  * - Logged-out visitors see the question with a "connect to speak" CTA
  *   instead of voting controls.
+ * - `readOnly` is the Sanctum's read-through: the same card, no vote controls
+ *   and no connect CTA, so she can't skew her own tally by looking at it.
  */
 export function FeedPoll({
   poll,
   signedIn,
+  readOnly = false,
 }: {
   poll: WhisperPollView;
   signedIn: boolean;
+  readOnly?: boolean;
 }) {
   const [voted, setVoted] = useState<string | null>(poll.myVote);
   const [busy, setBusy] = useState(false);
@@ -51,7 +55,7 @@ export function FeedPoll({
         {poll.question}
       </p>
 
-      {!signedIn ? (
+      {!signedIn || readOnly ? (
         // Logged-out: question is visible, voting is not.
         <>
           {/* Read-only for the logged-out: a flat list, not vote buttons (F30). */}
@@ -65,12 +69,18 @@ export function FeedPoll({
               </li>
             ))}
           </ul>
-          <Whisper className="mt-3 text-xs">{copy.poll.connectWhisper}</Whisper>
-          <Link href="/signin" className="mt-2 inline-block">
-            <Button size="sm" variant="gold">
-              {copy.poll.connectCta}
-            </Button>
-          </Link>
+          {readOnly ? null : (
+            <>
+              <Whisper className="mt-3 text-xs">
+                {copy.poll.connectWhisper}
+              </Whisper>
+              <Link href="/signin" className="mt-2 inline-block">
+                <Button size="sm" variant="gold">
+                  {copy.poll.connectCta}
+                </Button>
+              </Link>
+            </>
+          )}
         </>
       ) : (
         <>

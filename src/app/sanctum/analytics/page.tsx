@@ -190,9 +190,14 @@ export default async function SanctumAnalytics({
               <Table
                 head={["Page", "Views", "Visitors", "Avg. time"]}
                 rows={pages.map((x) => [
-                  <span key="p" className="text-text">
+                  // Go look at the page they're actually landing on.
+                  <Link
+                    key="p"
+                    href={x.path}
+                    className="text-text transition-colors hover:text-gold"
+                  >
                     {x.path}
-                  </span>,
+                  </Link>,
                   n(x.views),
                   n(x.visitors),
                   humanMs(x.avgDwellMs),
@@ -324,9 +329,14 @@ export default async function SanctumAnalytics({
               <Table
                 head={["Track", "Plays", "Listeners", "Done"]}
                 rows={tracks.map((t) => [
-                  <span key="t" className="text-text">
+                  // A number she can act on: the row opens the file itself.
+                  <Link
+                    key="t"
+                    href={`/sanctum/tracks/${t.id}`}
+                    className="text-text transition-colors hover:text-gold"
+                  >
                     {t.title}
-                  </span>,
+                  </Link>,
                   n(t.plays),
                   n(t.listeners),
                   p(pct(t.completed, t.plays)),
@@ -349,9 +359,13 @@ export default async function SanctumAnalytics({
                 <Table
                   head={["Track", "Reports", "Depth", "Typical stop"]}
                   rows={drops.map((d) => [
-                    <span key="t" className="text-text">
+                    <Link
+                      key="t"
+                      href={`/sanctum/tracks/${d.id}`}
+                      className="text-text transition-colors hover:text-gold"
+                    >
                       {d.title}
-                    </span>,
+                    </Link>,
                     n(d.reports),
                     d.avgDepth == null ? DASH : d.avgDepth.toFixed(1),
                     d.stopPct == null

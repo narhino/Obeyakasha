@@ -293,6 +293,8 @@ export async function listeningTotals(
 }
 
 export interface TrackRow {
+  /** Carried so the dashboard row opens the track's dossier (no dead numbers). */
+  id: string;
   title: string;
   plays: number;
   listeners: number;
@@ -301,12 +303,14 @@ export interface TrackRow {
 
 export async function topTracks(since: Date | null): Promise<TrackRow[]> {
   const r = await rows<{
+    id: string;
     title: string;
     plays: number;
     listeners: number;
     completed: number;
   }>(sql`
-    SELECT t.title,
+    SELECT t.id,
+           t.title,
            count(ls.id)::int AS plays,
            count(DISTINCT ls.user_id)::int AS listeners,
            count(ls.id) FILTER (WHERE ls.completed)::int AS completed
@@ -318,6 +322,7 @@ export async function topTracks(since: Date | null): Promise<TrackRow[]> {
     LIMIT 10
   `);
   return r.map((x) => ({
+    id: x.id,
     title: x.title,
     plays: Number(x.plays),
     listeners: Number(x.listeners),
@@ -326,6 +331,8 @@ export async function topTracks(since: Date | null): Promise<TrackRow[]> {
 }
 
 export interface DropRow {
+  /** Carried so the row opens the file she needs to look at. */
+  id: string;
   title: string;
   reports: number;
   avgDepth: number | null;
@@ -344,13 +351,15 @@ export interface DropRow {
  */
 export async function dropOff(since: Date | null): Promise<DropRow[]> {
   const r = await rows<{
+    id: string;
     title: string;
     reports: number;
     avg_depth: number | null;
     avg_stop_s: number | null;
     duration_s: number | null;
   }>(sql`
-    SELECT t.title,
+    SELECT t.id,
+           t.title,
            count(dr.id)::int AS reports,
            round(avg(dr.depth), 1) AS avg_depth,
            round(avg(ls.max_position_s))::int AS avg_stop_s,
@@ -367,6 +376,7 @@ export async function dropOff(since: Date | null): Promise<DropRow[]> {
     const stop = x.avg_stop_s == null ? null : Number(x.avg_stop_s);
     const dur = x.duration_s == null ? null : Number(x.duration_s);
     return {
+      id: x.id,
       title: x.title,
       reports: Number(x.reports),
       avgDepth: x.avg_depth == null ? null : Number(x.avg_depth),

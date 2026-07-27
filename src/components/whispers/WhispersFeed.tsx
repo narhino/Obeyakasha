@@ -23,9 +23,13 @@ import { FeedPoll } from "./FeedPoll";
 export function WhispersFeed({
   items,
   signedIn,
+  preview = false,
 }: {
   items: WhisperCard[];
   signedIn: boolean;
+  /** The Sanctum's read-through: the exact card, minus the affordances that
+   *  would have her kneeling to her own words. */
+  preview?: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -37,7 +41,12 @@ export function WhispersFeed({
   return (
     <ul className="enter-stagger mt-8 space-y-4">
       {items.map((w) => (
-        <WhisperItem key={w.id} whisper={w} signedIn={signedIn} />
+        <WhisperItem
+          key={w.id}
+          whisper={w}
+          signedIn={signedIn}
+          preview={preview}
+        />
       ))}
     </ul>
   );
@@ -60,9 +69,11 @@ function GoddessMark({ large = false }: { large?: boolean }) {
 function WhisperItem({
   whisper,
   signedIn,
+  preview,
 }: {
   whisper: WhisperCard;
   signedIn: boolean;
+  preview: boolean;
 }) {
   const [knelt, setKnelt] = useState(whisper.knelt);
   const [busy, setBusy] = useState(false);
@@ -155,20 +166,29 @@ function WhisperItem({
         ) : null}
 
         {whisper.poll ? (
-          <FeedPoll poll={whisper.poll} signedIn={signedIn} />
+          <FeedPoll poll={whisper.poll} signedIn={signedIn} readOnly={preview} />
         ) : null}
 
         {/* One bar, three things she can be met with — every affordance
             visible rather than hidden behind a line of small text. */}
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-line/50 pt-3">
           <div className="flex items-center gap-5">
-            <LoveMark
-              whisperId={whisper.id}
-              initialLoved={whisper.loved}
-              initialCount={whisper.loveCount}
-              signedIn={signedIn}
-            />
-            {signedIn ? (
+            {preview ? (
+              <span className="inline-flex items-center gap-2 text-text-dim/70">
+                <IconDrop size={17} />
+                <span className="nums-lining text-xs tracking-[0.04em]">
+                  {whisper.loveCount}
+                </span>
+              </span>
+            ) : (
+              <LoveMark
+                whisperId={whisper.id}
+                initialLoved={whisper.loved}
+                initialCount={whisper.loveCount}
+                signedIn={signedIn}
+              />
+            )}
+            {signedIn && !preview ? (
               <button
                 onClick={() => setSpeaking((v) => !v)}
                 aria-expanded={speaking}
@@ -183,7 +203,7 @@ function WhisperItem({
               </button>
             ) : null}
           </div>
-          {signedIn ? (
+          {signedIn && !preview ? (
             <button
               onClick={doKneel}
               disabled={knelt || busy}
@@ -196,9 +216,14 @@ function WhisperItem({
               {knelt ? copy.whispers.knelt : copy.whispers.kneel}
             </button>
           ) : null}
+          {preview ? (
+            <span className="text-[0.6875rem] uppercase tracking-[0.14em] text-text-dim/50">
+              as they see it
+            </span>
+          ) : null}
         </div>
 
-        {signedIn && (speaking || whisper.comments.length > 0) ? (
+        {signedIn && !preview && (speaking || whisper.comments.length > 0) ? (
           <WhisperComments
             whisperId={whisper.id}
             initial={whisper.comments}

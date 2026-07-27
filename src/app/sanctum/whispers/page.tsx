@@ -93,7 +93,7 @@ export default async function SanctumWhispers() {
       {feed.length > 0 ? (
         <div className="mt-10">
           <Label className="block">Your feed, as they see it</Label>
-          <WhispersFeed items={feed} signedIn />
+          <WhispersFeed items={feed} signedIn preview />
         </div>
       ) : null}
 
