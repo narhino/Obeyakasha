@@ -395,6 +395,47 @@ export const notifications = pgTable("notifications", {
     .defaultNow(),
 });
 
+/**
+ * Automations — the pushes that fire without her. These used to be hard-coded
+ * in the worker: she could turn ALL of them off with one setting and could not
+ * see what any of them said. Each row is one automation she owns outright —
+ * its words, its audience, its timing, and whether it runs at all.
+ *
+ * `trigger` is the one part that is not hers to invent: the worker can only
+ * detect the conditions it has code for. Adding a row means choosing an
+ * existing trigger and writing what it says; a NEW kind of trigger is a code
+ * change. The Sanctum says so plainly rather than offering a field that lies.
+ */
+export const automations = pgTable(
+  "automations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    trigger: automationTrigger("trigger").notNull(),
+    /** Her name for it in the Sanctum — never sent to anyone. */
+    label: text("label").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    deepLink: text("deep_link"),
+    enabled: boolean("enabled").notNull().default(false),
+    /** Trigger tuning, e.g. { days: 5 } for inactive_days. Shape per trigger. */
+    params: jsonb("params").$type<Record<string, number>>().notNull().default({}),
+    /** Narrows who it can reach; the trigger still decides who qualifies. */
+    audience: jsonb("audience").$type<Audience>().notNull().default({ type: "all" }),
+    /** Quiet hours apply unless she says this one must always land. */
+    respectQuietHours: boolean("respect_quiet_hours").notNull().default(true),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    /** How many subjects it reached the last time it fired — her feedback loop. */
+    lastReached: integer("last_reached").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("automations_trigger_idx").on(t.trigger, t.enabled)],
+);
+
 export const notificationDeliveries = pgTable(
   "notification_deliveries",
   {

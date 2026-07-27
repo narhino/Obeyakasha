@@ -31,6 +31,13 @@ export interface PushPayload {
   deepLink?: string;
   tag?: string;
   id?: string;
+  /**
+   * Only ever set on a proving push (src/lib/push/verify.ts). The service
+   * worker echoes it back, which is how a device is proved reachable. It
+   * survives the Secret-mode rewrite untouched — disguisePayload replaces only
+   * title/body/icon — so proof works identically for a disguised subject.
+   */
+  verifyToken?: string;
 }
 
 export interface DeviceTarget {

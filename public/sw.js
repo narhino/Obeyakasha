@@ -80,10 +80,25 @@ self.addEventListener("push", (event) => {
     data: { deepLink: data.deepLink || "/library", id: data.id },
     vibrate: [40, 30, 40],
   };
+  // A proving push carries a token. Echo it back only AFTER the notification is
+  // actually on screen, so what gets recorded is delivery, not merely receipt.
+  // This is the one signal the gate trusts — see src/lib/push/verify.ts.
   event.waitUntil(
     self.registration
       .showNotification(title, options)
-      .then(() => ack(data.id, "delivered")),
+      .then(() =>
+        Promise.all([
+          ack(data.id, "delivered"),
+          data.verifyToken
+            ? fetch("/api/push/verify", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ token: data.verifyToken }),
+              }).catch(() => {})
+            : null,
+        ]),
+      ),
   );
 });
 

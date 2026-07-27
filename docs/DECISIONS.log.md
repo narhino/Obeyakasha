@@ -1669,3 +1669,113 @@ HTML and the browser silently drops the inner one.
 - No backfill of `delivered_at` for past notifications. There is no honest value
   to write — those pushes were never observed landing, and stamping them now
   would manufacture data.
+
+---
+
+## R-NOTIF · Why nobody was getting notifications (2026-07-27)
+
+### 1 · The bug
+
+`POST /api/devices` upserted with `pushSubscription: d.pushSubscription ?? null`
+— unconditionally, on every call.
+
+`SubjectGate` calls that route on EVERY mount, with `pushSubscription: null`,
+because a page load has no subscription to hand. `proceedPastInstall()` did the
+same and additionally forced `pushEnabled: false`.
+
+So: a subject enabled notifications, the subscription was stored, and their very
+next page load erased it. `targetsForUsers` requires a non-null subscription, so
+from that moment every send skipped them — recorded as `skippedNoDevice`, which
+nothing surfaced. The app believed the membership was reachable; it was not.
+This is the whole of "no member tells me he receives notification".
+
+**Fix: a registration only ever writes what it carries.** A subscription is
+written when one is supplied, and erased ONLY on an explicit `clearPush: true`
+or when the push service itself returns 404/410 (already handled in
+`sendToDevice`). `registerDevice`'s param is now optional rather than `| null`,
+so the shape of the call no longer invites the mistake, and
+`src/lib/push/registration.test.ts` pins the rule — including a case named for
+the exact regression.
+
+A revoked OS permission now sets `pushEnabled: false` but KEEPS the
+subscription: permission can come back, and healing it is then silent.
+
+### 2 · Proof replaces permission
+
+`Notification.permission === "granted"` was the only evidence the gate ever had,
+and it is worthless. It stays "granted" through a wiped subscription, a dead
+endpoint, an OS-level mute, and a dropped registration — every failure mode of
+the outage above looked identical to a working device.
+
+So the gate now demands **observed delivery**: the server sends one real push
+carrying a one-shot token, the service worker echoes that token back after the
+notification is actually drawn, and only that stamps `devices.push_verified_at`.
+The token IS the credential on the echo (`PUT /api/push/verify` takes no
+session) because a service worker's fetch may run with an expired cookie; it is
+a fresh UUID, stored on exactly one row, burned on use, and useless to anyone
+not already receiving that device's pushes.
+
+The proving push is deliberately visible and in her voice, for two reasons: a
+`userVisibleOnly` subscription obliges the worker to show something, and the
+subject seeing it work is better than being told it works. It goes through
+`sendToDevice` like everything else, so Secret mode disguises it — the disguise
+rewrite touches only title/body/icon, leaving `verifyToken` intact.
+
+### 3 · The re-proof demand
+
+`push_reverify_since` (a dynamic setting) is a line in time: any device whose
+last proof predates it owes a new one and is held at the threshold until it
+delivers. Her Notifications tab sets it to "now" with one button — the recovery
+lever for a silent outage that devices cannot detect on their own.
+
+`jail()` gained `proofOwed`, checked LAST (you cannot prove delivery to a device
+that hasn't allowed it yet) and applied on EVERY platform including desktop —
+unlike the install/permission threshold, which stays mobile-only. It is also
+independent of `automations_enabled` and of the threshold setting: turning the
+mobile threshold off does not mean she stopped needing to reach people.
+
+**A device that physically cannot carry push is never asked to prove it.**
+That check runs before everything, so iOS < 16.4 fails open exactly as before.
+
+**Known risk, stated rather than silently softened:** a subject who has *denied*
+notifications at the browser level cannot be re-prompted by script, so on
+desktop they are held until they fix it in browser settings. That is the
+hard requirement as asked for. It is mitigated with per-platform instructions on
+the failure panel rather than by weakening the demand.
+
+### 4 · Automations became rows
+
+They were hard-coded blocks in the worker: she could kill all of them with one
+setting, could not read what any of them said, and could not add one without a
+deploy. Each is now a row she owns — label, title, body, deep link, audience,
+quiet-hours respect, on/off, and the trigger's tuning.
+
+What is NOT hers to invent is the `trigger`, because the worker can only fire on
+conditions it has code to detect. `src/lib/automations/triggers.ts` is the
+honest catalogue, and the editor prints each trigger's firing rule underneath
+the picker instead of offering a free-text field that would never fire.
+
+The catalogue is a separate PURE module from `run.ts` specifically so the client
+editor can import it without pulling `web-push` (and thus `net`/`tls`) into the
+browser bundle — the build fails loudly if that boundary is crossed.
+
+Three details worth keeping:
+- Every trigger uses a ONE-DAY window ("went quiet 5 days ago"), never an open
+  comparison ("quiet for more than 5 days"), or it would re-fire every hour for
+  the rest of that subject's life.
+- `lapse` fires on entitlement status `frozen`. There is no `lapsed` value in
+  the enum; the first draft used one and would have matched nothing, forever.
+- Both switches in the editor post through hidden inputs. An unchecked checkbox
+  sends NOTHING, so a bare checkbox cannot express "no" — "hold it during their
+  quiet hours" would have been impossible to turn off, silently.
+
+`automations_enabled` is kept as the master kill switch above all rows, and the
+two former hard-coded automations are seeded as rows **off**, so shipping this
+starts no pings.
+
+### 5 · Not done, on purpose
+
+- No backfill of `push_verified_at`. Nothing was ever observed landing, and
+  stamping it now would assert exactly the thing that turned out to be false.
+- `PushHeal` still repairs a subscription silently but does NOT mark a device
+  proved. Repair is not evidence.

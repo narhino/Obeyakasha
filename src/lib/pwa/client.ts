@@ -93,18 +93,86 @@ export async function fetchVapidKey(): Promise<string | null> {
   }
 }
 
+/**
+ * Register / touch this device.
+ *
+ * `pushSubscription` is OPTIONAL and omitting it means "leave whatever is on
+ * file alone". It used to be a required `| null`, and every caller that had no
+ * subscription to hand dutifully passed null — which the server wrote straight
+ * over the live one. Erasing a subscription is now a deliberate act: pass
+ * `clearPush: true`, and nothing else can do it by accident.
+ */
 export async function registerDevice(payload: {
   deviceId: string;
   platform: Platform;
-  installed: boolean;
-  pushEnabled: boolean;
-  pushSubscription: PushSubscriptionJSON | null;
+  installed?: boolean;
+  pushEnabled?: boolean;
+  pushSubscription?: PushSubscriptionJSON;
+  clearPush?: boolean;
 }): Promise<void> {
   await fetch("/api/devices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...payload, ua: navigator.userAgent }),
   });
+}
+
+export interface DeviceState {
+  installed: boolean;
+  pushEnabled: boolean;
+  subscribed: boolean;
+  /** A push has been PROVED to land here since she last demanded proof. */
+  verified: boolean;
+  verifiedAt: string | null;
+}
+
+/** This device's state as the server sees it — the gate's source of truth. */
+export async function fetchDeviceState(
+  deviceId: string,
+): Promise<DeviceState | null> {
+  try {
+    const res = await fetch(
+      `/api/devices?deviceId=${encodeURIComponent(deviceId)}`,
+      { cache: "no-store" },
+    );
+    const { device } = (await res.json()) as { device: DeviceState | null };
+    return device;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ask the server to prove this device receives pushes, then wait for the
+ * service worker's echo. Resolves true only on real, observed delivery.
+ *
+ * Polls rather than listening for a message from the SW: the echo is an HTTP
+ * call the SW makes on its own, and on iOS the page may not even be the one
+ * that ends up handling the push event.
+ */
+export async function proveNotificationsWork(
+  deviceId: string,
+  timeoutMs = 20_000,
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/push/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
+    const started = (await res.json()) as { ok?: boolean };
+    if (!started.ok) return false;
+  } catch {
+    return false;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1200));
+    const state = await fetchDeviceState(deviceId);
+    if (state?.verified) return true;
+  }
+  return false;
 }
 
 export async function recordConsent(

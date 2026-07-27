@@ -10,6 +10,8 @@ import {
   registerDevice,
   registerServiceWorker,
   subscribeToPush,
+  fetchDeviceState,
+  proveNotificationsWork,
   type Platform,
 } from "@/lib/pwa/client";
 import { jail, type JailResult, type PushPermission } from "@/lib/gate/jail";
@@ -66,6 +68,12 @@ export function Jail({ enabled }: { enabled: boolean }) {
   const [iosVer, setIosVer] = useState<number | null>(null);
   const [notifDenied, setNotifDenied] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Proof state, read from the server (the browser cannot know it) and refreshed
+  // whenever the takeover re-checks itself. Held in a ref, not state: `recompute`
+  // reads it synchronously and its own setResult drives the re-render.
+  const [proving, setProving] = useState(false);
+  const [proofFailed, setProofFailed] = useState(false);
+  const proofOwedRef = useRef(false);
   // null = they haven't answered the discreet question yet, so the notifications
   // step is still on beat 1. Answering it (either way) opens beat 2.
   const [disguise, setDisguise] = useState<boolean | null>(null);
@@ -86,7 +94,7 @@ export function Jail({ enabled }: { enabled: boolean }) {
     // granted push. `?qaJail=install|notifications|off`.
     if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("qaJail");
-      if (q === "install" || q === "notifications") {
+      if (q === "install" || q === "notifications" || q === "reverify") {
         setResult({ jailed: true, step: q });
         return;
       }
@@ -107,8 +115,30 @@ export function Jail({ enabled }: { enabled: boolean }) {
     } else {
       pushPermission = Notification.permission as PushPermission;
     }
-    setResult(jail({ isMobile, isStandalone: standalone, pushPermission, jailEnabled: enabled }));
+    setResult(
+      jail({
+        isMobile,
+        isStandalone: standalone,
+        pushPermission,
+        jailEnabled: enabled,
+        proofOwed: proofOwedRef.current,
+      }),
+    );
   }, [enabled]);
+
+  /**
+   * Ask the server whether this device still owes proof, then re-decide. Kept
+   * separate from `recompute` (which stays synchronous and DOM-only) so the
+   * pure decision is never waiting on a network call to render.
+   */
+  const refreshProof = useCallback(async () => {
+    const state = await fetchDeviceState(getDeviceId());
+    // No row yet → nothing to prove against; the install/permission steps come
+    // first anyway and will create one.
+    const owed = state ? !state.verified : false;
+    proofOwedRef.current = owed;
+    recompute();
+  }, [recompute]);
 
   // Capture Android's install prompt so the Install button can fire it.
   useEffect(() => {
@@ -127,19 +157,21 @@ export function Jail({ enabled }: { enabled: boolean }) {
       vapidRef.current = await fetchVapidKey();
       if (cancelled) return;
       recompute();
+      await refreshProof();
+      if (cancelled) return;
       setReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [recompute]);
+  }, [recompute, refreshProof]);
 
   // QA-only: render the forced step immediately, without waiting on the service
   // worker (compiled out of production). Never affects a real jailed decision.
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     const q = new URLSearchParams(window.location.search).get("qaJail");
-    if (q === "install" || q === "notifications") {
+    if (q === "install" || q === "notifications" || q === "reverify") {
       recompute();
       setReady(true);
     }
@@ -202,11 +234,21 @@ export function Jail({ enabled }: { enabled: boolean }) {
         pushEnabled: true,
         pushSubscription: sub,
       });
-      recompute(); // Notification.permission is now "granted" → releases
+      // Permission is granted — which proves nothing. Send one real push and
+      // wait for this device to report it drawn on screen. Only that releases.
+      setProving(true);
+      setProofFailed(false);
+      const proved = await proveNotificationsWork(getDeviceId());
+      setProving(false);
+      if (!proved) {
+        setProofFailed(true);
+        return;
+      }
+      await refreshProof();
     } finally {
       setBusy(false);
     }
-  }, [recompute]);
+  }, [recompute, refreshProof]);
 
   // Nothing to show until we've read the device, and never when not jailed.
   if (!ready || !result.jailed) return null;
@@ -239,7 +281,48 @@ export function Jail({ enabled }: { enabled: boolean }) {
         {copy.gate.wall.lead}
       </p>
 
-      {result.step === "install" ? (
+      {result.step === "reverify" ? (
+        /* Re-proof. They already said yes once; what they were never told is
+           that it silently stopped working. This asks again and, this time,
+           does not take their word for it. */
+        <Panel
+          title={copy.gate.wall.reverifyTitle}
+          body={copy.gate.wall.reverifyBody}
+        >
+          <Button
+            variant="gold"
+            size="lg"
+            loading={busy || proving}
+            disabled={busy || proving}
+            onClick={() => void enableNotifications()}
+          >
+            {proving ? copy.gate.verify.proving : copy.gate.wall.reverifyButton}
+          </Button>
+          {proving ? (
+            <Whisper className="text-xs">{copy.gate.verify.provingBody}</Whisper>
+          ) : (
+            <Whisper className="text-xs">{copy.gate.wall.reverifyWhy}</Whisper>
+          )}
+          {proofFailed ? (
+            <div className="w-full rounded-[var(--radius)] border border-danger/50 bg-danger/10 p-3 text-left">
+              <p className="text-sm text-danger">{copy.gate.verify.failedTitle}</p>
+              <Whisper className="mt-1 text-xs">
+                {copy.gate.verify.failedBody}
+              </Whisper>
+              <Whisper className="mt-2 text-xs">
+                {platform === "ios"
+                  ? copy.gate.verify.fixIos
+                  : platform === "android"
+                    ? copy.gate.verify.fixAndroid
+                    : copy.gate.verify.fixDesktop}
+              </Whisper>
+            </div>
+          ) : null}
+          {notifDenied ? (
+            <Whisper className="mt-2">{copy.gate.wall.notifDenied}</Whisper>
+          ) : null}
+        </Panel>
+      ) : result.step === "install" ? (
         <Panel
           title={copy.gate.wall.installTitle}
           body={
@@ -310,12 +393,32 @@ export function Jail({ enabled }: { enabled: boolean }) {
           <Button
             variant="gold"
             size="lg"
-            loading={busy}
+            loading={busy || proving}
+            disabled={busy || proving}
             onClick={() => void enableNotifications()}
           >
-            {copy.gate.wall.notifButton}
+            {proving ? copy.gate.verify.proving : copy.gate.wall.notifButton}
           </Button>
-          <Whisper className="text-xs">{copy.gate.wall.notifRequired}</Whisper>
+          {proving ? (
+            <Whisper className="text-xs">{copy.gate.verify.provingBody}</Whisper>
+          ) : (
+            <Whisper className="text-xs">{copy.gate.wall.notifRequired}</Whisper>
+          )}
+          {proofFailed ? (
+            <div className="w-full rounded-[var(--radius)] border border-danger/50 bg-danger/10 p-3 text-left">
+              <p className="text-sm text-danger">{copy.gate.verify.failedTitle}</p>
+              <Whisper className="mt-1 text-xs">
+                {copy.gate.verify.failedBody}
+              </Whisper>
+              <Whisper className="mt-2 text-xs">
+                {platform === "ios"
+                  ? copy.gate.verify.fixIos
+                  : platform === "android"
+                    ? copy.gate.verify.fixAndroid
+                    : copy.gate.verify.fixDesktop}
+              </Whisper>
+            </div>
+          ) : null}
           {notifDenied ? (
             <Whisper className="mt-3">{copy.gate.wall.notifDenied}</Whisper>
           ) : null}

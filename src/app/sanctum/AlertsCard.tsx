@@ -9,6 +9,7 @@ import {
   registerDevice,
   registerServiceWorker,
   subscribeToPush,
+  proveNotificationsWork,
 } from "@/lib/pwa/client";
 import { sendTestAlert } from "./actions";
 
@@ -18,7 +19,8 @@ type State =
   | "nokeys" // VAPID keys aren't configured on the server yet
   | "denied" // the browser blocked notifications for this site
   | "off" // supported, allowed to ask, not subscribed yet
-  | "on"; // subscribed — alerts will reach this device
+  | "unproved" // subscribed, but the test notification never appeared
+  | "on"; // PROVED — a real alert was sent and this device saw it land
 
 /**
  * Her own alerts, from inside the Sanctum. The subject-facing Gate/threshold
@@ -92,7 +94,10 @@ export function AlertsCard() {
         pushEnabled: true,
         pushSubscription: sub,
       });
-      setState("on");
+      // Same proof her subjects have to give: send one and wait to see it land.
+      // "On" here should mean it works, not that a browser said yes.
+      const proved = await proveNotificationsWork(getDeviceId());
+      setState(proved ? "on" : "unproved");
     } finally {
       setBusy(false);
     }
@@ -149,11 +154,28 @@ export function AlertsCard() {
         </>
       ) : null}
 
+      {/* Allowed, but the proving notification never appeared — the exact
+          state that used to pass silently as "on" and reach nobody. */}
+      {state === "unproved" ? (
+        <>
+          <Whisper className="mb-3 text-xs text-danger">
+            You allowed it, but the test notification never arrived. Something
+            on this device is swallowing them — check your system notification
+            settings for this browser, and that Do Not Disturb or Focus
+            isn&apos;t on. Then try again.
+          </Whisper>
+          <Button size="sm" variant="gold" onClick={enable} loading={busy}>
+            Try again
+          </Button>
+        </>
+      ) : null}
+
       {state === "on" ? (
         <>
           <Whisper className="mb-3 text-xs">
-            This device will be told. Install the Sanctum to your home screen
-            and alerts arrive even with the browser closed.
+            Proved — one was sent and this device saw it land. Install the
+            Sanctum to your home screen and alerts arrive even with the browser
+            closed.
           </Whisper>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="sm" variant="ghost" onClick={test} loading={busy}>

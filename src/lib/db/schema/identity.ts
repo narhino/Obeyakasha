@@ -214,6 +214,14 @@ export const devices = pgTable(
       keys: { p256dh: string; auth: string };
     } | null>(),
     pushEnabled: boolean("push_enabled").notNull().default(false),
+    // PROOF, not permission. Stamped only when a real push was sent to this
+    // device AND the service worker reported it drawn on screen. A browser
+    // saying "granted" has never been evidence that anything arrives; this is.
+    pushVerifiedAt: timestamp("push_verified_at", { withTimezone: true }),
+    // One-shot token carried inside the verification push. The SW echoes it
+    // back, which is how the server knows THAT device received THAT push.
+    // Cleared on use, so a token can never verify a device twice.
+    verifyToken: text("verify_token"),
     installed: boolean("installed").notNull().default(false),
     ua: text("ua"),
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),

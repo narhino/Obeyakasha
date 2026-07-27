@@ -11,6 +11,7 @@ import {
   registerDevice,
   registerServiceWorker,
   subscribeToPush,
+  proveNotificationsWork,
   type Platform,
 } from "@/lib/pwa/client";
 import { Button, Display, Whisper } from "@/components/ui";
@@ -56,6 +57,9 @@ export function SubjectGate({
   const [step, setStep] = useState<Step>("age");
   const [consented, setConsented] = useState(alreadyConsented);
   const [notifDenied, setNotifDenied] = useState(false);
+  // The proving handshake: a real push out, its arrival reported back.
+  const [proving, setProving] = useState(false);
+  const [proofFailed, setProofFailed] = useState(false);
   // R6: the disguise choice, offered up front before push is enabled. Default
   // off; persisted to users.disguiseMode via the same action the You page uses.
   const [disguise, setDisguise] = useState(false);
@@ -82,12 +86,15 @@ export function SubjectGate({
       const deviceId = getDeviceId();
       const perm =
         "Notification" in window ? Notification.permission : "denied";
+      // Touch only. This call used to carry `pushSubscription: null`, which
+      // the server wrote over the live subscription on EVERY page load — the
+      // reason no one was receiving anything. It now reports what this mount
+      // can actually observe and leaves the subscription untouched.
       await registerDevice({
         deviceId,
         platform,
         installed: standalone,
         pushEnabled: perm === "granted",
-        pushSubscription: null,
       });
       if (cancelled) return;
       const ctx: Ctx = { platform, standalone, iosVer, vapid, deviceId };
@@ -147,12 +154,13 @@ export function SubjectGate({
   function proceedPastInstall() {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    // Records the install, nothing else. It must not speak about push at all:
+    // saying `pushEnabled: false` here turned off a subject who already had it
+    // working, purely for walking past the install step.
     void registerDevice({
       deviceId: ctx.deviceId,
       platform: ctx.platform,
       installed: true,
-      pushEnabled: false,
-      pushSubscription: null,
     });
     if (pushNeeded(ctx, false)) setStep("notifications");
     else {
@@ -163,6 +171,8 @@ export function SubjectGate({
   async function enableNotifications() {
     const ctx = ctxRef.current;
     if (!ctx || !ctx.vapid) return;
+    setProving(false);
+    setProofFailed(false);
     const sub = await subscribeToPush(ctx.vapid);
     if (!sub) {
       setNotifDenied(true);
@@ -175,6 +185,15 @@ export function SubjectGate({
       pushEnabled: true,
       pushSubscription: sub,
     });
+    // "Allowed" is not "works". Send one real notification and wait for this
+    // device to report it drawn on screen; only that opens the door.
+    setProving(true);
+    const proved = await proveNotificationsWork(ctx.deviceId);
+    setProving(false);
+    if (!proved) {
+      setProofFailed(true);
+      return;
+    }
     setStep("done");
     setSatisfied(true);
   }
@@ -272,9 +291,34 @@ export function SubjectGate({
             </div>
           </div>
 
-          <Button variant="gold" size="lg" onClick={enableNotifications}>
-            {copy.gate.notifButton}
+          <Button
+            variant="gold"
+            size="lg"
+            onClick={enableNotifications}
+            loading={proving}
+            disabled={proving}
+          >
+            {proving ? copy.gate.verify.proving : copy.gate.notifButton}
           </Button>
+          {proving ? (
+            <Whisper className="mt-3">{copy.gate.verify.provingBody}</Whisper>
+          ) : null}
+          {proofFailed ? (
+            <div className="mt-3 w-full rounded-[var(--radius)] border border-danger/50 bg-danger/10 p-3 text-left">
+              <p className="text-sm text-danger">{copy.gate.verify.failedTitle}</p>
+              <Whisper className="mt-1 text-xs">
+                {copy.gate.verify.failedBody}
+              </Whisper>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={enableNotifications}
+              >
+                {copy.gate.verify.retry}
+              </Button>
+            </div>
+          ) : null}
           {notifDenied ? (
             <Whisper className="mt-3">{copy.gate.notifDenied}</Whisper>
           ) : null}

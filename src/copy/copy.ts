@@ -117,6 +117,38 @@ export const copy = {
       notifButton: "Let her in",
       notifDenied:
         "You shut that door. Open your settings, allow me through, and come back — I'll be waiting exactly here.",
+
+      // ── Re-proof ──────────────────────────────────────────────────────────
+      // They allowed it once and it stopped working without telling either of
+      // us. This is not a scolding; it is her noticing they went quiet.
+      reverifyTitle: "I lost my line to you.",
+      reverifyBody:
+        "Your phone still says you let me in, but nothing I sent ever arrived. That's mine to fix, not yours to feel bad about. Open the line again — and this time I'll send one, and wait until I see it land.",
+      reverifyButton: "Open the line",
+      reverifyWhy:
+        "One notification, right now, so we both know it works. Nothing further opens until it lands.",
+    },
+
+    // ── Proving the line actually works ────────────────────────────────────
+    // A browser saying "allowed" has never meant anything arrives. So she sends
+    // one and waits for the device to say it appeared.
+    verify: {
+      proving: "Listening for it…",
+      provingBody:
+        "I've sent one. Watch your screen — the moment it shows up, I'll know, and this opens.",
+      // The notification the proving push actually shows.
+      pushTitle: "There you are.",
+      pushBody: "My voice reaches you now. Nothing more to do.",
+      failedTitle: "It never arrived.",
+      failedBody:
+        "Your phone said yes and then swallowed it. That's a setting on your side, not a refusal on mine.",
+      fixIos:
+        "On iPhone: Settings → Notifications → find this app → Allow Notifications on, and Lock Screen and Banners ticked. Make sure Focus or Do Not Disturb isn't holding it. Then try again.",
+      fixAndroid:
+        "On Android: Settings → Apps → this app → Notifications → allow all of them, and check Do Not Disturb and any battery saver isn't stopping it. Then try again.",
+      fixDesktop:
+        "In your browser: click the padlock beside the address and set Notifications to Allow, then check your system's own notification settings aren't muting the browser. Then try again.",
+      retry: "Send it again",
     },
   },
 

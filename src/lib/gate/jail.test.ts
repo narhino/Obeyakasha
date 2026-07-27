@@ -7,6 +7,7 @@ function inputs(partial: Partial<JailInputs>): JailInputs {
     isStandalone: true,
     pushPermission: "granted",
     jailEnabled: true,
+    proofOwed: false,
     ...partial,
   };
 }
@@ -61,5 +62,43 @@ describe("jail — the threshold decision matrix", () => {
   it("unsupported push while NOT standalone still demands install first", () => {
     const r = jail(inputs({ isStandalone: false, pushPermission: "unsupported" }));
     expect(r).toEqual({ jailed: true, step: "install" });
+  });
+});
+
+describe("jail — proof of delivery", () => {
+  it("owed proof holds at reverify, on desktop too", () => {
+    const r = jail(inputs({ isMobile: false, proofOwed: true }));
+    expect(r).toEqual({ jailed: true, step: "reverify" });
+  });
+
+  it("owed proof holds even when the mobile threshold is off", () => {
+    const r = jail(inputs({ jailEnabled: false, proofOwed: true }));
+    expect(r).toEqual({ jailed: true, step: "reverify" });
+  });
+
+  it("install and permission are asked BEFORE proof", () => {
+    expect(jail(inputs({ isStandalone: false, proofOwed: true }))).toEqual({
+      jailed: true,
+      step: "install",
+    });
+    expect(
+      jail(inputs({ pushPermission: "default", proofOwed: true })),
+    ).toEqual({ jailed: true, step: "notifications" });
+  });
+
+  it("a device that cannot carry push is never asked to prove it", () => {
+    for (const isMobile of [true, false]) {
+      const r = jail(
+        inputs({ isMobile, pushPermission: "unsupported", proofOwed: true }),
+      );
+      expect(r).toEqual({ jailed: false, step: null });
+    }
+  });
+
+  it("no proof owed → free, as before", () => {
+    expect(jail(inputs({ proofOwed: false }))).toEqual({
+      jailed: false,
+      step: null,
+    });
   });
 });

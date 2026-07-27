@@ -176,6 +176,13 @@
       "when": 1785126129452,
       "tag": "0024_message_push_link",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785194580506,
+      "tag": "0025_push_proof_and_automations",
+      "breakpoints": true
     }
   ]
 }

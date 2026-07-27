@@ -18,6 +18,7 @@ import { announceDuePremieres } from "@/lib/premiere/announce";
 import { grantMonthlyGift } from "@/lib/oath/gift";
 import { pruneOldPageViews } from "@/lib/analytics/retention";
 import { logAudit } from "@/lib/audit";
+import { runAutomations, seedAutomations } from "@/lib/automations/run";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
 import { ensureVocabulary } from "@/lib/tags/seed";
@@ -39,56 +40,18 @@ async function pollCloseTick() {
   }
 }
 
-async function inactiveReclaimTick() {
+/**
+ * Automations (R-NOTIF). Every automatic push is now a row she owns — its
+ * words, its audience, its timing, its on/off — so this tick just runs the
+ * enabled ones. The two that used to be hard-coded here (`inactiveReclaimTick`
+ * and `chainBrokenTick`) are seeded as rows, OFF, on first boot.
+ *
+ * `automations_enabled` is kept as the master kill switch above all of them:
+ * one setting that silences the lot without her having to touch each row.
+ */
+async function automationsTick() {
   if (!(await getSetting("automations_enabled"))) return;
-  // Subjects whose most recent listen ended 5–6 days ago (narrow window so the
-  // reclaim fires roughly once, not every run). Quiet hours respected by broadcast.
-  const rows = await db
-    .select({
-      userId: listenSessions.userId,
-      last: sql<Date>`max(${listenSessions.endedAt})`,
-    })
-    .from(listenSessions)
-    .groupBy(listenSessions.userId)
-    .having(
-      and(
-        sql`max(${listenSessions.endedAt}) < now() - interval '5 days'`,
-        sql`max(${listenSessions.endedAt}) > now() - interval '6 days'`,
-      ),
-    );
-  if (rows.length === 0) return;
-  await broadcast({
-    title: "You slipped.",
-    body: "The chain slackened. Come back down to me.",
-    deepLink: "/library",
-    audience: { type: "users", userIds: rows.map((r) => r.userId) },
-    kind: "automation",
-  });
-  await logAudit(null, "automation.inactive_reclaim", { count: rows.length });
-}
-
-async function chainBrokenTick() {
-  if (!(await getSetting("automations_enabled"))) return;
-  // Chains last kept exactly 2 days ago (broken yesterday) → one gentle nudge.
-  const rows = await db
-    .select({ userId: chains.userId })
-    .from(chains)
-    .where(
-      and(
-        lt(chains.lastKeptDate, sql`current_date - 1`),
-        sql`${chains.lastKeptDate} >= current_date - 2`,
-        sql`${chains.currentLen} >= 3`,
-      ),
-    );
-  if (rows.length === 0) return;
-  await broadcast({
-    title: "Your chain broke.",
-    body: "Reclaim it. One breath, and you're mine again.",
-    deepLink: "/me",
-    audience: { type: "users", userIds: rows.map((r) => r.userId) },
-    kind: "automation",
-  });
-  await logAudit(null, "automation.chain_broken", { count: rows.length });
+  await runAutomations();
 }
 
 /**
@@ -258,6 +221,7 @@ async function main() {
   console.log("[worker] started (interval scheduler + job queue).");
   registerCoreJobHandlers();
   void safe("vocabulary", ensureVocabulary); // seed field tags (idempotent)
+  void safe("automationSeed", seedAutomations); // her two starters, OFF (idempotent)
   // Durable job queue: drain every 3s (transcribe/organize/…).
   setInterval(() => void safe("jobs", jobsTick), 3_000);
   // Poll close: every 5 minutes.
@@ -273,9 +237,8 @@ async function main() {
     () => void safe("analyticsRetention", analyticsRetentionTick),
     24 * 60 * 60_000,
   );
-  // Presence automations: hourly.
-  setInterval(() => void safe("inactiveReclaim", inactiveReclaimTick), 60 * 60_000);
-  setInterval(() => void safe("chainBroken", chainBrokenTick), 60 * 60_000);
+  // Her automations: hourly.
+  setInterval(() => void safe("automations", automationsTick), 60 * 60_000);
   // Deadline warnings: hourly (order-driven, always on).
   setInterval(() => void safe("deadlineWarn", deadlineWarnTick), 60 * 60_000);
   // Run once shortly after boot.

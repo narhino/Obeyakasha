@@ -54,6 +54,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/sanctum/whispers", label: "Whispers", badge: "comments" },
       { href: "/sanctum/broadcast", label: "Broadcast" },
+      { href: "/sanctum/notifications", label: "Notifications" },
       { href: "/sanctum/questions", label: "Questions" },
     ],
   },
