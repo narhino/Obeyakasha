@@ -28,6 +28,14 @@ export const authConfig = {
       const role = auth?.user?.role;
       const isLoggedIn = Boolean(auth?.user);
 
+      // The Sanctum's PWA manifest must answer WITHOUT a session: a browser
+      // fetches a manifest uncredentialed, so gating it turns "Add to home
+      // screen" into a silent redirect to sign-in. It carries only a name,
+      // icons and a start_url — nothing /sanctum doesn't already reveal by
+      // existing. Checked before the gate below.
+      if (pathname === "/sanctum/manifest.webmanifest") {
+        return true;
+      }
       if (pathname.startsWith("/sanctum")) {
         return role === "goddess";
       }
