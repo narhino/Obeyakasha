@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { pollVotes, polls, whisperReceipts, whispers } from "@/lib/db/schema";
+import { pollVotes, polls, tracks, whisperReceipts, whispers } from "@/lib/db/schema";
 import type { Audience } from "@/lib/db/schema/relationship";
 import { audienceMatches } from "@/lib/push/audience";
-import { signArtwork } from "@/lib/art/resolve";
+import { resolveTrackCover, signArtwork } from "@/lib/art/resolve";
+import { isPremiereSealed } from "@/lib/premiere/logic";
 import { tallyVotes, type PollOption, type Tally } from "@/lib/polls/tally";
 import { loveCountsFor, lovedSetFor } from "./loves";
 import { commentsForViewer, type WhisperCommentView } from "./comments";
@@ -21,6 +22,19 @@ export interface WhisperPollView {
   /** Populated only once results are shared (otherwise counts stay hidden). */
   results: Tally[] | null;
   total: number;
+}
+
+/** A track she pinned to a whisper — played inline from the feed (F-feed).
+ *  `playable` mirrors what /api/tracks/[id]/stream-url would actually allow, so
+ *  a card never offers a play that 404s; the sealed variant becomes the nudge. */
+export interface WhisperAudioView {
+  id: string;
+  title: string;
+  durationS: number | null;
+  /** Resolved, renderable cover (D1) — signed upload or the bespoke default.
+   *  Never a raw storage key. Doubles as the player's chrome art. */
+  cover: string;
+  playable: boolean;
 }
 
 export interface WhisperCard {
@@ -42,6 +56,8 @@ export interface WhisperCard {
   /** The VIEWER'S OWN private comment thread (F3) — their words + her reply.
    *  Empty for logged-out visitors; never carries another subject's comment. */
   comments: WhisperCommentView[];
+  /** A track she attached, playable inline when the viewer may hear it. */
+  audio: WhisperAudioView | null;
 }
 
 /** Sign the attached images for a batch of whispers (cheap HMAC, no N+1). */
@@ -54,6 +70,58 @@ async function imageUrlsFor(
       if (!w.imageKey) return;
       const url = await signArtwork(w.imageKey);
       if (url) map.set(w.id, url);
+    }),
+  );
+  return map;
+}
+
+/**
+ * Resolve the tracks attached to a batch of whispers, one round trip, with the
+ * viewer's right to hear each already decided. The rule mirrors the stream-url
+ * gate exactly (published + not a personal upload + not premiere-sealed, then
+ * free sample OR level) so "Play" here is always a play that works — and a
+ * sealed row is honest rather than a broken button. `viewerLevel` null = the
+ * logged-out visitor, who may still taste a free sample (R9.8).
+ */
+async function audioViewsFor(
+  trackIds: string[],
+  viewerLevel: number | null,
+): Promise<Map<string, WhisperAudioView>> {
+  const map = new Map<string, WhisperAudioView>();
+  if (trackIds.length === 0) return map;
+
+  const rows = await db
+    .select({
+      id: tracks.id,
+      title: tracks.title,
+      durationS: tracks.durationS,
+      artworkKey: tracks.artworkKey,
+      minAccessLevel: tracks.minAccessLevel,
+      freeSample: tracks.freeSample,
+      publishedAt: tracks.publishedAt,
+      premiereAt: tracks.premiereAt,
+      streamKey: tracks.streamKey,
+      ownerUserId: tracks.ownerUserId,
+    })
+    .from(tracks)
+    .where(inArray(tracks.id, trackIds));
+
+  await Promise.all(
+    rows.map(async (t) => {
+      const live =
+        Boolean(t.publishedAt) &&
+        Boolean(t.streamKey) &&
+        !t.ownerUserId &&
+        !isPremiereSealed(t.premiereAt);
+      const entitled =
+        t.freeSample || (viewerLevel !== null && viewerLevel >= t.minAccessLevel);
+      map.set(t.id, {
+        id: t.id,
+        title: t.title,
+        durationS: t.durationS,
+        cover: await resolveTrackCover(t.artworkKey, []),
+        playable: live && entitled,
+      });
     }),
   );
   return map;
@@ -159,15 +227,19 @@ export async function whispersForSubject(
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
   const whisperIds = visible.map((w) => w.id);
-  // All batched — no per-card queries (loves counts, viewer's love set, and the
-  // viewer's OWN comment threads are each one round trip).
-  const [pollViews, imageUrls, loveCounts, lovedSet, comments] =
+  const trackIds = visible
+    .map((w) => w.audioTrackId)
+    .filter((id): id is string => Boolean(id));
+  // All batched — no per-card queries (loves counts, viewer's love set, the
+  // viewer's OWN comment threads, and attached audio are each one round trip).
+  const [pollViews, imageUrls, loveCounts, lovedSet, comments, audioViews] =
     await Promise.all([
       pollViewsFor(pollIds, userId),
       imageUrlsFor(visible),
       loveCountsFor(whisperIds),
       lovedSetFor(userId, whisperIds),
       commentsForViewer(userId, whisperIds),
+      audioViewsFor(trackIds, userLevel),
     ]);
 
   return visible.map((w) => ({
@@ -182,6 +254,7 @@ export async function whispersForSubject(
     loveCount: loveCounts.get(w.id) ?? 0,
     loved: lovedSet.has(w.id),
     comments: comments.get(w.id) ?? [],
+    audio: w.audioTrackId ? audioViews.get(w.audioTrackId) ?? null : null,
   }));
 }
 
@@ -207,13 +280,18 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
     .map((w) => w.pollId)
     .filter((id): id is string => Boolean(id));
   const whisperIds = visible.map((w) => w.id);
+  const trackIds = visible
+    .map((w) => w.audioTrackId)
+    .filter((id): id is string => Boolean(id));
   // No userId → no personal vote; results still gated by resultsShared. The
   // logged-out visitor sees ONLY the aggregate love count — never the loved
   // state, and NEVER any comment (D7): `comments` stays empty here by design.
-  const [pollViews, imageUrls, loveCounts] = await Promise.all([
+  // Attached audio resolves with a null level: only a free sample plays.
+  const [pollViews, imageUrls, loveCounts, audioViews] = await Promise.all([
     pollViewsFor(pollIds, null),
     imageUrlsFor(visible),
     loveCountsFor(whisperIds),
+    audioViewsFor(trackIds, null),
   ]);
 
   return visible.map((w) => ({
@@ -228,6 +306,7 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
     loveCount: loveCounts.get(w.id) ?? 0,
     loved: false,
     comments: [],
+    audio: w.audioTrackId ? audioViews.get(w.audioTrackId) ?? null : null,
   }));
 }
 

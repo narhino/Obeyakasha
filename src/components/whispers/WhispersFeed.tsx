@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { WhisperCard } from "@/lib/feed/whispers";
+import type { WhisperAudioView, WhisperCard } from "@/lib/feed/whispers";
 import type { CommentState } from "@/lib/feed/comments";
 import { copy, fill } from "@/copy/copy";
 import { formatWhen } from "@/lib/format/when";
+import { formatDuration } from "@/lib/format/duration";
+import { usePlayer, type QueueTrack } from "@/lib/player/store";
 import { Eyebrow, Voice } from "@/components/ui";
-import { IconDrop } from "@/components/ui/icons";
+import { IconDrop, IconLock, IconPlay, IconSpeak } from "@/components/ui/icons";
 import { FeedPoll } from "./FeedPoll";
 
 /**
@@ -41,6 +43,20 @@ export function WhispersFeed({
   );
 }
 
+/** Her mark at the head of every card — the one voice this feed carries. */
+function GoddessMark({ large = false }: { large?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border border-gold/40 bg-gold/[0.07] font-[family-name:var(--font-display)] italic text-gold ${
+        large ? "h-11 w-11 text-lg" : "h-9 w-9 text-base"
+      }`}
+    >
+      A
+    </span>
+  );
+}
+
 function WhisperItem({
   whisper,
   signedIn,
@@ -50,6 +66,7 @@ function WhisperItem({
 }) {
   const [knelt, setKnelt] = useState(whisper.knelt);
   const [busy, setBusy] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const featured = whisper.pinned;
 
   async function doKneel() {
@@ -72,9 +89,31 @@ function WhisperItem({
           : "border-line/80 bg-surface"
       }`}
     >
+      {/* Byline first, the way a feed reads: whose voice, how long ago, and
+          whether she's holding this one up. */}
+      <div className="flex items-center gap-3 px-4 pt-4 sm:px-5">
+        <GoddessMark large={featured} />
+        <div className="min-w-0 flex-1">
+          <p className="font-[family-name:var(--font-display)] text-[0.95rem] text-text">
+            {copy.whispers.byline}
+          </p>
+          <p
+            className="text-xs text-text-dim/70"
+            suppressHydrationWarning
+          >
+            {whisper.publishedAt ? formatWhen(whisper.publishedAt) : ""}
+          </p>
+        </div>
+        {whisper.pinned ? (
+          <Eyebrow className="shrink-0 text-gold/80">
+            {copy.whispers.pinnedLabel}
+          </Eyebrow>
+        ) : null}
+      </div>
+
       {whisper.imageUrl ? (
         <div
-          className={`relative w-full overflow-hidden ${
+          className={`relative mt-3 w-full overflow-hidden ${
             featured ? "aspect-[16/9]" : "aspect-[5/2]"
           }`}
         >
@@ -96,13 +135,11 @@ function WhisperItem({
         </div>
       ) : null}
 
-      <div className={featured ? "p-6 sm:p-7" : "p-4 sm:p-5"}>
-        {whisper.pinned ? (
-          <Eyebrow className="mb-3 text-gold/80">
-            {copy.whispers.pinnedLabel}
-          </Eyebrow>
-        ) : null}
-
+      <div
+        className={
+          featured ? "px-6 pb-6 pt-4 sm:px-7 sm:pb-7" : "px-4 pb-4 pt-3 sm:px-5 sm:pb-5"
+        }
+      >
         {whisper.body ? (
           featured ? (
             <p className="font-[family-name:var(--font-display)] text-2xl leading-[1.28] italic text-text sm:text-[1.75rem]">
@@ -113,24 +150,38 @@ function WhisperItem({
           )
         ) : null}
 
+        {whisper.audio ? (
+          <FeedAudio audio={whisper.audio} signedIn={signedIn} />
+        ) : null}
+
         {whisper.poll ? (
           <FeedPoll poll={whisper.poll} signedIn={signedIn} />
         ) : null}
 
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <span
-              className="label-caps text-text-dim/60"
-              suppressHydrationWarning
-            >
-              {whisper.publishedAt ? formatWhen(whisper.publishedAt) : ""}
-            </span>
+        {/* One bar, three things she can be met with — every affordance
+            visible rather than hidden behind a line of small text. */}
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-line/50 pt-3">
+          <div className="flex items-center gap-5">
             <LoveMark
               whisperId={whisper.id}
               initialLoved={whisper.loved}
               initialCount={whisper.loveCount}
               signedIn={signedIn}
             />
+            {signedIn ? (
+              <button
+                onClick={() => setSpeaking((v) => !v)}
+                aria-expanded={speaking}
+                className="group inline-flex items-center gap-2 text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold"
+              >
+                <IconSpeak size={16} />
+                <span className="nums-lining text-xs tracking-[0.04em]">
+                  {whisper.comments.length > 0
+                    ? whisper.comments.length
+                    : copy.whispers.comments.open}
+                </span>
+              </button>
+            ) : null}
           </div>
           {signedIn ? (
             <button
@@ -147,11 +198,109 @@ function WhisperItem({
           ) : null}
         </div>
 
-        {signedIn ? (
-          <WhisperComments whisperId={whisper.id} initial={whisper.comments} />
+        {signedIn && (speaking || whisper.comments.length > 0) ? (
+          <WhisperComments
+            whisperId={whisper.id}
+            initial={whisper.comments}
+            open={speaking}
+            setOpen={setSpeaking}
+          />
         ) : null}
       </div>
     </li>
+  );
+}
+
+/**
+ * A track she pinned to the whisper — played straight from the card, no trip to
+ * the Library. Sealed for anyone who may not hear it: the row still shows the
+ * title (that's the pull) but the tap goes to the Gate / the Library instead of
+ * a play that would 404. `playable` was already decided server-side against the
+ * same rule the stream endpoint enforces.
+ */
+function FeedAudio({
+  audio,
+  signedIn,
+}: {
+  audio: WhisperAudioView;
+  signedIn: boolean;
+}) {
+  const playNow = usePlayer((s) => s.playNow);
+  const current = usePlayer((s) => s.current);
+  const playing = usePlayer((s) => s.playing);
+  const isThis = current?.id === audio.id;
+
+  const track: QueueTrack = {
+    id: audio.id,
+    title: audio.title,
+    durationS: audio.durationS,
+    artworkKey: audio.cover,
+  };
+
+  const art = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={audio.cover}
+      alt=""
+      className="h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover"
+    />
+  );
+  const meta = (
+    <div className="min-w-0 flex-1 text-left">
+      <p className="truncate text-sm text-text">{audio.title}</p>
+      <p className="text-xs text-text-dim">
+        {audio.playable
+          ? audio.durationS
+            ? formatDuration(audio.durationS)
+            : copy.whispers.audio.listen
+          : copy.whispers.audio.sealed}
+      </p>
+    </div>
+  );
+
+  if (!audio.playable) {
+    return (
+      <Link
+        href={signedIn ? "/library" : "/signin"}
+        className="mt-4 flex items-center gap-3 rounded-[var(--radius)] border border-line/70 bg-bg/40 p-2.5 transition-colors duration-[var(--dur-med)] hover:border-gold/50"
+      >
+        <div className="relative shrink-0">
+          {art}
+          <span
+            aria-hidden
+            className="absolute inset-0 flex items-center justify-center rounded-[var(--radius-sm)] bg-bg/65 text-text-dim"
+          >
+            <IconLock size={15} />
+          </span>
+        </div>
+        {meta}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => playNow([track], 0)}
+      aria-label={fill(copy.whispers.audio.playLabel, { title: audio.title })}
+      className="mt-4 flex w-full items-center gap-3 rounded-[var(--radius)] border border-gold/25 bg-gold/[0.05] p-2.5 transition-colors duration-[var(--dur-med)] hover:border-gold/60"
+    >
+      <div className="relative shrink-0">
+        {art}
+        <span
+          aria-hidden
+          className="absolute inset-0 flex items-center justify-center rounded-[var(--radius-sm)] bg-bg/45 text-gold"
+        >
+          <IconPlay size={16} className="translate-x-[1px]" />
+        </span>
+      </div>
+      {meta}
+      {isThis && playing ? (
+        <span className="shrink-0 pr-1 text-[0.6875rem] uppercase tracking-[0.1em] text-gold">
+          {copy.whispers.audio.nowPlaying}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -254,9 +403,13 @@ interface ThreadComment {
 function WhisperComments({
   whisperId,
   initial,
+  open,
+  setOpen,
 }: {
   whisperId: string;
   initial: ThreadComment[];
+  open: boolean;
+  setOpen: (v: boolean) => void;
 }) {
   const [comments, setComments] = useState<ThreadComment[]>(
     initial.map((c) => ({
@@ -266,7 +419,6 @@ function WhisperComments({
       reply: c.reply,
     })),
   );
-  const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -304,7 +456,7 @@ function WhisperComments({
   }
 
   return (
-    <div className="mt-4 border-t border-line/50 pt-3">
+    <div className="mt-3">
       {comments.length > 0 ? (
         <ul className="space-y-3">
           {comments.map((c) => (
@@ -362,16 +514,7 @@ function WhisperComments({
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          onClick={() => setOpen(true)}
-          className={`inline-flex items-center text-xs tracking-[0.06em] text-text-dim/70 transition-colors duration-[var(--dur-med)] hover:text-gold ${
-            comments.length > 0 ? "mt-3" : ""
-          }`}
-        >
-          {copy.whispers.comments.open}
-        </button>
-      )}
+      ) : null}
 
       {notice ? (
         <p className="mt-2 text-xs text-gold">{notice}</p>

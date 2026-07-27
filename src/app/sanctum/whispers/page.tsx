@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users, whispers } from "@/lib/db/schema";
-import { whisperStats } from "@/lib/feed/whispers";
+import { auth } from "@/auth";
+import { WhispersFeed } from "@/components/whispers/WhispersFeed";
+import { tracks, users, whispers } from "@/lib/db/schema";
+import { whisperStats, whispersForSubject } from "@/lib/feed/whispers";
 import { loveCountsFor } from "@/lib/feed/loves";
 import { unreadCommentCountsFor } from "@/lib/feed/comments";
 import { listOpenPolls } from "@/lib/polls/ops";
@@ -28,7 +30,7 @@ function whenLabel(d: Date): string {
 }
 
 export default async function SanctumWhispers() {
-  const [subjects, recent, openPolls] = await Promise.all([
+  const [subjects, recent, openPolls, attachable] = await Promise.all([
     db
       .select({ id: users.id, name: users.chosenName, email: users.email })
       .from(users)
@@ -40,7 +42,26 @@ export default async function SanctumWhispers() {
       .orderBy(desc(whispers.pinned), desc(whispers.publishedAt))
       .limit(15),
     listOpenPolls(),
+    // Only the live catalog can be pinned to a whisper — never a draft and
+    // never a subject's private upload (D7).
+    db
+      .select({
+        id: tracks.id,
+        title: tracks.title,
+        minAccessLevel: tracks.minAccessLevel,
+        freeSample: tracks.freeSample,
+      })
+      .from(tracks)
+      .where(and(isNotNull(tracks.publishedAt), isNull(tracks.ownerUserId)))
+      .orderBy(desc(tracks.publishedAt))
+      .limit(200),
   ]);
+  // What it actually looks like out there. She was only ever shown truncated
+  // one-liners of her own voice; this is the feed as her subjects read it.
+  const session = await auth();
+  const feed = session?.user
+    ? await whispersForSubject(session.user.id, 999, true).catch(() => [])
+    : [];
   const whisperIds = recent.map((w) => w.id);
   const [stats, loveCounts, unreadComments] = await Promise.all([
     Promise.all(recent.map((w) => whisperStats(w.id))),
@@ -63,10 +84,20 @@ export default async function SanctumWhispers() {
             email: s.email,
           }))}
           openPolls={openPolls.map((p) => ({ id: p.id, question: p.question }))}
+          tracks={attachable}
         />
       </Card>
 
-      <Label className="mt-8 block">Recent</Label>
+      {/* Her feed, as they see it — the same component the subject app renders,
+          so what she reads here is exactly what lands out there. */}
+      {feed.length > 0 ? (
+        <div className="mt-10">
+          <Label className="block">Your feed, as they see it</Label>
+          <WhispersFeed items={feed} signedIn />
+        </div>
+      ) : null}
+
+      <Label className="mt-10 block">Every whisper — pin, count, take back</Label>
       <div className="mt-3 space-y-2">
         {recent.map((w, i) => {
           const scheduled = !w.publishedAt && w.scheduledFor;

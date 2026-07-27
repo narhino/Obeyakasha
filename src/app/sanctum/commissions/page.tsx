@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { commissions, tracks, users } from "@/lib/db/schema";
@@ -83,7 +84,18 @@ export default async function SanctumCommissions() {
             return (
             <Card key={c.id} raised>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm text-text">{who}</p>
+                {/* A commission is from a person — her way to everything else
+                    about them is their name, so the name is the door. */}
+                {isGuest || !c.userId ? (
+                  <p className="text-sm text-text">{who}</p>
+                ) : (
+                  <Link
+                    href={`/sanctum/subjects/${c.userId}`}
+                    className="text-sm text-text transition-colors hover:text-gold"
+                  >
+                    {who}
+                  </Link>
+                )}
                 <div className="flex items-center gap-2">
                   {isGuest ? <Badge tone="sealed">no account yet</Badge> : null}
                   {c.waitlist ? <Badge tone="sealed">waitlist</Badge> : null}

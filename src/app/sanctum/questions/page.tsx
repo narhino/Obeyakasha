@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { questionAnswers, questions, users } from "@/lib/db/schema";
@@ -17,6 +18,7 @@ export default async function SanctumQuestions() {
         .select({
           questionId: questionAnswers.questionId,
           answer: questionAnswers.answer,
+          userId: questionAnswers.userId,
           name: users.chosenName,
           createdAt: questionAnswers.createdAt,
         })
@@ -66,7 +68,13 @@ export default async function SanctumQuestions() {
               <ul className="mt-2 space-y-1">
                 {qa.slice(0, 10).map((a, i) => (
                   <li key={i} className="text-sm text-text">
-                    <span className="text-gold">{a.name ?? "someone"}:</span>{" "}
+                    {/* Who said it is a person she can go read. */}
+                    <Link
+                      href={`/sanctum/subjects/${a.userId}`}
+                      className="text-gold transition-colors hover:text-gold-deep"
+                    >
+                      {a.name ?? "someone"}:
+                    </Link>{" "}
                     {a.answer}
                   </li>
                 ))}

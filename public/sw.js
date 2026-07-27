@@ -50,6 +50,19 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// Tell the server what actually happened to a notification on this device —
+// "sent" only ever meant the push service took it. Best-effort and silent: a
+// failed ack must never break showing the notification or following its link.
+function ack(id, kind) {
+  if (!id) return Promise.resolve();
+  return fetch("/api/push/ack", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ id: id, event: kind }),
+  }).catch(() => {});
+}
+
 // ── Push ───────────────────────────────────────────────────────────────────
 self.addEventListener("push", (event) => {
   let data = {};
@@ -67,24 +80,32 @@ self.addEventListener("push", (event) => {
     data: { deepLink: data.deepLink || "/library", id: data.id },
     vibrate: [40, 30, 40],
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration
+      .showNotification(title, options)
+      .then(() => ack(data.id, "delivered")),
+  );
 });
 
 // ── Notification click → focus/open the deep link ───────────────────────────
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.deepLink) || "/library";
+  const data = event.notification.data || {};
+  const target = data.deepLink || "/library";
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        for (const client of clients) {
-          if ("focus" in client) {
-            client.navigate(target).catch(() => {});
-            return client.focus();
+    Promise.all([
+      ack(data.id, "opened"),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clients) => {
+          for (const client of clients) {
+            if ("focus" in client) {
+              client.navigate(target).catch(() => {});
+              return client.focus();
+            }
           }
-        }
-        return self.clients.openWindow(target);
-      }),
+          return self.clients.openWindow(target);
+        }),
+    ]),
   );
 });

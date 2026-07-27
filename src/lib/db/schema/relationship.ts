@@ -266,6 +266,14 @@ export const messages = pgTable(
     // rendered as a quiet banner above it so the answer never arrives without
     // its context. Null for ordinary messages.
     contextNote: text("context_note"),
+    // The push this message produced, when it produced one. Lets the thread
+    // show whether her words actually reached the phone in their pocket —
+    // "sent" is not the same as "delivered", and neither is "opened".
+    // SET NULL so pruning old notifications never eats the message.
+    pushNotificationId: uuid("push_notification_id").references(
+      () => notifications.id,
+      { onDelete: "set null" },
+    ),
     readAt: timestamp("read_at", { withTimezone: true }),
     flaggedSafety: boolean("flagged_safety").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -398,6 +406,13 @@ export const notificationDeliveries = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     deviceId: uuid("device_id").notNull(),
     status: deliveryStatus("status").notNull().default("queued"),
+    // "Sent" only means the push service accepted it. These two are the truth
+    // she asked for: deliveredAt is stamped by the service worker the moment
+    // the notification is actually drawn on their device, openedAt when they
+    // tap it. Both stay null when a push is accepted but never lands (phone
+    // off, notifications muted at the OS level, subscription gone stale).
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    openedAt: timestamp("opened_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -406,6 +421,7 @@ export const notificationDeliveries = pgTable(
     primaryKey({
       columns: [t.notificationId, t.userId, t.deviceId],
     }),
+    index("notification_deliveries_user_idx").on(t.userId, t.createdAt),
   ],
 );
 

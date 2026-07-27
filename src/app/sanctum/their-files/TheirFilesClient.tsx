@@ -94,9 +94,13 @@ export function TheirFilesClient({
       {groups.map((g) => (
         <Card key={g.userId} raised>
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <p className="font-[family-name:var(--font-display)] text-lg text-text">
+            {/* Whose files these are opens who they are. */}
+            <Link
+              href={`/sanctum/subjects/${g.userId}`}
+              className="font-[family-name:var(--font-display)] text-lg text-text transition-colors hover:text-gold"
+            >
               {g.name}
-            </p>
+            </Link>
             <p className="nums-lining text-xs text-text-dim">
               {g.files.length} {g.files.length === 1 ? "file" : "files"} ·{" "}
               {mb(g.totalBytes)}

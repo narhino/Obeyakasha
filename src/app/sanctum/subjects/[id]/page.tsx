@@ -16,6 +16,7 @@ import {
   personalPush,
   renameSubject,
 } from "../actions";
+import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
 
 export default async function SubjectProfile({
   params,
@@ -31,10 +32,12 @@ export default async function SubjectProfile({
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 
-  const [card, timeline, threadId] = await Promise.all([
+  const [card, timeline, threadId, reach, pushes] = await Promise.all([
     collarCard(id),
     profileTimeline(id),
     getOrCreateThread(id),
+    subjectReach(id),
+    subjectNotifications(id, 25),
   ]);
   void threads;
 
@@ -106,12 +109,114 @@ export default async function SubjectProfile({
         </Card>
       </div>
 
-      <Link
-        href={`/sanctum/messages/${threadId}`}
-        className="mt-4 inline-block text-sm text-gold underline"
-      >
-        Open conversation →
-      </Link>
+      {/* Everywhere this one person shows up — no dead ends off a profile. */}
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <Link
+          href={`/sanctum/messages/${threadId}`}
+          className="text-gold underline underline-offset-2"
+        >
+          Open conversation →
+        </Link>
+        <Link
+          href="/sanctum/wishes"
+          className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
+        >
+          Their asks
+        </Link>
+        <Link
+          href="/sanctum/commissions"
+          className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
+        >
+          Their commissions
+        </Link>
+        <Link
+          href="/sanctum/files"
+          className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
+        >
+          Their files
+        </Link>
+      </div>
+
+      {/* ── Reach: can she actually get to them, and what happened ────────── */}
+      <Display as="h2" id="reach" className="mt-8 scroll-mt-24 text-xl">
+        Reach
+      </Display>
+      <Whisper className="mt-1 text-xs">
+        &quot;Sent&quot; only means the push service took it. Landed means their
+        phone actually drew it. Opened means they tapped it.
+      </Whisper>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Card>
+          <Whisper className="text-xs">Devices</Whisper>
+          <p
+            className={`mt-1 text-2xl ${reach.pushEnabled > 0 ? "text-gold" : "text-danger"}`}
+          >
+            {reach.pushEnabled}
+            <span className="text-sm text-text-dim">/{reach.devices}</span>
+          </p>
+          <Whisper className="text-xs">
+            {reach.pushEnabled > 0
+              ? "can be reached now"
+              : reach.devices > 0
+                ? "installed, notifications off"
+                : "nothing installed"}
+          </Whisper>
+        </Card>
+        <Card>
+          <Whisper className="text-xs">Pushes landed</Whisper>
+          <p className="mt-1 text-2xl text-text">
+            {reach.delivered}
+            <span className="text-sm text-text-dim">/{reach.sent}</span>
+          </p>
+          <Whisper className="text-xs">
+            {reach.lastDeliveredAt
+              ? `last ${formatWhen(reach.lastDeliveredAt)}`
+              : "none confirmed yet"}
+          </Whisper>
+        </Card>
+        <Card>
+          <Whisper className="text-xs">Opened</Whisper>
+          <p className="mt-1 text-2xl text-text">{reach.opened}</p>
+          <Whisper className="text-xs">
+            {reach.lastOpenedAt
+              ? `last ${formatWhen(reach.lastOpenedAt)}`
+              : "never tapped one"}
+          </Whisper>
+        </Card>
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        {pushes.length === 0 ? (
+          <Whisper>You haven&apos;t sent them anything yet.</Whisper>
+        ) : (
+          pushes.map((p) => (
+            <Card key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm text-text">{p.title}</p>
+                <Whisper className="text-xs">
+                  {p.sentAt ? formatWhen(p.sentAt) : "—"}
+                  {p.deepLink ? ` · ${p.deepLink}` : ""}
+                </Whisper>
+              </div>
+              <Badge
+                tone={
+                  p.state === "opened"
+                    ? "gold"
+                    : p.state === "delivered"
+                      ? "neutral"
+                      : "danger"
+                }
+              >
+                {p.state === "opened"
+                  ? "opened"
+                  : p.state === "delivered"
+                    ? "landed"
+                    : "never landed"}
+              </Badge>
+            </Card>
+          ))
+        )}
+      </div>
 
       <Display as="h2" className="mt-8 text-xl">
         Timeline

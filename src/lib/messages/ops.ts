@@ -97,13 +97,19 @@ export async function sendGoddessMessage(
       .where(eq(threads.id, threadId))
       .limit(1);
     if (thread) {
-      await broadcast({
+      const stats = await broadcast({
         title: copy.messages.spokePush.title,
         body: copy.messages.spokePush.body,
         deepLink: "/messages",
         audience: { type: "users", userIds: [thread.userId] },
         kind: "manual",
       });
+      // Bind the push to the message so the thread can show what became of it —
+      // accepted, actually drawn on their device, opened.
+      await db
+        .update(messages)
+        .set({ pushNotificationId: stats.notificationId })
+        .where(eq(messages.id, msg!.id));
     }
   } catch (err) {
     console.error("[messages] goddess reply push failed:", err);

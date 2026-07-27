@@ -162,6 +162,20 @@
       "when": 1785125083311,
       "tag": "0022_ask_thread_context",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785125949781,
+      "tag": "0023_notification_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785126129452,
+      "tag": "0024_message_push_link",
+      "breakpoints": true
     }
   ]
 }

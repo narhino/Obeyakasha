@@ -30,7 +30,11 @@ export default async function BroadcastPage() {
         id: notifications.id,
         title: notifications.title,
         sentAt: notifications.sentAt,
+        // Three different truths, not one: accepted by the push service,
+        // actually drawn on a device, and tapped.
         sent: sql<number>`count(*) filter (where ${notificationDeliveries.status} = 'sent')::int`,
+        landed: sql<number>`count(${notificationDeliveries.deliveredAt})::int`,
+        opened: sql<number>`count(${notificationDeliveries.openedAt})::int`,
         total: sql<number>`count(${notificationDeliveries.userId})::int`,
       })
       .from(notifications)
@@ -126,8 +130,8 @@ export default async function BroadcastPage() {
           <Whisper>Nothing sent yet.</Whisper>
         ) : (
           recent.map((r) => (
-            <Card key={r.id} className="flex items-center justify-between py-3">
-              <div>
+            <Card key={r.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
                 <p className="text-sm text-text">{r.title}</p>
                 <Whisper className="text-xs">
                   {r.sentAt
@@ -135,9 +139,15 @@ export default async function BroadcastPage() {
                     : "—"}
                 </Whisper>
               </div>
-              <Badge tone="gold">
-                {r.sent}/{r.total} delivered
-              </Badge>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                <Badge tone="neutral">{r.sent}/{r.total} sent</Badge>
+                <Badge tone={r.landed > 0 ? "gold" : "danger"}>
+                  {r.landed} landed
+                </Badge>
+                <Badge tone={r.opened > 0 ? "gold" : "neutral"}>
+                  {r.opened} opened
+                </Badge>
+              </div>
             </Card>
           ))
         )}

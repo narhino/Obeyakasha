@@ -28,6 +28,7 @@ import {
   trafficByDay,
   trafficTotals,
 } from "@/lib/analytics/queries";
+import { pushHealth } from "@/lib/push/receipts";
 
 /**
  * The Sanctum's analytics (A21). HERS ONLY — `requireGoddess()` on top of the
@@ -85,6 +86,7 @@ export default async function SanctumAnalytics({
     reqs,
     byStatus,
     byStage,
+    push,
   ] = await Promise.all([
     safe(trafficTotals(since), null),
     safe(trafficByDay(since), []),
@@ -100,6 +102,7 @@ export default async function SanctumAnalytics({
     safe(requests(since), null),
     safe(commissionsByStatus(since), []),
     safe(commissionsByStage(since), []),
+    safe(pushHealth(days), null),
   ]);
 
   const series = fillDays(byDay, days);
@@ -389,6 +392,15 @@ export default async function SanctumAnalytics({
             }
           />
           <Stat label="App installed" value={n(her?.installedUsers)} />
+          <Stat
+            label="Pushes landed"
+            value={push ? `${n(push.delivered)}/${n(push.attempted)}` : "—"}
+            note={
+              push
+                ? `${n(push.opened)} opened · ${n(push.failed)} refused`
+                : undefined
+            }
+          />
           <Stat label="Sealed (frozen)" value={n(her?.frozen)} />
           <Stat
             label="Below the threshold"

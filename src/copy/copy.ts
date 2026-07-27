@@ -467,6 +467,9 @@ export const copy = {
     publicEmpty:
       "I keep my voice for those who enter. Come through, and you'll hear me.",
     pinnedLabel: "Held",
+    // The byline at the head of every card. One voice speaks here — naming it
+    // is what makes the feed read as hers rather than as a wall of text.
+    byline: "Akasha",
     kneel: "Kneel",
     knelt: "You knelt.",
     // The push she drops when a whisper goes live — ONE source for the
@@ -489,6 +492,17 @@ export const copy = {
       taken: "You surrendered.",
       // A logged-out visitor taps the mark → the existing connect invitation.
       connect: "Only the claimed may surrender. Come in.",
+    },
+
+    // ── A track pinned to a whisper — played from the card itself ─────────
+    audio: {
+      // Under the title when there's no duration to show.
+      listen: "Press it and I'll begin.",
+      // The row for anyone who may not hear it yet — a pull, not a wall.
+      sealed: "Not yours yet. Come closer.",
+      // Screen-reader label on the play row. {title} pre-filled.
+      playLabel: "Play {title}",
+      nowPlaying: "In your ear",
     },
 
     // ── F3 · Comments (private — author + goddess only, D7) ───────────────

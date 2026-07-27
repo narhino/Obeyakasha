@@ -25,6 +25,14 @@ const schema = z.object({
   // R9.9a: optional "Later" — a local datetime-local string. When set, the
   // whisper saves unpublished and the worker fires it (and the push) when due.
   scheduledFor: z.string().optional(),
+  // Attachments: an image already uploaded to /api/sanctum/whisper-image (the
+  // composer submits the opaque key it got back) and/or a track from the
+  // catalog, played inline from the card by anyone entitled to hear it.
+  imageKey: z.string().max(300).optional(),
+  audioTrackId: z.string().uuid().optional(),
+  // Off by default: every whisper pushes. Checked posts it into the feed with
+  // no buzz — for the small ones she doesn't want to wake anyone for.
+  silent: z.enum(["true"]).optional(),
 });
 
 /** Result surfaced to the composer via useActionState — never throws for a
@@ -47,6 +55,9 @@ export async function publishWhisper(
     pollQuestion: formData.get("pollQuestion") || undefined,
     pollOptions: formData.get("pollOptions") || undefined,
     scheduledFor: formData.get("scheduledFor") || undefined,
+    imageKey: formData.get("imageKey") || undefined,
+    audioTrackId: formData.get("audioTrackId") || undefined,
+    silent: formData.get("silent") || undefined,
   });
   if (!parsed.success) return { error: "That whisper didn't hold together. Check the fields." };
   const d = parsed.data;
@@ -105,8 +116,12 @@ export async function publishWhisper(
   }
 
   const body = d.body?.trim() || null;
-  if (!body && !pollId)
-    return { error: "Say something, or attach a poll." };
+  const imageKey = d.imageKey?.trim() || null;
+  const audioTrackId = d.audioTrackId || null;
+  // A card with art or a track is a whisper too — words are no longer the only
+  // way to say something.
+  if (!body && !pollId && !imageKey && !audioTrackId)
+    return { error: "Say something, or attach a poll, an image, or a track." };
 
   // Scheduled: save it dark. publishedAt stays null so every feed query (which
   // filters on publishedAt) hides it until the worker fires it at `scheduledFor`.
@@ -115,12 +130,16 @@ export async function publishWhisper(
       body,
       audience,
       pollId,
+      imageKey,
+      audioTrackId,
       scheduledFor,
       publishedAt: null,
     });
     await logAudit(session.user.id, "whisper.scheduled", {
       audience: d.audienceType,
       poll: d.pollMode,
+      image: Boolean(imageKey),
+      audio: audioTrackId,
       scheduledFor: scheduledFor.toISOString(),
     });
     revalidatePath("/sanctum/whispers");
@@ -133,22 +152,31 @@ export async function publishWhisper(
       body,
       audience,
       pollId,
+      imageKey,
+      audioTrackId,
       publishedAt: new Date(),
     })
     .returning({ id: whispers.id });
 
   // The SAME push path the scheduled worker uses (src/lib/feed/publish.ts).
-  await sendWhisperPush({
-    body,
-    pollId,
-    audience,
-    createdBy: session.user.id,
-    whisperId: published?.id,
-  });
+  // Skipped entirely when she posts it silent — the card still lands in the
+  // feed, nobody's phone lights up.
+  if (d.silent !== "true") {
+    await sendWhisperPush({
+      body,
+      pollId,
+      audience,
+      createdBy: session.user.id,
+      whisperId: published?.id,
+    });
+  }
 
   await logAudit(session.user.id, "whisper.published", {
     audience: d.audienceType,
     poll: d.pollMode,
+    image: Boolean(imageKey),
+    audio: audioTrackId,
+    silent: d.silent === "true",
   });
   revalidatePath("/sanctum/whispers");
   revalidatePath("/");
