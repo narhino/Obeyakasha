@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, isNotNull, sql } from "drizzle-orm";
+import { desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { automations, devices, users } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
@@ -47,13 +47,17 @@ export default async function SanctumNotifications() {
   ]);
 
   // How many devices would be held right now if they visited.
+  // Typed operators, NOT a raw sql template with `since` interpolated: a JS Date
+  // inside sql`` binds as an untyped parameter and postgres.js throws at bind
+  // time with no column type to encode against. That crash would have appeared
+  // the instant she pressed "Demand proof" — the one moment this must work.
   const owedRows = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(devices)
     .where(
       since
-        ? sql`${devices.pushVerifiedAt} is null or ${devices.pushVerifiedAt} < ${since}`
-        : sql`${devices.pushVerifiedAt} is null`,
+        ? or(isNull(devices.pushVerifiedAt), lt(devices.pushVerifiedAt, since))
+        : isNull(devices.pushVerifiedAt),
     );
   const owed = owedRows[0]?.n ?? 0;
 

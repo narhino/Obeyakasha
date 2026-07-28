@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   devices,
@@ -188,7 +188,12 @@ export async function pushHealth(sinceDays: number | null = 30) {
       people: sql<number>`count(distinct ${notificationDeliveries.userId})::int`,
     })
     .from(notificationDeliveries)
-    .where(and(sql`${notificationDeliveries.createdAt} >= ${since}`));
+    // gte(), NOT a raw sql`... >= ${since}` template. Interpolating a JS Date
+    // into a raw template binds it as an untyped parameter, and postgres.js
+    // cannot serialize a Date with no column type to infer from — it throws
+    // "The string argument must be of type string... Received an instance of
+    // Date" at bind time. The typed operator carries the column's mapping.
+    .where(gte(notificationDeliveries.createdAt, since));
   return (
     row ?? { attempted: 0, delivered: 0, opened: 0, failed: 0, people: 0 }
   );
