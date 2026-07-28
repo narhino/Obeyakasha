@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { entitlements, users } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
 import { acceptOath, declineOath } from "@/lib/oath/ops";
+import { reconcileOne } from "@/lib/patreon/reconcile";
 import { fill, copy } from "@/copy/copy";
 
 const renameSchema = z.object({
@@ -141,5 +142,87 @@ export async function toggleSubjectGate(formData: FormData) {
     which,
     required: which === "phone" ? row?.phone : row?.desktop,
   });
+  revalidatePath(`/sanctum/subjects/${userId}`);
+}
+
+const accessSchema = z.object({
+  userId: z.string().uuid(),
+  level: z.coerce.number().int().min(0).max(99),
+  reason: z.string().max(200).optional(),
+});
+
+/**
+ * Set a subject's access by hand — her own grant, independent of Patreon.
+ *
+ * Entitlements stack as `max(patreon, grants)`, so this can only ever OPEN
+ * something, never take away what a live pledge already gives. That is
+ * deliberate: a hand-set level must not become a way to accidentally lock out a
+ * paying member, and it must not silently fight the next Patreon sync.
+ *
+ * Level 0 clears her grant and hands them back to whatever Patreon says.
+ *
+ * This exists so a member whose pledge the API is wrong about — or who paid
+ * outside Patreon entirely — can be opened up in one click, right now, rather
+ * than waiting on a sweep.
+ */
+export async function setSubjectAccess(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = accessSchema.safeParse({
+    userId: formData.get("userId"),
+    level: formData.get("level"),
+    reason: formData.get("reason") || undefined,
+  });
+  if (!parsed.success) throw new Error("Invalid access change");
+  const { userId, level, reason } = parsed.data;
+
+  const existing = await db
+    .select({ id: entitlements.id })
+    .from(entitlements)
+    .where(
+      and(eq(entitlements.userId, userId), eq(entitlements.source, "grant")),
+    )
+    .limit(1);
+
+  if (level === 0) {
+    // Not a "level 0 grant" — remove the grant entirely, so the row can never
+    // sit there looking like an active decision that does nothing.
+    if (existing.length > 0) {
+      await db.delete(entitlements).where(eq(entitlements.id, existing[0]!.id));
+    }
+  } else if (existing.length > 0) {
+    await db
+      .update(entitlements)
+      .set({
+        accessLevel: level,
+        status: "active",
+        reason: reason ?? "set by hand in the Sanctum",
+        updatedAt: new Date(),
+      })
+      .where(eq(entitlements.id, existing[0]!.id));
+  } else {
+    await db.insert(entitlements).values({
+      userId,
+      accessLevel: level,
+      source: "grant",
+      status: "active",
+      reason: reason ?? "set by hand in the Sanctum",
+    });
+  }
+
+  await logAudit(session.user.id, "subject.access_set", { userId, level, reason });
+  revalidatePath(`/sanctum/subjects/${userId}`);
+}
+
+/**
+ * Ask Patreon about this one subject right now. The button beside her manual
+ * control, for the common case: they say they've re-pledged and she wants to
+ * confirm it rather than override it.
+ */
+export async function recheckSubjectPatreon(formData: FormData) {
+  const session = await requireGoddess();
+  const userId = String(formData.get("userId") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error("Invalid subject");
+  const active = await reconcileOne(userId);
+  await logAudit(session.user.id, "subject.patreon_rechecked", { userId, active });
   revalidatePath(`/sanctum/subjects/${userId}`);
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { threads, users } from "@/lib/db/schema";
+import { entitlements, patreonLinks, threads, users } from "@/lib/db/schema";
 import { collarCard } from "@/lib/profile/collar";
 import { profileTimeline } from "@/lib/profile/timeline";
 import { getOrCreateThread } from "@/lib/messages/ops";
@@ -14,7 +14,9 @@ import {
   acceptOathAction,
   declineOathAction,
   personalPush,
+  recheckSubjectPatreon,
   renameSubject,
+  setSubjectAccess,
   toggleSubjectGate,
 } from "../actions";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
@@ -34,13 +36,26 @@ export default async function SubjectProfile({
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 
-  const [card, timeline, threadId, reach, pushes, access] = await Promise.all([
+  const [card, timeline, threadId, reach, pushes, access, link, grant] =
+    await Promise.all([
     collarCard(id),
     profileTimeline(id),
     getOrCreateThread(id),
     subjectReach(id),
     subjectNotifications(id, 25),
     resolveAccess(id),
+    db
+      .select()
+      .from(patreonLinks)
+      .where(eq(patreonLinks.userId, id))
+      .limit(1)
+      .then((r) => r[0] ?? null),
+    db
+      .select()
+      .from(entitlements)
+      .where(and(eq(entitlements.userId, id), eq(entitlements.source, "grant")))
+      .limit(1)
+      .then((r) => r[0] ?? null),
   ]);
   void threads;
 
@@ -159,6 +174,64 @@ export default async function SubjectProfile({
           Their files
         </Link>
       </div>
+
+      {/* Their access, hers to set. Sits right under the standing badge that
+          prompted the question. */}
+      <Card className="mt-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Whisper className="text-xs uppercase tracking-wide">
+            Their access
+          </Whisper>
+          <form action={recheckSubjectPatreon}>
+            <input type="hidden" name="userId" value={id} />
+            <Button type="submit" size="sm" variant="ghost">
+              Ask Patreon again now
+            </Button>
+          </form>
+        </div>
+        <Whisper className="mt-1 text-xs">
+          Patreon says{" "}
+          <span className="text-text">
+            {link?.patronStatus ?? "nothing — not on the campaign"}
+          </span>
+          {link?.lastSyncedAt
+            ? ` · last checked ${formatWhen(link.lastSyncedAt)}`
+            : " · never checked"}
+          . Your own grant stacks on top and can only ever open more, never less
+          — so setting it can&apos;t lock out a paying member.
+        </Whisper>
+        <form action={setSubjectAccess} className="mt-3 flex flex-wrap items-end gap-2">
+          <input type="hidden" name="userId" value={id} />
+          <label className="flex flex-col gap-1 text-xs text-text-dim">
+            Give them level
+            <Input
+              name="level"
+              type="number"
+              min={0}
+              max={99}
+              defaultValue={grant?.accessLevel ?? 0}
+              className="w-24"
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-xs text-text-dim">
+            Why (for your audit trail)
+            <Input
+              name="reason"
+              maxLength={200}
+              placeholder="Paid outside Patreon / Patreon is wrong / a gift"
+              defaultValue={grant?.reason ?? ""}
+            />
+          </label>
+          <Button type="submit" size="sm" variant="gold">
+            Set it
+          </Button>
+        </form>
+        <Whisper className="mt-1 text-xs">
+          {grant
+            ? `You currently grant them level ${grant.accessLevel}. Set 0 to remove your grant and hand them back to Patreon.`
+            : "No grant from you — they get exactly what Patreon gives."}
+        </Whisper>
+      </Card>
 
       {/* Her release from the requirement, per device kind. Sits directly
           above Reach, because that is where she'll be looking when she decides

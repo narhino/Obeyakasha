@@ -256,3 +256,72 @@ export async function fetchPost(
   if (!resource) return null;
   return parsePost(resource, mediaMap(doc));
 }
+
+export interface CampaignMemberRow {
+  /** The patron's Patreon user id — what `patreon_links` is keyed on. */
+  patreonUserId: string;
+  patronStatus: PatronStatus;
+  entitledTierIds: string[];
+}
+
+/**
+ * Every member of the campaign, from HER creator token — one sweep that sees
+ * everybody at once.
+ *
+ * This exists because entitlements previously refreshed only inside a subject's
+ * own sign-in. Someone who re-pledged on Patreon stayed frozen in here until
+ * they happened to sign fully out and back in, which nobody does — so paying
+ * members sat locked out of what they had just paid for.
+ *
+ * Reading the campaign roster instead of each subject's token means it works
+ * for people who never come back to the app at all, and needs no per-user token
+ * refresh dance.
+ *
+ * Paginated with Patreon's cursor. `maxPages` is a hard stop so a malformed
+ * cursor can never spin forever against their API.
+ */
+export async function fetchCampaignMembers(
+  campaignId: string,
+  accessToken: string,
+  maxPages = 50,
+): Promise<CampaignMemberRow[]> {
+  const out: CampaignMemberRow[] = [];
+  let cursor: string | null = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const query =
+      `/campaigns/${encodeURIComponent(campaignId)}/members` +
+      "?include=currently_entitled_tiers,user" +
+      "&fields%5Bmember%5D=patron_status" +
+      "&page%5Bcount%5D=200" +
+      (cursor ? `&page%5Bcursor%5D=${encodeURIComponent(cursor)}` : "");
+
+    const doc: JsonApiDoc & { meta?: Record<string, unknown> } =
+      (await patreonGet(query, accessToken)) as JsonApiDoc & {
+        meta?: Record<string, unknown>;
+      };
+
+    for (const m of asArray(doc.data)) {
+      const userRef = m.relationships?.user?.data;
+      const patreonUserId = Array.isArray(userRef) ? userRef[0]?.id : userRef?.id;
+      if (!patreonUserId) continue;
+      out.push({
+        patreonUserId,
+        patronStatus:
+          (m.attributes?.patron_status as PatronStatus | undefined) ?? null,
+        entitledTierIds: asArray(
+          m.relationships?.currently_entitled_tiers?.data,
+        ).map((t) => t.id),
+      });
+    }
+
+    const pagination = doc.meta?.pagination as
+      | { cursors?: { next?: string | null } }
+      | undefined;
+    const next = pagination?.cursors?.next ?? null;
+    if (!next) break;
+    cursor = next;
+  }
+
+  return out;
+}

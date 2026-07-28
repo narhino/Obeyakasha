@@ -19,6 +19,7 @@ import { grantMonthlyGift } from "@/lib/oath/gift";
 import { pruneOldPageViews } from "@/lib/analytics/retention";
 import { logAudit } from "@/lib/audit";
 import { runAutomations, seedAutomations } from "@/lib/automations/run";
+import { reconcilePatreon } from "@/lib/patreon/reconcile";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
 import { ensureVocabulary } from "@/lib/tags/seed";
@@ -49,6 +50,13 @@ async function pollCloseTick() {
  * `automations_enabled` is kept as the master kill switch above all of them:
  * one setting that silences the lot without her having to touch each row.
  */
+async function reconcileTick() {
+  const r = await reconcilePatreon();
+  if (r.restored > 0) {
+    console.log(`[patreon] restored access for ${r.restored} subject(s)`);
+  }
+}
+
 async function automationsTick() {
   if (!(await getSetting("automations_enabled"))) return;
   await runAutomations();
@@ -237,11 +245,17 @@ async function main() {
     () => void safe("analyticsRetention", analyticsRetentionTick),
     24 * 60 * 60_000,
   );
+  // Patreon reconcile: hourly. Entitlements used to refresh ONLY inside a
+  // subject's own sign-in, so anyone who re-pledged stayed frozen until they
+  // happened to sign fully out and back in — paying members locked out of what
+  // they had just bought, with nothing in the product able to notice.
+  setInterval(() => void safe("patreonReconcile", reconcileTick), 60 * 60_000);
   // Her automations: hourly.
   setInterval(() => void safe("automations", automationsTick), 60 * 60_000);
   // Deadline warnings: hourly (order-driven, always on).
   setInterval(() => void safe("deadlineWarn", deadlineWarnTick), 60 * 60_000);
   // Run once shortly after boot.
+  setTimeout(() => void safe("patreonReconcile", reconcileTick), 8_000);
   setTimeout(() => void safe("pollClose", pollCloseTick), 10_000);
   setTimeout(() => void safe("scheduledWhisper", scheduledWhisperTick), 15_000);
   setTimeout(() => void safe("premiere", premiereTick), 17_000);

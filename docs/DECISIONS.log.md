@@ -1899,3 +1899,79 @@ decision stays about one device at a time and cannot mix them up.
   only silences the ask.
 - The dismissal is per machine (localStorage), not per account. Saying "not now"
   on a work laptop should not also silence it on a home one.
+
+---
+
+## R-ACCESS · Paying members were locked out, and nothing could notice (2026-07-27)
+
+### 1 · The bug
+
+`syncPatreonUser` — the ONLY thing that ever writes an entitlement — is called
+from exactly one place: `src/auth.ts`, on sign-in.
+
+So a member who re-pledged on Patreon stayed `frozen` here indefinitely. Their
+session cookie was still valid, so they never signed in again, so nothing ever
+re-checked. They had paid and were still sealed out, and no part of the product
+was capable of discovering that. It could only be fixed by the member happening
+to sign fully out and back in, which nobody does.
+
+**Fix: `reconcilePatreon()`, hourly in the worker.** It reads the campaign
+roster with HER creator token rather than each subject's own token, which is
+what makes it work for people who never return to the app and avoids refreshing
+dozens of expiring per-user tokens. Only rows whose status or tiers actually
+moved get an entitlement write; everything else just gets `lastSyncedAt`
+stamped, so "when did we last look" stays honest without pointless churn.
+
+`reconcileOne(userId)` is the same source of truth, immediate, for the button on
+a subject's profile — nobody should wait an hour for what they already paid for.
+
+### 2 · Her manual grant
+
+`setSubjectAccess` writes a `grant`-source entitlement. Entitlements resolve as
+`max(patreon, grants)`, so a hand-set level can only ever OPEN access, never
+close it. That is deliberate and worth stating: a manual control that could
+*lower* access would eventually be used to lock out a paying member by accident,
+and would quietly fight the next reconcile. Level 0 deletes the grant rather
+than storing a zero, so no row ever sits there looking like a decision that does
+nothing.
+
+It exists for the cases the API cannot express: Patreon being wrong, someone who
+paid another way, a gift.
+
+### 3 · The inbox's missing middle state
+
+Threads had exactly two appearances: unread, and everything else. Worse, nothing
+marked a thread read except *replying* — so opening a message she meant to come
+back to left it looking identical to one she had actually answered, and it
+vanished into the list.
+
+Three states now, and `markThreadRead` runs when she opens a thread:
+
+- **unread** — they wrote, she hasn't opened it → red
+- **unreplied** — she has read it, they still spoke last → gold
+- **answered** — she spoke last → quiet
+
+`markThreadRead` is called AFTER `flagged` is computed, or arriving at a
+safety-flagged thread would clear its own warning banner before she read it.
+
+Sorting is now newest-activity-first (safety-flagged still jumps the queue),
+because state is carried by colour — so nothing she has already read sinks out
+of sight the way it did when unread count drove the order.
+
+### 4 · Whole-row click
+
+The inbox row is one `<Link>` wrapping the card. The name is deliberately NOT
+its own link any more: an `<a>` inside an `<a>` is invalid HTML and the browser
+silently drops the inner one, so that "link" was never real. The route to a
+profile is stated once at the bottom of the list instead of failing silently on
+every row.
+
+Colour is never the only signal — each row carries a dot and a worded badge too.
+
+### 5 · Not done, on purpose
+
+- No Patreon webhook. It would be faster than hourly, but it needs a public
+  endpoint, a shared secret and replay handling; the sweep plus the two manual
+  buttons closes the actual hole today. Worth doing later, not instead.
+- The reconcile does not create accounts for pledges that never connected —
+  there is no account to open, and R8's manual import already covers that path.

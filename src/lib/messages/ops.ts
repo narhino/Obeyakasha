@@ -117,6 +117,28 @@ export async function sendGoddessMessage(
   return msg!.id;
 }
 
+/**
+ * She opened the thread: their words are now read, but NOT yet answered.
+ *
+ * Nothing used to mark these read except actually replying, so a thread stayed
+ * red until she wrote back and the "read it, owe them an answer" state could
+ * never exist. Called after the messages are loaded for render, so the page
+ * still shows what was unread the moment she arrived — and, importantly, so the
+ * safety banner is decided before this clears it.
+ */
+export async function markThreadRead(threadId: string): Promise<void> {
+  await db
+    .update(messages)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(messages.threadId, threadId),
+        eq(messages.sender, "subject"),
+        isNull(messages.readAt),
+      ),
+    );
+}
+
 export async function threadMessages(threadId: string) {
   return db
     .select()
@@ -145,6 +167,19 @@ export async function myThread(userId: string) {
 }
 
 /** Sanctum inbox: threads with last message + unread + safety flag. */
+/**
+ * Where a thread stands with her — the whole point of the inbox at a glance.
+ *
+ *   "unread"    they wrote and she has not opened it            → red
+ *   "unreplied" she has read it, but they still spoke last      → yellow
+ *   "answered"  she spoke last; nothing is owed                 → quiet
+ *
+ * The middle state is the one that was missing. Opening a thread cleared the
+ * red and the thread then looked identical to one she had actually answered,
+ * so anything she read-and-meant-to-come-back-to simply vanished from view.
+ */
+export type ThreadState = "unread" | "unreplied" | "answered";
+
 export async function inboxThreads() {
   const rows = await db
     .select({
@@ -169,19 +204,25 @@ export async function inboxThreads() {
       (m) => m.sender === "subject" && !m.readAt,
     ).length;
     const flagged = msgs.some((m) => m.flaggedSafety && !m.readAt);
+    const last = msgs[0]!;
+    const state: ThreadState =
+      unread > 0 ? "unread" : last.sender === "subject" ? "unreplied" : "answered";
     out.push({
       threadId: t.threadId,
       userId: t.userId,
       name: t.name ?? t.email ?? t.userId.slice(0, 8),
-      last: msgs[0]!,
+      last,
       unread,
       flagged,
+      state,
     });
   }
-  // Flagged first, then unread, then recency.
+  // Newest activity on top, the way every inbox she has ever used behaves —
+  // safety-flagged threads excepted, which always surface first because those
+  // are the ones that must not wait behind a busy day. State is carried by
+  // colour rather than by position, so nothing she has read sinks out of sight.
   out.sort((a, b) => {
     if (a.flagged !== b.flagged) return a.flagged ? -1 : 1;
-    if (a.unread !== b.unread) return b.unread - a.unread;
     return (b.last.createdAt?.getTime() ?? 0) - (a.last.createdAt?.getTime() ?? 0);
   });
   return out;

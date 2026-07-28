@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { threads } from "@/lib/db/schema";
-import { threadMessages } from "@/lib/messages/ops";
+import { markThreadRead, threadMessages } from "@/lib/messages/ops";
 import { collarCard } from "@/lib/profile/collar";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
@@ -69,6 +69,10 @@ export default async function SanctumThread({
     subjectReach(thread.userId),
   ]);
   const flagged = msgs.some((m) => m.flaggedSafety && !m.readAt);
+  // Opening it means she has READ them — the thread goes from red to yellow,
+  // and stays yellow until she actually answers. Deliberately after `flagged`
+  // is computed, so arriving at a flagged thread doesn't clear its own banner.
+  await markThreadRead(threadId);
   // What became of the push each of her messages fired — one batched lookup.
   const pushes = await reachFor(
     msgs.map((m) => m.pushNotificationId).filter((id): id is string => Boolean(id)),
