@@ -21,6 +21,7 @@ import {
 } from "../actions";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
 import { resolveAccess } from "@/lib/entitlements/resolve";
+import { reconcileConfigured } from "@/lib/patreon/reconcile";
 
 export default async function SubjectProfile({
   params,
@@ -36,7 +37,7 @@ export default async function SubjectProfile({
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 
-  const [card, timeline, threadId, reach, pushes, access, link, grant] =
+  const [card, timeline, threadId, reach, pushes, access, syncable, link, grant] =
     await Promise.all([
     collarCard(id),
     profileTimeline(id),
@@ -44,6 +45,7 @@ export default async function SubjectProfile({
     subjectReach(id),
     subjectNotifications(id, 25),
     resolveAccess(id),
+    reconcileConfigured(),
     db
       .select()
       .from(patreonLinks)
@@ -182,12 +184,21 @@ export default async function SubjectProfile({
           <Whisper className="text-xs uppercase tracking-wide">
             Their access
           </Whisper>
-          <form action={recheckSubjectPatreon}>
-            <input type="hidden" name="userId" value={id} />
-            <Button type="submit" size="sm" variant="ghost">
-              Ask Patreon again now
-            </Button>
-          </form>
+          {syncable.ok ? (
+            <form action={recheckSubjectPatreon}>
+              <input type="hidden" name="userId" value={id} />
+              <Button type="submit" size="sm" variant="ghost">
+                Ask Patreon again now
+              </Button>
+            </form>
+          ) : (
+            /* Say why instead of offering a button that silently does nothing. */
+            <Whisper className="text-xs text-danger">
+              {syncable.reason === "no_token"
+                ? "Can't ask Patreon — no creator token on the server."
+                : "Can't ask Patreon — no campaign id discovered yet."}
+            </Whisper>
+          )}
         </div>
         <Whisper className="mt-1 text-xs">
           Patreon says{" "}

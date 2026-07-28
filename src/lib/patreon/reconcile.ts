@@ -33,6 +33,24 @@ function lifecycleFor(status: PatronStatus) {
   }
 }
 
+/**
+ * Whether the roster sweep can run at all. Surfaced in the Sanctum so a missing
+ * creator token reads as a stated fact rather than as buttons that quietly do
+ * nothing — the failure mode this whole file exists to end.
+ */
+export async function reconcileConfigured(): Promise<{
+  ok: boolean;
+  reason?: "no_token" | "no_campaign";
+}> {
+  if (!env.PATREON_CREATOR_ACCESS_TOKEN) return { ok: false, reason: "no_token" };
+  const campaignId = await getRawSetting<string | null>(
+    "patreon_campaign_id",
+    null,
+  );
+  if (!campaignId) return { ok: false, reason: "no_campaign" };
+  return { ok: true };
+}
+
 export interface ReconcileResult {
   ok: boolean;
   reason?: "no_token" | "no_campaign" | "failed";
