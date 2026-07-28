@@ -12,6 +12,7 @@ import {
 import { pendingPetitions } from "@/lib/oath/resolve";
 import { totalUnreadComments } from "@/lib/feed/comments";
 import { PresencePing } from "@/components/presence/PresencePing";
+import { LiveRefresh } from "@/components/nav/LiveRefresh";
 import { SanctumNav, type NavCounts } from "./SanctumNav";
 
 // The rail carries live counts, so never serve a stale shell.
@@ -87,6 +88,10 @@ export default async function SanctumLayout({
       {/* F4: her heartbeat — this is what lights the "She is here" band for
           subjects. Beats on load, on tab-focus, and every 60s while visible. */}
       <PresencePing />
+      {/* The Sanctum had NO auto-refresh at all: she would sit in Messages or
+          Today while new arrivals piled up behind a screen that never moved.
+          Same watcher the subject app uses. */}
+      <LiveRefresh />
       <aside
         className="border-b border-line/70 bg-surface md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-b-0 md:border-r"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

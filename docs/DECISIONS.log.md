@@ -1779,3 +1779,76 @@ starts no pings.
   stamping it now would assert exactly the thing that turned out to be false.
 - `PushHeal` still repairs a subscription silently but does NOT mark a device
   proved. Repair is not evidence.
+
+---
+
+## R-FRESH · Why the app felt slow to update (2026-07-27)
+
+### 1 · What it actually was — measured, not guessed
+
+Before changing anything, the plausible causes were ruled out one at a time:
+
+- **CDN caching HTML?** No. `cf-cache-status: DYNAMIC`, and the origin sends
+  `cache-control: private, no-cache, no-store`.
+- **Service worker serving stale pages?** No. Navigations are network-first with
+  a cache fallback only on failure.
+- **Server too slow?** No. Production TTFB measured 0.29–0.68s.
+
+The two real causes:
+
+1. **The Sanctum had no auto-refresh at all.** `LiveRefresh` was mounted only in
+   `SubjectShell`. She works almost entirely in the Sanctum, so from her seat
+   *nothing ever updated* — messages, asks and commissions piled up behind a
+   screen that only moved when she reloaded it by hand.
+2. **The subject side re-ran the WHOLE route every 30 seconds**, whether or not
+   anything had changed.
+
+### 2 · Why the obvious fix was wrong
+
+"Poll faster" does not work here. Each tick was a full `router.refresh()`: every
+server component and every query on that route re-executed. `/library` is 178 KB
+of HTML and ~0.6s of server work. Running that every 5 seconds per open tab
+would have traded a UI problem for a server problem.
+
+### 3 · What was built instead
+
+`GET /api/pulse` returns an opaque change token — one round trip of indexed
+`max()`s, an 11-byte body, ~19ms measured end to end including HTTP. The client
+polls that every 5s and calls `router.refresh()` **only when the token changes**.
+
+Net effect per idle user per minute: 12 near-free polls plus one safety refresh
+every two minutes, versus two full route re-renders before. Faster to notice
+(≤5s instead of ≤30s) AND less server work than what it replaced.
+
+Verified by publishing a whisper straight into the database and watching the
+token change, then deleting it and watching it change back.
+
+Details that matter:
+
+- **Role-aware, and D7-safe.** The goddess waits on different things (a message,
+  an ask, a commission, a comment, the transcription pipeline) than a subject
+  (a whisper, her reply, a task, whether she's online). Every value a subject's
+  token is built from is either global or their own — never another subject's
+  anything. The response is a digest, so even the shape leaks nothing.
+- **Excluded from the middleware matcher.** It is polled constantly and gates
+  nothing by pathname — it reads its own session. Edge auth on it would be a
+  check per poll for no protection.
+- **A `fallbackMs` full refresh every 2 minutes stays**, deliberately. The pulse
+  cannot know about everything; without the belt, anything it does not cover
+  would go from "stale for 30s" to "stale forever", which is worse and much
+  harder to notice.
+- **The first poll only sets a baseline** and never refreshes — otherwise every
+  page load would double-render for nothing.
+- **In-flight guard**: a slow network must not stack polls on top of each other.
+
+### 4 · Not done, on purpose
+
+- `/library` ships 178 KB of HTML. That is a page-weight question, not an
+  update-latency one, and is left for a separate pass rather than bundled into
+  a fix for something else.
+- No websockets / SSE. A persistent connection per subject is a real operational
+  cost on one small VPS, and a 5-second token poll is indistinguishable from
+  live at this scale.
+- The 60s settings cache is untouched: writes update the cache in-process, so
+  only the separate worker can be briefly stale, and nothing subject-facing
+  depends on that.
