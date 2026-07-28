@@ -92,7 +92,7 @@ export function TheirFilesClient({
         className="hidden"
       />
       {groups.map((g) => (
-        <Card key={g.userId} raised>
+        <Card key={g.userId} id={`u-${g.userId}`} raised className="scroll-mt-24">
           <div className="mb-3 flex items-baseline justify-between gap-3">
             {/* Whose files these are opens who they are. */}
             <Link

@@ -36,11 +36,14 @@ export function SeriesClient({
   seriesTitle,
   signedIn,
   patreonPageUrl,
+  frozen = false,
 }: {
   tracks: LibraryTrack[];
   seriesTitle: string;
   signedIn: boolean;
   patreonPageUrl: string;
+  /** Pledge stopped — a sealed row says why, not "rise to level N". */
+  frozen?: boolean;
 }) {
   const playSource = usePlayer((s) => s.playSource);
   const playNow = usePlayer((s) => s.playNow);
@@ -137,7 +140,11 @@ export function SeriesClient({
                   {sealed
                     ? `${formatDuration(t.durationS) ? " · " : ""}${
                         state === "locked"
-                          ? fill(copy.library.sealed, { level: `level ${t.minAccessLevel}` })
+                          ? frozen
+                            ? copy.standing.sealedByLapse
+                            : fill(copy.library.sealed, {
+                                level: `level ${t.minAccessLevel}`,
+                              })
                           : copy.library.sealedAnon
                       }`
                     : ""}

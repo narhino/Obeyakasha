@@ -92,6 +92,7 @@ export default async function SeriesPage({
           seriesTitle={series.title}
           signedIn={signedIn}
           patreonPageUrl={patreonPageUrl}
+          frozen={signedIn && access.frozen}
         />
       </div>
     </main>

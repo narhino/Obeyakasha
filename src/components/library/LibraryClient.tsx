@@ -38,11 +38,18 @@ export function LibraryClient({
   tracks,
   signedIn,
   patreonPageUrl,
+  frozen = false,
   fallback = null,
 }: {
   tracks: CardTrack[];
   signedIn: boolean;
   patreonPageUrl: string;
+  /**
+   * Their pledge stopped. Changes what a sealed card SAYS: "rise to level N"
+   * is a lie to someone who already reached that level and simply lapsed, and
+   * it was the main reason subjects kept asking what "frozen" meant.
+   */
+  frozen?: boolean;
   fallback?: "related" | "popular" | null;
 }) {
   const playNow = usePlayer((s) => s.playNow);
@@ -199,12 +206,16 @@ export function LibraryClient({
                   </span>
                 ) : null}
                 {sealed ? (
-                  <span className="text-xs text-text-dim/80">
-                    {state === "locked"
-                      ? fill(copy.library.sealed, {
-                          level: `level ${t.minAccessLevel}`,
-                        })
-                      : copy.library.sealedAnon}
+                  <span
+                    className={`text-xs ${frozen && state === "locked" ? "text-danger/80" : "text-text-dim/80"}`}
+                  >
+                    {state !== "locked"
+                      ? copy.library.sealedAnon
+                      : frozen
+                        ? copy.standing.sealedByLapse
+                        : fill(copy.library.sealed, {
+                            level: `level ${t.minAccessLevel}`,
+                          })}
                   </span>
                 ) : null}
                 {!premiereSealed &&
@@ -235,8 +246,8 @@ export function LibraryClient({
                     rel="noreferrer"
                     className="mt-1.5 inline-block"
                   >
-                    <Button size="sm" variant="primary">
-                      {copy.library.unlockCta}
+                    <Button size="sm" variant={frozen ? "gold" : "primary"}>
+                      {frozen ? copy.standing.frozenCta : copy.library.unlockCta}
                     </Button>
                   </a>
                 ) : (

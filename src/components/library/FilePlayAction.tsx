@@ -18,12 +18,15 @@ export function FilePlayAction({
   track,
   state,
   patreonPageUrl,
+  frozen = false,
   isSample = false,
   premiereWhen = null,
 }: {
   track: QueueTrack;
   state: "entitled" | "locked" | "anon";
   patreonPageUrl: string;
+  /** Pledge stopped: the button wakes it back up rather than "unlocking". */
+  frozen?: boolean;
   /** Published free sample — the unentitled/logged-out may still taste it (R9.8). */
   isSample?: boolean;
   /** Premiere countdown phrase (R9.6). Non-null → sealed until its moment: a
@@ -103,8 +106,8 @@ export function FilePlayAction({
   if (state === "locked") {
     return (
       <a href={patreonPageUrl} target="_blank" rel="noreferrer">
-        <Button size="lg" variant="primary">
-          {copy.library.unlockCta}
+        <Button size="lg" variant={frozen ? "gold" : "primary"}>
+          {frozen ? copy.standing.frozenCta : copy.library.unlockCta}
         </Button>
       </a>
     );

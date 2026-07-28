@@ -9,11 +9,12 @@ import { vaultFor } from "@/lib/profile/vault";
 import { obedienceStanding } from "@/lib/stats/standing";
 import { oathStatusFor, type OathStatus } from "@/lib/oath/resolve";
 import { resolveAccess } from "@/lib/entitlements/resolve";
-import { getSetting } from "@/lib/settings";
+import { getRawSetting, getSetting } from "@/lib/settings";
 import { rankFor } from "@/lib/ranks/logic";
 import { plural } from "@/lib/format/plural";
 import { formatDate } from "@/lib/format/when";
 import { Badge, Card, Display, Eyebrow, Label, Whisper } from "@/components/ui";
+import { Standing, standingOf } from "@/components/standing/Standing";
 import { MantraRite } from "@/components/chain/MantraRite";
 import { SecretModeCard } from "@/components/me/SecretModeCard";
 import { OathCard } from "@/components/me/OathCard";
@@ -47,6 +48,13 @@ export default async function MePage() {
   const uid = session.user.id;
 
   const access = await resolveAccess(uid);
+  // Their standing with her, and the one door out of it. `standing` below is
+  // the obedience percentile — a different thing entirely.
+  const pledgeState = standingOf(access);
+  const patreonPageUrl = await getRawSetting<string>(
+    "patreon_page_url",
+    "https://www.patreon.com",
+  );
   const [
     card,
     mantraText,
@@ -171,6 +179,19 @@ export default async function MePage() {
               })
             : copy.you.bottom}
         </Whisper>
+
+        {/* Their standing, right under their name — the first place anyone
+            looks when they want to know why something is sealed. Silent for a
+            current subject at the banner weight; stated plainly otherwise. */}
+        {pledgeState !== "active" ? (
+          <div id="standing" className="mt-4 scroll-mt-24">
+            <Standing
+              state={pledgeState}
+              level={access.accessLevel}
+              patreonPageUrl={patreonPageUrl}
+            />
+          </div>
+        ) : null}
 
         {/* The collar — earned by the chain (R9.5), folded into the plate. */}
         <OathCard

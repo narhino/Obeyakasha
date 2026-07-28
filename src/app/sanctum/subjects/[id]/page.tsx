@@ -17,6 +17,7 @@ import {
   renameSubject,
 } from "../actions";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
+import { resolveAccess } from "@/lib/entitlements/resolve";
 
 export default async function SubjectProfile({
   params,
@@ -32,12 +33,13 @@ export default async function SubjectProfile({
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 
-  const [card, timeline, threadId, reach, pushes] = await Promise.all([
+  const [card, timeline, threadId, reach, pushes, access] = await Promise.all([
     collarCard(id),
     profileTimeline(id),
     getOrCreateThread(id),
     subjectReach(id),
     subjectNotifications(id, 25),
+    resolveAccess(id),
   ]);
   void threads;
 
@@ -48,6 +50,26 @@ export default async function SubjectProfile({
         {card?.chosenName ?? "subject"}
       </Display>
       <Whisper className="mt-1">{user.email}</Whisper>
+
+      {/* Their standing with the pledge, first — it is the single most common
+          thing she is asked about, and it decides what they can even open. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+        {access.frozen ? (
+          <Badge tone="danger">frozen — their pledge stopped</Badge>
+        ) : access.inGrace ? (
+          <Badge tone="gold">in grace · level {access.accessLevel}</Badge>
+        ) : access.accessLevel > 0 ? (
+          <Badge tone="gold">current · level {access.accessLevel}</Badge>
+        ) : (
+          <Badge tone="sealed">at the threshold — nothing pledged</Badge>
+        )}
+        {access.frozen ? (
+          <Whisper className="text-xs">
+            Everything they built is preserved. Pledging again restores it
+            instantly — nothing to redo on your side.
+          </Whisper>
+        ) : null}
+      </div>
 
       {card ? (
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
@@ -118,19 +140,19 @@ export default async function SubjectProfile({
           Open conversation →
         </Link>
         <Link
-          href="/sanctum/wishes"
+          href={`/sanctum/wishes#u-${id}`}
           className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
         >
           Their asks
         </Link>
         <Link
-          href="/sanctum/commissions"
+          href={`/sanctum/commissions#u-${id}`}
           className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
         >
           Their commissions
         </Link>
         <Link
-          href="/sanctum/files"
+          href={`/sanctum/their-files#u-${id}`}
           className="text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
         >
           Their files

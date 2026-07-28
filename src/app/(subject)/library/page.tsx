@@ -35,6 +35,7 @@ import {
   Whisper,
 } from "@/components/ui";
 import { copy, fill } from "@/copy/copy";
+import { Standing, standingOf } from "@/components/standing/Standing";
 
 // Reads the session + DB per request; the catalog is public but per-viewer.
 export const dynamic = "force-dynamic";
@@ -128,6 +129,7 @@ export default async function LibraryPage({
         samples={samples}
         signedIn={signedIn}
         entitled={entitled}
+        frozen={signedIn && access.frozen}
         patreonPageUrl={patreonPageUrl}
         q={q}
         activeTags={activeTags}
@@ -141,11 +143,16 @@ export default async function LibraryPage({
     <main className="mx-auto max-w-2xl px-4 py-8 lg:max-w-5xl">
       <div className="mb-2 flex items-center justify-between">
         <Display size="opener">{copy.library.title}</Display>
+        {/* The standing badge is a door, not decoration: a subject who sees
+            "frozen" and wonders what it means can tap it and land on the
+            explanation. */}
         {signedIn ? (
-          access.frozen ? (
-            <Badge tone="danger">frozen</Badge>
-          ) : access.inGrace ? (
-            <Badge tone="gold">grace · {access.accessLevel}</Badge>
+          access.frozen || access.inGrace ? (
+            <Link href="/me#standing" aria-label={copy.standing.label}>
+              <Badge tone={access.frozen ? "danger" : "gold"}>
+                {access.frozen ? "frozen — why?" : `grace · ${access.accessLevel}`}
+              </Badge>
+            </Link>
           ) : (
             <Badge tone="gold">level {access.accessLevel}</Badge>
           )
@@ -167,20 +174,18 @@ export default async function LibraryPage({
         </>
       ) : null}
 
-      {signedIn && access.frozen ? (
-        <Card className="mb-6 border-danger/40">
-          <Whisper className="text-base text-text">{copy.lapse.frozen}</Whisper>
-          <a
-            href={patreonPageUrl}
-            className="mt-3 inline-block text-sm text-gold underline"
-          >
-            {copy.lapse.resubscribe}
-          </a>
-        </Card>
-      ) : signedIn && access.inGrace ? (
-        <Card className="mb-6 border-gold/40">
-          <Whisper className="text-text">{copy.lapse.grace}</Whisper>
-        </Card>
+      {/* The same explanation the You page gives, in banner weight — one
+          source, so what "frozen" means can never say two different things in
+          two places. Silent for a current subject. */}
+      {signedIn ? (
+        <div className="mb-6">
+          <Standing
+            state={standingOf(access)}
+            level={access.accessLevel}
+            patreonPageUrl={patreonPageUrl}
+            tone="banner"
+          />
+        </div>
       ) : null}
 
       <nav className="mb-5 flex gap-5 border-b border-line/70" aria-label="Library segments">
@@ -225,6 +230,7 @@ function FilesSegment({
   samples,
   signedIn,
   entitled,
+  frozen,
   patreonPageUrl,
   q,
   activeTags,
@@ -238,6 +244,8 @@ function FilesSegment({
   samples: LibraryTrack[];
   signedIn: boolean;
   entitled: boolean;
+  /** Their pledge stopped — sealed cards explain that instead of a level. */
+  frozen: boolean;
   patreonPageUrl: string;
   q: string;
   activeTags: string[];
@@ -326,6 +334,7 @@ function FilesSegment({
         tracks={tracks}
         signedIn={signedIn}
         patreonPageUrl={patreonPageUrl}
+        frozen={frozen}
         fallback={fallback}
       />
     </div>

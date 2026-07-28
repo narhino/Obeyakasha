@@ -136,6 +136,7 @@ export default async function TrackFilePage({
               }}
               state={state}
               patreonPageUrl={patreonPageUrl}
+              frozen={access.frozen}
               isSample={track.freeSample}
               premiereWhen={premiereWhen}
             />
@@ -147,8 +148,17 @@ export default async function TrackFilePage({
                 })}
               </p>
             ) : state === "locked" && !track.freeSample ? (
-              <p className="mt-2 text-xs text-text-dim/80">
-                {fill(copy.library.sealed, { level: `level ${track.minAccessLevel}` })}
+              /* Frozen means they may already have earned this one — telling
+                 them to "rise to level N" would be a lie, and it is exactly
+                 what kept sending them to her to ask. */
+              <p
+                className={`mt-2 text-xs ${access.frozen ? "text-danger/80" : "text-text-dim/80"}`}
+              >
+                {access.frozen
+                  ? copy.standing.sealedByLapse
+                  : fill(copy.library.sealed, {
+                      level: `level ${track.minAccessLevel}`,
+                    })}
               </p>
             ) : state === "anon" && !track.freeSample ? (
               <p className="mt-2 text-xs text-text-dim/80">

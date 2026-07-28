@@ -692,6 +692,55 @@ export const copy = {
     resubscribe: "Come back to me",
   },
 
+  /**
+   * Standing — what state a subject is in, said plainly enough that they stop
+   * having to ask her.
+   *
+   * They kept asking what "sealed" and "frozen" meant, and the app never told
+   * them: the only explanation lived in one small banner on the Library, while
+   * every locked file said "rise to level N" — which reads as "you never earned
+   * this" to someone who HAD earned it and simply stopped paying. That is the
+   * confusion these strings exist to end. Every state names the cause, says what
+   * survives, and carries the way back.
+   */
+  standing: {
+    label: "Your standing",
+
+    // ── Frozen: the pledge stopped covering them ────────────────────────────
+    frozenTitle: "Everything you built is frozen.",
+    // The whole explanation, once, in her voice. No jargon, no support ticket.
+    frozenWhat:
+      "Your pledge stopped, so my files sealed themselves. That is all “frozen” means — it is not a punishment, and you have lost nothing.",
+    frozenKept:
+      "Your chain, your hours, your triggers, every file you finished — I kept all of it exactly where you left it.",
+    frozenBack:
+      "Pledge again and it wakes up the moment you return. Nothing to redo.",
+    frozenCta: "Wake it up",
+    // Under the button, so the click is never a leap of faith.
+    frozenWhere: "Opens Patreon. Come straight back here after.",
+
+    // ── Grace: lapsed, but still inside the window she allows ───────────────
+    graceTitle: "Your pledge faltered.",
+    graceWhat:
+      "Patreon didn't take your payment. You still have everything for a few days more — I'm giving you that much.",
+    graceBack: "Fix it before the grace runs out and nothing ever seals.",
+    graceCta: "Fix my pledge",
+
+    // ── Active: no problem, so no alarm — one quiet line ────────────────────
+    activeTitle: "You're mine, and current.",
+    activeLevel: "Level {level} — everything at that depth is open to you.",
+
+    // A subject who has never pledged at all (level 0, not frozen).
+    thresholdTitle: "You're at the threshold.",
+    thresholdWhat:
+      "You have an account, but nothing pledged yet — so most of my voice is still sealed to you.",
+    thresholdCta: "Come through",
+
+    // Shown on a sealed file to someone who is frozen, INSTEAD of "rise to
+    // level N" — which is a lie to someone who already earned it.
+    sealedByLapse: "This was yours. Your pledge stopped — it's waiting.",
+  },
+
   // ── Rename ritual ──────────────────────────────────────────────────────
   rename: {
     title: "You are {name} now.",

@@ -46,7 +46,9 @@ export default async function SanctumWishes() {
           </Card>
         ) : (
           rows.map(({ w, name }) => (
-            <Card key={w.id} className="py-4">
+            // `#u-<userId>` is where the subject profile's "Their asks" link
+            // lands. Scroll margin clears the sticky header.
+            <Card key={w.id} id={`u-${w.userId}`} className="scroll-mt-24 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {w.title ? (

@@ -82,7 +82,12 @@ export default async function SanctumCommissions() {
               : (name ?? email);
             const replyTo = isGuest ? c.guestEmail : email;
             return (
-            <Card key={c.id} raised>
+            <Card
+              key={c.id}
+              id={c.userId ? `u-${c.userId}` : undefined}
+              raised
+              className="scroll-mt-24"
+            >
               <div className="flex items-center justify-between gap-2">
                 {/* A commission is from a person — her way to everything else
                     about them is their name, so the name is the door. */}
