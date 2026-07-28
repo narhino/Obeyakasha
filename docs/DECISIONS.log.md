@@ -1852,3 +1852,50 @@ Details that matter:
 - The 60s settings cache is untouched: writes update the cache in-process, so
   only the separate worker can be briefly stale, and nothing subject-facing
   depends on that.
+
+---
+
+## R-GATE2 · A laptop is never a wall (2026-07-27)
+
+### 1 · Desktop stops being obligatory
+
+The re-proof demand shipped applying to every platform, desktop included. That
+was wrong for one concrete reason: **a browser that has already denied
+notifications cannot be re-prompted from script.** On a phone the wall is fair —
+you can walk someone into Settings and back out again. On a laptop it is a
+lockout with no route back, and the person it traps is a paying member.
+
+So `jail()` now holds PHONES only, for everything: install, permission, and
+proof. `DesktopInvite` replaces it there — a dismissible card that asks once,
+takes "Not now" for an answer, and remembers the refusal on that machine. It
+still proves delivery if they accept, because "allowed" was never evidence.
+
+It also refuses to appear when `Notification.permission === "denied"`: the
+prompt cannot be raised again, so offering the button would waste their time and
+make her look broken.
+
+### 2 · Her per-subject release
+
+`users.gate_phone` and `users.gate_desktop` (0026), both default true.
+
+- **phone off** — never held at the threshold on a phone. No install demand, no
+  notification demand, no re-proof.
+- **desktop off** — never even invited on a laptop.
+
+Deliberately named for what they control: whether the app *demands*, not whether
+it *sends*. A released subject still receives everything she sends and can still
+turn notifications on themselves — the Sanctum card says exactly that, because
+"disable notifications for this person" and "stop requiring notifications of
+this person" are very different things to confuse in a hurry.
+
+`jail()` takes one `exempt` boolean rather than both flags: the component picks
+which flag applies from the device it is actually running on, so the pure
+decision stays about one device at a time and cannot mix them up.
+
+### 3 · Not done, on purpose
+
+- No global "require on desktop" setting. Desktop cannot be a wall safely, so
+  offering the switch would be offering a footgun; the per-subject desktop flag
+  only silences the ask.
+- The dismissal is per machine (localStorage), not per account. Saying "not now"
+  on a work laptop should not also silence it on a home one.

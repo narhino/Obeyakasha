@@ -61,7 +61,17 @@ function pushSupported(platform: Platform, iosVer: number | null): boolean {
   return true;
 }
 
-export function Jail({ enabled }: { enabled: boolean }) {
+export function Jail({
+  enabled,
+  gatePhone = true,
+  gateDesktop = true,
+}: {
+  enabled: boolean;
+  /** She may release this subject from the phone requirement entirely. */
+  gatePhone?: boolean;
+  /** Off = never even invite them on a laptop. Desktop is never a wall. */
+  gateDesktop?: boolean;
+}) {
   const [ready, setReady] = useState(false);
   const [result, setResult] = useState<JailResult>({ jailed: false, step: null });
   const [platform, setPlatform] = useState<Platform>("desktop");
@@ -115,6 +125,10 @@ export function Jail({ enabled }: { enabled: boolean }) {
     } else {
       pushPermission = Notification.permission as PushPermission;
     }
+    // Her release is per device kind: a phone reads gatePhone, anything else
+    // reads gateDesktop. (Desktop is never walled regardless — the flag there
+    // only decides whether the soft invitation appears.)
+    const exempt = isMobile ? !gatePhone : !gateDesktop;
     setResult(
       jail({
         isMobile,
@@ -122,9 +136,10 @@ export function Jail({ enabled }: { enabled: boolean }) {
         pushPermission,
         jailEnabled: enabled,
         proofOwed: proofOwedRef.current,
+        exempt,
       }),
     );
-  }, [enabled]);
+  }, [enabled, gatePhone, gateDesktop]);
 
   /**
    * Ask the server whether this device still owes proof, then re-decide. Kept

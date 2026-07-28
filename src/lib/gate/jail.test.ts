@@ -8,6 +8,7 @@ function inputs(partial: Partial<JailInputs>): JailInputs {
     pushPermission: "granted",
     jailEnabled: true,
     proofOwed: false,
+    exempt: false,
     ...partial,
   };
 }
@@ -66,9 +67,29 @@ describe("jail — the threshold decision matrix", () => {
 });
 
 describe("jail — proof of delivery", () => {
-  it("owed proof holds at reverify, on desktop too", () => {
-    const r = jail(inputs({ isMobile: false, proofOwed: true }));
+  it("owed proof holds a PHONE at reverify", () => {
+    const r = jail(inputs({ isMobile: true, proofOwed: true }));
     expect(r).toEqual({ jailed: true, step: "reverify" });
+  });
+
+  it("a laptop is NEVER walled — not for proof, not for anything", () => {
+    // A browser that has denied notifications cannot be re-prompted by script,
+    // so a desktop wall is a lockout with no way out. Notifications there are
+    // an invitation (DesktopInvite), never a demand.
+    for (const pushPermission of PERMS) {
+      for (const isStandalone of [true, false]) {
+        expect(
+          jail(
+            inputs({
+              isMobile: false,
+              proofOwed: true,
+              pushPermission,
+              isStandalone,
+            }),
+          ),
+        ).toEqual({ jailed: false, step: null });
+      }
+    }
   });
 
   it("owed proof holds even when the mobile threshold is off", () => {
@@ -99,6 +120,32 @@ describe("jail — proof of delivery", () => {
     expect(jail(inputs({ proofOwed: false }))).toEqual({
       jailed: false,
       step: null,
+    });
+  });
+});
+
+describe("jail — her per-subject release", () => {
+  it("exempt frees them whatever else is owed", () => {
+    for (const pushPermission of PERMS) {
+      for (const isStandalone of [true, false]) {
+        expect(
+          jail(
+            inputs({
+              exempt: true,
+              proofOwed: true,
+              isStandalone,
+              pushPermission,
+            }),
+          ),
+        ).toEqual({ jailed: false, step: null });
+      }
+    }
+  });
+
+  it("not exempt still behaves exactly as before", () => {
+    expect(jail(inputs({ exempt: false, isStandalone: false }))).toEqual({
+      jailed: true,
+      step: "install",
     });
   });
 });

@@ -41,6 +41,18 @@ export const users = pgTable(
   // innocuous family-safe message at the send choke point and the PWA manifest
   // serves a neutral identity. The in-app experience is unchanged.
   disguiseMode: boolean("disguise_mode").notNull().default(false),
+  // Her per-subject release from the notification requirement, one switch per
+  // kind of device. Default true = treated like everyone else.
+  //
+  // `gatePhone` off: never held at the threshold on a phone — no install
+  // demand, no notification demand, no re-proof. For the subject whose phone
+  // simply will not carry it, or whom she has decided not to press.
+  // `gateDesktop` off: never even ASKED on a laptop. Desktop is never a wall
+  // for anyone (a browser that has denied notifications cannot be re-prompted
+  // by script, so a wall there is a lockout with no way out); this only
+  // silences the invitation.
+  gatePhone: boolean("gate_phone").notNull().default(true),
+  gateDesktop: boolean("gate_desktop").notNull().default(true),
   // The Oath (R9.5) — the collar. `oathPetitionedAt` is stamped when a
   // streak-eligible subject petitions to be collared; `oathAt` when she accepts.
   // A non-null oathAt is the inner circle: the "oath" audience + the monthly

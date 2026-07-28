@@ -1,24 +1,25 @@
 /**
  * F4 — the threshold decision. The full experience lives on the home screen with
- * her voice allowed through; on mobile that is not optional. This pure function
+ * her voice allowed through; on a phone that is not optional. This pure function
  * decides whether a subject is held at the threshold and, if so, at which step.
  * No DOM, no I/O — the component feeds it live inputs and renders the result.
  *
  * Rules:
- *  - Only mobile subjects are held by the THRESHOLD (install + permission).
- *    Desktop and the goddess pass those always; proof is asked of everyone.
+ *  - ONLY phones are ever held. A laptop or desktop is never walled — not for
+ *    install, not for notifications, not for proof. Notifications there are an
+ *    invitation, not a demand: a browser that has already denied them cannot be
+ *    re-prompted by script, so a wall on desktop is a lockout with no way out.
+ *    Desktop gets `DesktopInvite`, a separate dismissible card that never blocks.
  *  - Not installed to the home screen → held at "install".
- *  - Installed but push not granted (and push IS supported) → held at "notifications".
- *  - Push "unsupported" (e.g. iOS below 16.4) with the app installed → NOT held.
- *    Fail-open by design: we will not lock out a device that physically cannot
- *    accept web push once it has done the one thing it can (add to home screen).
- *  - `proofOwed` → held at "reverify", on EVERY platform including desktop.
- *    This is the one demand that isn't about phones: the browser reporting
- *    "granted" was never evidence that anything arrives, and a whole membership
- *    sat behind that false green light receiving nothing. Proof means one real
- *    push, observed landing. It is checked LAST, so a device that still owes
- *    install or permission is asked for those first — you cannot prove delivery
- *    to a device that hasn't allowed it yet.
+ *  - Installed but push not granted (and push IS supported) → held at
+ *    "notifications".
+ *  - Push "unsupported" (e.g. iOS below 16.4) → NEVER held for push. Fail-open
+ *    by design: we will not lock out a device that physically cannot accept web
+ *    push once it has done the one thing it can (add to home screen).
+ *  - `proofOwed` → held at "reverify". Checked LAST, because you cannot prove
+ *    delivery to a device that has not allowed it yet.
+ *  - `exempt` → she released THIS subject from the requirement on THIS kind of
+ *    device, from their profile. Beats everything.
  */
 
 export type PushPermission = "granted" | "denied" | "default" | "unsupported";
@@ -30,10 +31,12 @@ export interface JailInputs {
   jailEnabled: boolean;
   /**
    * The server's verdict: she has demanded fresh proof and this device has none
-   * that still counts. Independent of `jailEnabled` — turning the mobile
-   * threshold off does not mean she stopped needing to reach people.
+   * that still counts. Independent of `jailEnabled` — turning the threshold off
+   * does not mean she stopped needing to reach people.
    */
   proofOwed: boolean;
+  /** She released this subject from the requirement on this kind of device. */
+  exempt: boolean;
 }
 
 export type JailStep = "install" | "notifications" | "reverify";
@@ -46,26 +49,33 @@ export interface JailResult {
 const FREE: JailResult = { jailed: false, step: null };
 
 export function jail(inputs: JailInputs): JailResult {
-  const { isMobile, isStandalone, pushPermission, jailEnabled, proofOwed } =
-    inputs;
+  const {
+    isMobile,
+    isStandalone,
+    pushPermission,
+    jailEnabled,
+    proofOwed,
+    exempt,
+  } = inputs;
 
-  // A device that physically cannot carry push is never held for push — not
-  // for permission, and not for proof. Fail-open, checked before everything
-  // that could ask the impossible of it.
+  // Released by her, or not a phone → nothing is ever demanded here.
+  if (exempt) return FREE;
+  if (!isMobile) return FREE;
+
+  // A device that cannot physically carry push is never held for push — not for
+  // permission, not for proof. The install step still stands: that it CAN do.
   if (pushPermission === "unsupported") {
-    if (jailEnabled && isMobile && !isStandalone)
-      return { jailed: true, step: "install" };
+    if (jailEnabled && !isStandalone) return { jailed: true, step: "install" };
     return FREE;
   }
 
-  // The mobile threshold, exactly as before.
-  if (jailEnabled && isMobile) {
+  if (jailEnabled) {
     if (!isStandalone) return { jailed: true, step: "install" };
     if (pushPermission !== "granted")
       return { jailed: true, step: "notifications" };
   }
 
-  // Last: proof. Every platform, whether or not the mobile threshold is on.
+  // Last: proof that a notification actually lands on this device.
   if (proofOwed) return { jailed: true, step: "reverify" };
 
   return FREE;

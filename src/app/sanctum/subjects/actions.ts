@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { requireGoddess } from "@/lib/auth-helpers";
@@ -94,4 +94,52 @@ export async function declineOathAction(formData: FormData) {
   await declineOath(parsed.data.userId, session.user.id);
   revalidatePath(`/sanctum/subjects/${parsed.data.userId}`);
   revalidatePath("/sanctum");
+}
+
+const gateSchema = z.object({
+  userId: z.string().uuid(),
+  which: z.enum(["phone", "desktop"]),
+});
+
+/**
+ * Release one subject from the notification requirement, or put them back under
+ * it — separately for their phone and their laptop.
+ *
+ * This does NOT stop sending them notifications. It decides whether the app
+ * *demands* them:
+ *   phone off   → never held at the threshold on a phone. No install demand, no
+ *                 notification demand, no re-proof. They can still turn
+ *                 notifications on themselves whenever they like.
+ *   desktop off → never even asked on a laptop. (A laptop is never a wall for
+ *                 anyone; this only silences the invitation.)
+ *
+ * For the subject whose phone will not carry it, or whom she has simply decided
+ * not to press.
+ */
+export async function toggleSubjectGate(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = gateSchema.safeParse({
+    userId: formData.get("userId"),
+    which: formData.get("which"),
+  });
+  if (!parsed.success) throw new Error("Invalid gate toggle");
+  const { userId, which } = parsed.data;
+
+  const column = which === "phone" ? users.gatePhone : users.gateDesktop;
+  const [row] = await db
+    .update(users)
+    .set(
+      which === "phone"
+        ? { gatePhone: sql`not ${column}`, updatedAt: new Date() }
+        : { gateDesktop: sql`not ${column}`, updatedAt: new Date() },
+    )
+    .where(eq(users.id, userId))
+    .returning({ phone: users.gatePhone, desktop: users.gateDesktop });
+
+  await logAudit(session.user.id, "subject.gate_changed", {
+    userId,
+    which,
+    required: which === "phone" ? row?.phone : row?.desktop,
+  });
+  revalidatePath(`/sanctum/subjects/${userId}`);
 }

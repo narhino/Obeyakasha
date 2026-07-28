@@ -20,6 +20,7 @@ import { PresenceOverlay } from "@/components/presence/PresenceOverlay";
 import { PresencePing } from "@/components/presence/PresencePing";
 import { BottomNav, DesktopNav } from "@/components/nav/SubjectNav";
 import { LiveRefresh } from "@/components/nav/LiveRefresh";
+import { DesktopInvite } from "@/components/gate/DesktopInvite";
 import { copy } from "@/copy/copy";
 
 /**
@@ -52,7 +53,12 @@ export async function SubjectShell({
   const [consented, meRow, attention, jailEnabled] = await Promise.all([
     hasCoreConsent(session.user.id),
     db
-      .select({ chosenName: users.chosenName })
+      .select({
+        chosenName: users.chosenName,
+        // Her per-subject release from the requirement, one per device kind.
+        gatePhone: users.gatePhone,
+        gateDesktop: users.gateDesktop,
+      })
       .from(users)
       .where(eq(users.id, session.user.id))
       .limit(1),
@@ -73,8 +79,20 @@ export async function SubjectShell({
       <PushHeal />
       {/* Auto-refresh: pulls new whispers / messages / burns without a reload. */}
       <LiveRefresh />
-      {/* The threshold — mobile subjects only; the goddess is never held. */}
-      {isSubject ? <Jail enabled={jailEnabled} /> : null}
+      {/* The threshold — PHONES only; a laptop is never walled, and the
+          goddess is never held. */}
+      {isSubject ? (
+        <Jail
+          enabled={jailEnabled}
+          gatePhone={meRow[0]?.gatePhone ?? true}
+          gateDesktop={meRow[0]?.gateDesktop ?? true}
+        />
+      ) : null}
+      {/* The laptop's version: an offer, dismissible, never a wall. Silenced
+          for this subject if she turned their desktop ask off. */}
+      {isSubject ? (
+        <DesktopInvite enabled={meRow[0]?.gateDesktop ?? true} />
+      ) : null}
       <IntakeGuard done={intakeDone}>
         <PresenceProvider enabled={isSubject}>
           {/* bottom padding clears the tab bar + mini player on mobile */}

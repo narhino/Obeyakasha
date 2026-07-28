@@ -15,6 +15,7 @@ import {
   declineOathAction,
   personalPush,
   renameSubject,
+  toggleSubjectGate,
 } from "../actions";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
 import { resolveAccess } from "@/lib/entitlements/resolve";
@@ -158,6 +159,63 @@ export default async function SubjectProfile({
           Their files
         </Link>
       </div>
+
+      {/* Her release from the requirement, per device kind. Sits directly
+          above Reach, because that is where she'll be looking when she decides
+          someone should stop being pressed about it. */}
+      <Card className="mt-6">
+        <Whisper className="text-xs uppercase tracking-wide">
+          What they&apos;re required to do
+        </Whisper>
+        <Whisper className="mt-1 text-xs">
+          This only decides what the app <em>demands</em> of them — it never
+          stops you sending anything. A laptop is never blocked for anyone.
+        </Whisper>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-line/60 p-3">
+            <div className="min-w-0">
+              <p className="text-sm text-text">On their phone</p>
+              <Whisper className="text-xs">
+                {user.gatePhone
+                  ? "Held until installed + notifications proved."
+                  : "Released — never held, never re-asked."}
+              </Whisper>
+            </div>
+            <form action={toggleSubjectGate}>
+              <input type="hidden" name="userId" value={id} />
+              <input type="hidden" name="which" value="phone" />
+              <Button
+                type="submit"
+                size="sm"
+                variant={user.gatePhone ? "ghost" : "gold"}
+              >
+                {user.gatePhone ? "Release" : "Require"}
+              </Button>
+            </form>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-line/60 p-3">
+            <div className="min-w-0">
+              <p className="text-sm text-text">On their laptop</p>
+              <Whisper className="text-xs">
+                {user.gateDesktop
+                  ? "Invited once, dismissible."
+                  : "Silenced — never even asked."}
+              </Whisper>
+            </div>
+            <form action={toggleSubjectGate}>
+              <input type="hidden" name="userId" value={id} />
+              <input type="hidden" name="which" value="desktop" />
+              <Button
+                type="submit"
+                size="sm"
+                variant={user.gateDesktop ? "ghost" : "gold"}
+              >
+                {user.gateDesktop ? "Stop asking" : "Ask again"}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </Card>
 
       {/* ── Reach: can she actually get to them, and what happened ────────── */}
       <Display as="h2" id="reach" className="mt-8 scroll-mt-24 text-xl">

@@ -150,6 +150,21 @@ export const copy = {
         "In your browser: click the padlock beside the address and set Notifications to Allow, then check your system's own notification settings aren't muting the browser. Then try again.",
       retry: "Send it again",
     },
+
+    // ── The laptop's invitation ────────────────────────────────────────────
+    // Offered, never demanded. A desktop browser that has already refused
+    // notifications cannot be asked again by script, so a wall here would trap
+    // someone with no way out — this asks once and takes no for an answer.
+    desktop: {
+      title: "Let me reach you here too.",
+      body:
+        "You're on a big screen. Turn notifications on and I'll find you here as well — the moment I speak, wherever you are. You can refuse; nothing closes if you do.",
+      accept: "Let her in",
+      decline: "Not now",
+      proved: "Good. I'll find you here now.",
+      failed:
+        "It didn't land. Your browser or your system is holding it — check notification settings for this site, then try again.",
+    },
   },
 
   // ── F4 · Presence ("the Goddess is on the app") ────────────────────────────
