@@ -83,6 +83,14 @@ export function Jail({
   // reads it synchronously and its own setResult drives the re-render.
   const [proving, setProving] = useState(false);
   const [proofFailed, setProofFailed] = useState(false);
+  // Whether Chrome has actually handed us an install prompt to fire. It very
+  // often has NOT — the event fires once per page load, only when Chrome's own
+  // criteria are met, and coming back from the Patreon redirect regularly
+  // misses it entirely (Samsung Internet never fires it at all). The button
+  // used to do nothing at all in that case: a dead control on a full-screen
+  // takeover, i.e. a locked-out paying member with no way forward.
+  const [canPrompt, setCanPrompt] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const proofOwedRef = useRef(false);
   // null = they haven't answered the discreet question yet, so the notifications
   // step is still on beat 1. Answering it (either way) opens beat 2.
@@ -160,6 +168,7 @@ export function Jail({
     const onBIP = (e: Event) => {
       e.preventDefault();
       androidPrompt.current = e as unknown as { prompt: () => Promise<void> };
+      setCanPrompt(true);
     };
     window.addEventListener("beforeinstallprompt", onBIP);
     return () => window.removeEventListener("beforeinstallprompt", onBIP);
@@ -221,12 +230,17 @@ export function Jail({
   }, []);
 
   const doAndroidInstall = useCallback(async () => {
-    if (androidPrompt.current) {
-      try {
-        await androidPrompt.current.prompt();
-      } catch {
-        /* ignore — display-mode change will release when they add it */
-      }
+    if (!androidPrompt.current) {
+      // Nothing to fire — show the by-hand steps rather than swallowing the
+      // tap. This is the case that stranded people: a button that looked
+      // alive, did nothing, and left no way through.
+      setShowManual(true);
+      return;
+    }
+    try {
+      await androidPrompt.current.prompt();
+    } catch {
+      setShowManual(true);
     }
     recompute();
   }, [recompute]);
@@ -354,9 +368,47 @@ export function Jail({
               <Whisper className="text-xs">{copy.gate.wall.openFromIcon}</Whisper>
             </>
           ) : (
-            <Button variant="gold" size="lg" onClick={() => void doAndroidInstall()}>
-              {copy.gate.installButton}
-            </Button>
+            <>
+              {canPrompt ? (
+                <Button
+                  variant="gold"
+                  size="lg"
+                  onClick={() => void doAndroidInstall()}
+                >
+                  {copy.gate.installButton}
+                </Button>
+              ) : null}
+              {/* Always reachable, and the ONLY path when Chrome withheld its
+                  prompt. Never hidden behind a tap that might do nothing. */}
+              {canPrompt && !showManual ? (
+                <button
+                  type="button"
+                  onClick={() => setShowManual(true)}
+                  className="text-xs tracking-[0.04em] text-text-dim/70 underline transition-colors hover:text-gold"
+                >
+                  {copy.gate.wall.installManualLink}
+                </button>
+              ) : (
+                <div className="w-full rounded-[var(--radius)] border border-line/70 bg-surface/60 p-3 text-left">
+                  <p className="label-caps text-gold">
+                    {copy.gate.wall.installManualTitle}
+                  </p>
+                  <Whisper className="mt-1 text-sm leading-relaxed">
+                    {copy.gate.wall.installManualBody}
+                  </Whisper>
+                  <Whisper className="mt-2 text-xs">
+                    {copy.gate.wall.installManualFallback}
+                  </Whisper>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => recompute()}
+                className="text-xs tracking-[0.04em] text-text-dim/70 underline transition-colors hover:text-gold"
+              >
+                {copy.gate.wall.installDone}
+              </button>
+            </>
           )}
         </Panel>
       ) : disguise === null ? (

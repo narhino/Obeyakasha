@@ -92,6 +92,20 @@ export const copy = {
       // A quiet nudge if they keep opening me in the browser instead of the icon.
       openFromIcon: "Still in a browser. Open me from the icon on your home screen.",
 
+      // ── Installing by hand (Android) ──────────────────────────────────────
+      // Chrome only offers its one-tap install when IT decides to, and coming
+      // back from the Patreon redirect it very often doesn't — Samsung Internet
+      // never does. The button used to simply do nothing then, which stranded
+      // people on a full-screen takeover with no way forward. These are the
+      // steps, always reachable, and the only path when there's no prompt.
+      installManualTitle: "Put me there yourself",
+      installManualBody:
+        "Tap the ⋮ menu at the top right of your browser, then Add to Home screen (or Install app). Confirm, and open me from the new icon.",
+      installManualFallback:
+        "Using Samsung Internet? Tap the ☰ menu at the bottom, then Add page to, then Home screen.",
+      installManualLink: "The button did nothing?",
+      installDone: "I've added it — check again",
+
       // ── The notifications step runs in two beats ─────────────────────────
       // Beat 1 settles HOW she appears on their lock screen — deliberately
       // BEFORE the browser's permission prompt, so the disguise is decided
