@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WhisperImageFit } from "@/lib/db/schema/relationship";
 import { IconWarn } from "@/components/ui/icons";
 import { Whisper } from "@/components/ui";
@@ -52,6 +52,13 @@ export function WhisperImageField({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Once there's no picture (removed, or the whisper posted and the form
+  // emptied), forget the file the input is still holding — otherwise picking
+  // the SAME image again fires no change event and nothing happens.
+  useEffect(() => {
+    if (!value.previewUrl && fileInput.current) fileInput.current.value = "";
+  }, [value.previewUrl]);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
