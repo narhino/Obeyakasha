@@ -3,6 +3,12 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Button, Input, Select, Whisper } from "@/components/ui";
 import { IconPlay, IconSpark, IconWarn } from "@/components/ui/icons";
+import {
+  NO_IMAGE,
+  WhisperImageField,
+  WhisperImageInputs,
+  type WhisperImageValue,
+} from "@/components/whispers/WhisperImageField";
 import { publishWhisper, type WhisperFormState } from "./actions";
 
 interface SubjectOption {
@@ -70,12 +76,8 @@ export function WhisperComposer({
   const [silent, setSilent] = useState(false);
 
   // Attachments
-  const [imageKey, setImageKey] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [image, setImage] = useState<WhisperImageValue>(NO_IMAGE);
   const [audioTrackId, setAudioTrackId] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const attachedTrack = tracks.find((t) => t.id === audioTrackId) ?? null;
@@ -86,8 +88,7 @@ export function WhisperComposer({
   useEffect(() => {
     if (!state?.ok) return;
     setBody("");
-    setImageKey("");
-    setImagePreview(null);
+    setImage(NO_IMAGE);
     setAudioTrackId("");
     setPollMode("none");
     setExistingPollId("");
@@ -96,57 +97,19 @@ export function WhisperComposer({
     setScheduledFor("");
     setShowSchedule(false);
     setSilent(false);
-    if (fileInput.current) fileInput.current.value = "";
   }, [state]);
-
-  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadError(null);
-    if (file.size > 8 * 1024 * 1024) {
-      setUploadError("That image is over 8 MB — pick a lighter one.");
-      return;
-    }
-    setUploading(true);
-    // Show it immediately; the upload catches up behind the preview.
-    const localUrl = URL.createObjectURL(file);
-    setImagePreview(localUrl);
-    try {
-      const res = await fetch("/api/sanctum/whisper-image", {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const data = (await res.json()) as { imageKey?: string; error?: string };
-      if (!res.ok || !data.imageKey) {
-        setUploadError(data.error ?? "That image didn't take. Try another.");
-        setImagePreview(null);
-        return;
-      }
-      setImageKey(data.imageKey);
-    } catch {
-      setUploadError("That image didn't take. Try another.");
-      setImagePreview(null);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function clearImage() {
-    setImageKey("");
-    setImagePreview(null);
-    setUploadError(null);
-    if (fileInput.current) fileInput.current.value = "";
-  }
 
   const missingSubject = audienceType === "user" && !userId;
   const pollUnready =
     (pollMode === "existing" && !existingPollId) ||
     (pollMode === "new" && pollQuestion.trim().length === 0);
   const nothingToSay =
-    body.trim().length === 0 && pollMode === "none" && !imageKey && !audioTrackId;
+    body.trim().length === 0 && pollMode === "none" && !image.key && !audioTrackId;
+  // A picture that's still lifting has a preview but no key yet — posting now
+  // would drop it.
+  const imagePending = Boolean(image.previewUrl) && !image.key;
   const cannotSend =
-    missingSubject || pollUnready || nothingToSay || uploading;
+    missingSubject || pollUnready || nothingToSay || imagePending;
 
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
@@ -155,7 +118,7 @@ export function WhisperComposer({
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="level" value={level} />
       <input type="hidden" name="pollMode" value={pollMode} />
-      <input type="hidden" name="imageKey" value={imageKey} />
+      <WhisperImageInputs value={image} />
       <input type="hidden" name="audioTrackId" value={audioTrackId} />
       {silent ? <input type="hidden" name="silent" value="true" /> : null}
       {!showSchedule ? <input type="hidden" name="scheduledFor" value="" /> : null}
@@ -171,24 +134,6 @@ export function WhisperComposer({
           placeholder="Say it to them…"
           className="w-full resize-y bg-transparent px-4 py-3 font-[family-name:var(--font-display)] text-lg italic leading-relaxed text-text placeholder:not-italic placeholder:font-[family-name:var(--font-sans)] placeholder:text-base placeholder:text-text-dim/45 focus:outline-none"
         />
-        {imagePreview ? (
-          <div className="relative mx-3 mb-3 overflow-hidden rounded-[var(--radius)] border border-line/60">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt="" className="max-h-64 w-full object-cover" />
-            {uploading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-bg/60 text-xs tracking-[0.08em] text-gold">
-                lifting it…
-              </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={clearImage}
-              className="absolute right-2 top-2 rounded-full border border-line bg-bg/85 px-2.5 py-1 text-xs text-text-dim backdrop-blur-sm transition-colors hover:border-danger hover:text-danger"
-            >
-              Remove
-            </button>
-          </div>
-        ) : null}
         {attachedTrack ? (
           <div className="mx-3 mb-3 flex items-center gap-3 rounded-[var(--radius)] border border-gold/25 bg-gold/[0.06] px-3 py-2">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
@@ -201,6 +146,11 @@ export function WhisperComposer({
                   ? "Free sample — anyone who sees this can hear it."
                   : `Level ${attachedTrack.minAccessLevel}+ — sealed for the rest.`}
               </p>
+              {/* The point of attaching one: the card carries them to the file's
+                  own page, so "it's up" doesn't send them hunting. */}
+              <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-gold/70">
+                They tap it → straight to the file in the Library
+              </p>
             </div>
             <button
               type="button"
@@ -212,23 +162,20 @@ export function WhisperComposer({
           </div>
         ) : null}
 
+        {/* The picture + how it sits, previewed exactly as the card will show
+            it. Lives above the attachment row because it's the biggest thing a
+            whisper can carry. */}
+        {image.previewUrl ? (
+          <div className="mx-3 mb-3">
+            <WhisperImageField value={image} onChange={setImage} />
+          </div>
+        ) : null}
+
         {/* Attachment row — the things a whisper can carry. */}
         <div className="flex flex-wrap items-center gap-2 border-t border-line/50 px-3 py-2">
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            disabled={uploading}
-            className="rounded-[var(--radius-full)] border border-line px-3 py-1 text-xs tracking-[0.04em] text-text-dim transition-colors duration-[var(--dur-med)] hover:border-gold hover:text-gold disabled:opacity-50"
-          >
-            {imageKey ? "Change image" : "Image"}
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={onPickImage}
-            className="hidden"
-          />
+          {image.previewUrl ? null : (
+            <WhisperImageField value={image} onChange={setImage} />
+          )}
           <label className="inline-flex items-center">
             <span className="sr-only">Attach a track</span>
             <Select
@@ -274,12 +221,6 @@ export function WhisperComposer({
           </span>
         </div>
       </div>
-
-      {uploadError ? (
-        <Whisper className="flex items-center gap-1.5 text-danger">
-          <IconWarn size={14} /> {uploadError}
-        </Whisper>
-      ) : null}
 
       {/* Poll, only when she asked for one. */}
       {pollMode !== "none" ? (

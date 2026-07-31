@@ -38,6 +38,13 @@ export type Audience =
   | { type: "segment"; rule: Record<string, unknown> }
   | { type: "users"; userIds: string[] };
 
+/**
+ * How an attached image sits on the card. `natural` is the default and the
+ * truth: the picture posts at its own proportions, nothing cut off. The other
+ * two are deliberate crops she asks for, not ones the layout imposes on her.
+ */
+export type WhisperImageFit = "natural" | "wide" | "square";
+
 // ── Whispers (A11) ─────────────────────────────────────────────────────────
 export const whispers = pgTable(
   "whispers",
@@ -50,6 +57,15 @@ export const whispers = pgTable(
       onDelete: "set null",
     }),
     imageKey: text("image_key"),
+    // The picture's own proportions, captured by the composer at upload. Kept
+    // so the card can reserve exactly the right space before the image loads —
+    // without them the feed would jump as each one arrives.
+    imageW: integer("image_w"),
+    imageH: integer("image_h"),
+    imageFit: text("image_fit")
+      .$type<WhisperImageFit>()
+      .notNull()
+      .default("natural"),
     audience: jsonb("audience").$type<Audience>().notNull(),
     // R1: pinned whispers sort first everywhere (her toggle in the Sanctum).
     pinned: boolean("pinned").notNull().default(false),

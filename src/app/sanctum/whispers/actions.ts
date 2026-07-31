@@ -29,6 +29,11 @@ const schema = z.object({
   // composer submits the opaque key it got back) and/or a track from the
   // catalog, played inline from the card by anyone entitled to hear it.
   imageKey: z.string().max(300).optional(),
+  // The picture's own proportions, measured by the composer, plus how she chose
+  // to sit it on the card. `natural` = posted exactly as it is.
+  imageW: z.coerce.number().int().min(1).max(30000).optional(),
+  imageH: z.coerce.number().int().min(1).max(30000).optional(),
+  imageFit: z.enum(["natural", "wide", "square"]).default("natural"),
   audioTrackId: z.string().uuid().optional(),
   // Off by default: every whisper pushes. Checked posts it into the feed with
   // no buzz — for the small ones she doesn't want to wake anyone for.
@@ -56,6 +61,9 @@ export async function publishWhisper(
     pollOptions: formData.get("pollOptions") || undefined,
     scheduledFor: formData.get("scheduledFor") || undefined,
     imageKey: formData.get("imageKey") || undefined,
+    imageW: formData.get("imageW") || undefined,
+    imageH: formData.get("imageH") || undefined,
+    imageFit: formData.get("imageFit") || "natural",
     audioTrackId: formData.get("audioTrackId") || undefined,
     silent: formData.get("silent") || undefined,
   });
@@ -123,6 +131,11 @@ export async function publishWhisper(
   if (!body && !pollId && !imageKey && !audioTrackId)
     return { error: "Say something, or attach a poll, an image, or a track." };
 
+  // Only carry the measurements when there's an image to measure.
+  const imageW = imageKey ? d.imageW ?? null : null;
+  const imageH = imageKey ? d.imageH ?? null : null;
+  const imageFit = d.imageFit;
+
   // Scheduled: save it dark. publishedAt stays null so every feed query (which
   // filters on publishedAt) hides it until the worker fires it at `scheduledFor`.
   if (scheduledFor) {
@@ -131,6 +144,9 @@ export async function publishWhisper(
       audience,
       pollId,
       imageKey,
+      imageW,
+      imageH,
+      imageFit,
       audioTrackId,
       scheduledFor,
       publishedAt: null,
@@ -153,6 +169,9 @@ export async function publishWhisper(
       audience,
       pollId,
       imageKey,
+      imageW,
+      imageH,
+      imageFit,
       audioTrackId,
       publishedAt: new Date(),
     })
@@ -179,6 +198,107 @@ export async function publishWhisper(
     silent: d.silent === "true",
   });
   revalidatePath("/sanctum/whispers");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+const editSchema = z.object({
+  whisperId: z.string().uuid(),
+  body: z.string().max(500).optional(),
+  audienceType: z.enum(["public", "all", "level", "oath", "user"]),
+  level: z.coerce.number().int().min(0).max(99).optional(),
+  userId: z.string().uuid().optional(),
+  // Empty string is meaningful here: it means "take the picture off".
+  imageKey: z.string().max(300),
+  imageW: z.coerce.number().int().min(1).max(30000).optional(),
+  imageH: z.coerce.number().int().min(1).max(30000).optional(),
+  imageFit: z.enum(["natural", "wide", "square"]).default("natural"),
+  audioTrackId: z.string().uuid().or(z.literal("")),
+});
+
+/**
+ * Change a whisper that is already out there — its words, its picture and how
+ * that picture sits, the file it points at, and above all WHO CAN SEE IT.
+ *
+ * That last one is why this exists. Before, the only fix for a whisper aimed at
+ * the wrong audience was to delete it and speak again, which took its loves and
+ * everything said beneath it with it. Now the reach can be narrowed or opened
+ * in place, and nothing that was given under it is lost.
+ *
+ * No push is sent: an edit is not a new whisper, and nobody's phone should ring
+ * twice for one. A poll it carries is left alone — votes are already cast
+ * against it. Every edit is audited with what it was and what it became.
+ */
+export async function editWhisper(
+  _prev: WhisperFormState,
+  formData: FormData,
+): Promise<WhisperFormState> {
+  const session = await requireGoddess();
+  const parsed = editSchema.safeParse({
+    whisperId: formData.get("whisperId"),
+    body: formData.get("body") || undefined,
+    audienceType: formData.get("audienceType"),
+    level: formData.get("level") || undefined,
+    userId: formData.get("userId") || undefined,
+    imageKey: formData.get("imageKey") ?? "",
+    imageW: formData.get("imageW") || undefined,
+    imageH: formData.get("imageH") || undefined,
+    imageFit: formData.get("imageFit") || "natural",
+    audioTrackId: formData.get("audioTrackId") ?? "",
+  });
+  if (!parsed.success) return { error: "That edit didn't hold together. Check the fields." };
+  const d = parsed.data;
+
+  const [before] = await db
+    .select()
+    .from(whispers)
+    .where(eq(whispers.id, d.whisperId))
+    .limit(1);
+  if (!before) return { error: "That whisper is gone." };
+
+  let audience: Audience;
+  if (d.audienceType === "public") audience = { type: "public" };
+  else if (d.audienceType === "all") audience = { type: "all" };
+  else if (d.audienceType === "level")
+    audience = { type: "level", level: d.level ?? 1 };
+  else if (d.audienceType === "oath") audience = { type: "oath" };
+  else {
+    if (!d.userId) return { error: "Choose the one subject this is for." };
+    audience = { type: "users", userIds: [d.userId] };
+  }
+
+  const body = d.body?.trim() || null;
+  const imageKey = d.imageKey.trim() || null;
+  const audioTrackId = d.audioTrackId || null;
+  if (!body && !before.pollId && !imageKey && !audioTrackId)
+    return { error: "A whisper can't be empty. Say something, or attach something." };
+
+  await db
+    .update(whispers)
+    .set({
+      body,
+      audience,
+      imageKey,
+      imageW: imageKey ? d.imageW ?? null : null,
+      imageH: imageKey ? d.imageH ?? null : null,
+      imageFit: d.imageFit,
+      audioTrackId,
+    })
+    .where(eq(whispers.id, d.whisperId));
+
+  await logAudit(session.user.id, "whisper.edited", {
+    whisperId: d.whisperId,
+    audienceBefore: (before.audience as Audience).type,
+    audienceAfter: d.audienceType,
+    bodyChanged: (before.body ?? null) !== body,
+    imageChanged: (before.imageKey ?? null) !== imageKey,
+    fitBefore: before.imageFit,
+    fitAfter: d.imageFit,
+    audioBefore: before.audioTrackId,
+    audioAfter: audioTrackId,
+  });
+  revalidatePath("/sanctum/whispers");
+  revalidatePath(`/sanctum/whispers/${d.whisperId}`);
   revalidatePath("/");
   return { ok: true };
 }
@@ -238,10 +358,10 @@ export async function cancelScheduledWhisper(formData: FormData) {
 }
 
 /**
- * Take a whisper back — published or not. There is no editing a whisper (the
- * audience it went out to is part of what it *was*), so the way to fix one sent
- * to the wrong audience is to remove it and speak again. Loves and comments
- * cascade with the row; a poll it carried is left alone.
+ * Take a whisper back — published or not. Loves and comments cascade with the
+ * row, which is exactly why `editWhisper` exists: a whisper aimed at the wrong
+ * audience should have its reach changed, not be destroyed along with
+ * everything given under it. A poll it carried is left alone.
  */
 export async function deleteWhisper(formData: FormData) {
   const session = await requireGoddess();

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { WhisperAudioView, WhisperCard } from "@/lib/feed/whispers";
+import type { WhisperImageFit } from "@/lib/db/schema/relationship";
 import type { CommentState } from "@/lib/feed/comments";
 import { copy, fill } from "@/copy/copy";
 import { formatWhen } from "@/lib/format/when";
@@ -49,6 +50,69 @@ export function WhispersFeed({
         />
       ))}
     </ul>
+  );
+}
+
+/**
+ * Her picture on the card. `natural` — the default — posts it at its own
+ * proportions: nothing is cut off, portraits stay portraits. The two crops are
+ * only ever hers to choose, never something the layout does behind her back.
+ *
+ * Intrinsic width/height are passed through when we have them so the browser
+ * reserves the exact space before the image arrives, and the feed doesn't jump
+ * as each one loads.
+ *
+ * Exported because the composer previews with this same component — what she
+ * sees before she posts IS what posts.
+ */
+export function WhisperImage({
+  src,
+  fit,
+  w,
+  h,
+}: {
+  src: string;
+  fit: WhisperImageFit;
+  w?: number | null;
+  h?: number | null;
+}) {
+  if (fit === "natural") {
+    // Tall pictures are held to their own width so they don't tower over the
+    // card; wide ones fill it edge to edge, the way a photo wants to.
+    const tall = Boolean(w && h && h > w);
+    return (
+      <div className="mt-3 flex w-full justify-center overflow-hidden bg-bg/40">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt=""
+          width={w ?? undefined}
+          height={h ?? undefined}
+          className={`max-h-[75vh] object-contain ${
+            tall ? "h-auto w-auto max-w-full" : "h-auto w-full"
+          }`}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`relative mt-3 w-full overflow-hidden ${
+        fit === "square" ? "aspect-square" : "aspect-[16/9]"
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="h-full w-full object-cover" />
+      {/* Scrim melts a deliberate crop into the card body below. */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to top, var(--color-surface), transparent 62%)",
+        }}
+      />
+    </div>
   );
 }
 
@@ -123,27 +187,12 @@ function WhisperItem({
       </div>
 
       {whisper.imageUrl ? (
-        <div
-          className={`relative mt-3 w-full overflow-hidden ${
-            featured ? "aspect-[16/9]" : "aspect-[5/2]"
-          }`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={whisper.imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-          {/* Scrim melts the image into the card body below. */}
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to top, var(--color-surface), transparent 62%)",
-            }}
-          />
-        </div>
+        <WhisperImage
+          src={whisper.imageUrl}
+          fit={whisper.imageFit}
+          w={whisper.imageW}
+          h={whisper.imageH}
+        />
       ) : null}
 
       <div
@@ -161,9 +210,7 @@ function WhisperItem({
           )
         ) : null}
 
-        {whisper.audio ? (
-          <FeedAudio audio={whisper.audio} signedIn={signedIn} />
-        ) : null}
+        {whisper.audio ? <FeedAudio audio={whisper.audio} /> : null}
 
         {whisper.poll ? (
           <FeedPoll poll={whisper.poll} signedIn={signedIn} readOnly={preview} />
@@ -237,23 +284,21 @@ function WhisperItem({
 }
 
 /**
- * A track she pinned to the whisper — played straight from the card, no trip to
- * the Library. Sealed for anyone who may not hear it: the row still shows the
- * title (that's the pull) but the tap goes to the Gate / the Library instead of
- * a play that would 404. `playable` was already decided server-side against the
- * same rule the stream endpoint enforces.
+ * A file she pinned to the whisper. Two ways in, both real: the cover PLAYS it
+ * where they stand, and the title OPENS the file's own page in the Library —
+ * so "it's up, go and get it" is a whisper that actually takes them there.
+ *
+ * Sealed for anyone who may not hear it: the cover locks instead of playing
+ * (never a play that would 404 — `playable` mirrors the stream gate exactly),
+ * but the way to the file page stays open, because that page is where the
+ * sealed state explains itself.
  */
-function FeedAudio({
-  audio,
-  signedIn,
-}: {
-  audio: WhisperAudioView;
-  signedIn: boolean;
-}) {
+function FeedAudio({ audio }: { audio: WhisperAudioView }) {
   const playNow = usePlayer((s) => s.playNow);
   const current = usePlayer((s) => s.current);
   const playing = usePlayer((s) => s.playing);
   const isThis = current?.id === audio.id;
+  const href = `/library/track/${audio.slug}`;
 
   const track: QueueTrack = {
     id: audio.id,
@@ -270,25 +315,33 @@ function FeedAudio({
       className="h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover"
     />
   );
-  const meta = (
-    <div className="min-w-0 flex-1 text-left">
-      <p className="truncate text-sm text-text">{audio.title}</p>
-      <p className="text-xs text-text-dim">
-        {audio.playable
-          ? audio.durationS
-            ? formatDuration(audio.durationS)
-            : copy.whispers.audio.listen
-          : copy.whispers.audio.sealed}
-      </p>
-    </div>
-  );
 
-  if (!audio.playable) {
-    return (
-      <Link
-        href={signedIn ? "/library" : "/signin"}
-        className="mt-4 flex items-center gap-3 rounded-[var(--radius)] border border-line/70 bg-bg/40 p-2.5 transition-colors duration-[var(--dur-med)] hover:border-gold/50"
-      >
+  return (
+    <div
+      className={`mt-4 flex items-center gap-3 rounded-[var(--radius)] border p-2.5 transition-colors duration-[var(--dur-med)] ${
+        audio.playable
+          ? "border-gold/25 bg-gold/[0.05] hover:border-gold/60"
+          : "border-line/70 bg-bg/40 hover:border-gold/50"
+      }`}
+    >
+      {audio.playable ? (
+        <button
+          type="button"
+          onClick={() => playNow([track], 0)}
+          aria-label={fill(copy.whispers.audio.playLabel, {
+            title: audio.title,
+          })}
+          className="relative shrink-0 rounded-[var(--radius-sm)]"
+        >
+          {art}
+          <span
+            aria-hidden
+            className="absolute inset-0 flex items-center justify-center rounded-[var(--radius-sm)] bg-bg/45 text-gold"
+          >
+            <IconPlay size={16} className="translate-x-[1px]" />
+          </span>
+        </button>
+      ) : (
         <div className="relative shrink-0">
           {art}
           <span
@@ -298,34 +351,29 @@ function FeedAudio({
             <IconLock size={15} />
           </span>
         </div>
-        {meta}
-      </Link>
-    );
-  }
+      )}
 
-  return (
-    <button
-      type="button"
-      onClick={() => playNow([track], 0)}
-      aria-label={fill(copy.whispers.audio.playLabel, { title: audio.title })}
-      className="mt-4 flex w-full items-center gap-3 rounded-[var(--radius)] border border-gold/25 bg-gold/[0.05] p-2.5 transition-colors duration-[var(--dur-med)] hover:border-gold/60"
-    >
-      <div className="relative shrink-0">
-        {art}
-        <span
-          aria-hidden
-          className="absolute inset-0 flex items-center justify-center rounded-[var(--radius-sm)] bg-bg/45 text-gold"
-        >
-          <IconPlay size={16} className="translate-x-[1px]" />
-        </span>
-      </div>
-      {meta}
+      {/* The words are the way to the file itself. */}
+      <Link href={href} className="min-w-0 flex-1 text-left">
+        <p className="truncate text-sm text-text">{audio.title}</p>
+        <p className="text-xs text-text-dim">
+          {audio.playable
+            ? audio.durationS
+              ? formatDuration(audio.durationS)
+              : copy.whispers.audio.listen
+            : copy.whispers.audio.sealed}
+        </p>
+        <p className="mt-0.5 text-[0.6875rem] uppercase tracking-[0.12em] text-gold/70">
+          {copy.whispers.audio.inLibrary}
+        </p>
+      </Link>
+
       {isThis && playing ? (
         <span className="shrink-0 pr-1 text-[0.6875rem] uppercase tracking-[0.1em] text-gold">
           {copy.whispers.audio.nowPlaying}
         </span>
       ) : null}
-    </button>
+    </div>
   );
 }
 

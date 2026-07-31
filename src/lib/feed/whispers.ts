@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pollVotes, polls, tracks, whisperReceipts, whispers } from "@/lib/db/schema";
-import type { Audience } from "@/lib/db/schema/relationship";
+import type { Audience, WhisperImageFit } from "@/lib/db/schema/relationship";
 import { audienceMatches } from "@/lib/push/audience";
 import { resolveTrackCover, signArtwork } from "@/lib/art/resolve";
 import { isPremiereSealed } from "@/lib/premiere/logic";
@@ -35,6 +35,9 @@ export interface WhisperAudioView {
    *  Never a raw storage key. Doubles as the player's chrome art. */
   cover: string;
   playable: boolean;
+  /** The file's own page in the Library. A whisper that announces a new file
+   *  has to be able to TAKE them to it — the card links straight there. */
+  slug: string;
 }
 
 export interface WhisperCard {
@@ -44,6 +47,11 @@ export interface WhisperCard {
   /** Signed, short-lived URL for her attached image (never a raw key); null if
    *  none. Renders as the card's editorial art (D5). */
   imageUrl: string | null;
+  /** The image's true proportions + how she chose to sit it on the card.
+   *  `natural` (the default) posts it exactly as it is — no crop. */
+  imageW: number | null;
+  imageH: number | null;
+  imageFit: WhisperImageFit;
   pinned: boolean;
   publishedAt: Date | null;
   knelt: boolean;
@@ -94,6 +102,7 @@ async function audioViewsFor(
     .select({
       id: tracks.id,
       title: tracks.title,
+      slug: tracks.slug,
       durationS: tracks.durationS,
       artworkKey: tracks.artworkKey,
       minAccessLevel: tracks.minAccessLevel,
@@ -118,6 +127,7 @@ async function audioViewsFor(
       map.set(t.id, {
         id: t.id,
         title: t.title,
+        slug: t.slug,
         durationS: t.durationS,
         cover: await resolveTrackCover(t.artworkKey, []),
         playable: live && entitled,
@@ -247,6 +257,9 @@ export async function whispersForSubject(
     body: w.body,
     imageKey: w.imageKey,
     imageUrl: imageUrls.get(w.id) ?? null,
+    imageW: w.imageW,
+    imageH: w.imageH,
+    imageFit: w.imageFit,
     pinned: w.pinned,
     publishedAt: w.publishedAt,
     knelt: kneltSet.has(w.id),
@@ -299,6 +312,9 @@ export async function publicWhispers(limit = 50): Promise<WhisperCard[]> {
     body: w.body,
     imageKey: w.imageKey,
     imageUrl: imageUrls.get(w.id) ?? null,
+    imageW: w.imageW,
+    imageH: w.imageH,
+    imageFit: w.imageFit,
     pinned: w.pinned,
     publishedAt: w.publishedAt,
     knelt: false,

@@ -130,6 +130,14 @@ export default async function SanctumWhispers() {
                           <Badge tone="gold">{unreadComments.get(w.id)}</Badge>
                         ) : null}
                       </Link>
+                      {/* Words, picture, the file it points at, and who can see
+                          it — all still changeable, with a preview. */}
+                      <Link
+                        href={`/sanctum/whispers/${w.id}`}
+                        className="text-xs uppercase tracking-[0.08em] text-text-dim transition-colors hover:text-gold"
+                      >
+                        Edit · privacy
+                      </Link>
                     </>
                   )}
                 </div>
@@ -158,8 +166,8 @@ export default async function SanctumWhispers() {
                       {w.pinned ? "Unpin" : "Pin"}
                     </Button>
                   </form>
-                  {/* A whisper can't be edited — sent to the wrong audience,
-                      the fix is to take it back and speak again. */}
+                  {/* Deleting takes its loves and everything said beneath it
+                      too — changing the reach in Edit usually beats it. */}
                   <ConfirmDelete
                     action={deleteWhisper}
                     fields={{ whisperId: w.id }}

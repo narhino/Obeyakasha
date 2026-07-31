@@ -1975,3 +1975,49 @@ Colour is never the only signal — each row carries a dot and a worded badge to
   buttons closes the actual hole today. Worth doing later, not instead.
 - The reconcile does not create accounts for pledges that never connected —
   there is no account to open, and R8's manual import already covers that path.
+
+---
+
+## 2026-07-31 — Whisper images post as they are; whispers became editable
+
+Reported: "when I add an image to a whisper its cropped, this is not natural I
+should have the option to crop etc but normally image is posted as it shows",
+plus two asks in the same breath — reference a file in a whisper so a subject
+lands ON that file, and be able to change an old whisper (its privacy included)
+and see how it looks to them.
+
+### 1 · The crop was the layout's, not hers
+
+The feed card put every image in a fixed `aspect-[5/2]` box (16/9 when pinned)
+with `object-cover`. Anything that wasn't landscape got sliced. The composer
+previewed with `max-h-64 object-cover`, so she couldn't even see what she was
+about to lose.
+
+`natural` is now the default and the stored truth (`whispers.image_fit`, with
+`image_w` / `image_h` measured in the browser at upload so the card reserves the
+right space and the feed doesn't jump). `wide` and `square` remain, as choices
+she makes with the result shown to her first. Existing rows default to
+`natural` — the pictures already posted stop being cropped.
+
+One component, `WhisperImage`, renders it in the feed AND in the composer, so a
+preview can't drift from what lands.
+
+### 2 · A whisper can point AT a file
+
+The attached track used to send a sealed viewer to `/library` and an entitled
+one straight into the player, with no way to reach the file's own page. Now the
+cover plays and the title opens `/library/track/<slug>`. "It's up" became a
+whisper that takes them there.
+
+### 3 · Editing, and why it beats deleting
+
+PLAN treated a whisper as unchangeable — the audience it went to being part of
+what it *was*. That rule cost more than it protected: the only fix for a
+mis-aimed whisper was deletion, which cascades its loves and every private
+comment beneath it. `editWhisper` changes the words, the picture, the file it
+points at, and the reach, in place, keeping everything given under it. It sends
+NO push (an edit is not a new whisper) and leaves an attached poll alone (votes
+are already cast against it). Every edit is audited with before/after.
+
+The edit page previews with the real feed component — "check how it looks to
+them" is the actual card, not an approximation.

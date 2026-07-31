@@ -564,6 +564,10 @@ export const copy = {
       // Screen-reader label on the play row. {title} pre-filled.
       playLabel: "Play {title}",
       nowPlaying: "In your ear",
+      // The way from the card to the file's own page. This is what makes "it's
+      // in the Library now" a whisper that takes them there instead of telling
+      // them to go looking.
+      inLibrary: "Open it in the Library →",
     },
 
     // ── F3 · Comments (private — author + goddess only, D7) ───────────────

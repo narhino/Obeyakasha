@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import {
   messages,
   threads,
+  tracks,
   users,
   whisperComments,
   whispers,
@@ -220,5 +221,72 @@ describe("F3 — her reply lands in Messages AND mirrors under the whisper", () 
     expect(gone).toEqual({ ok: true, userId: A });
     expect(await whisperCommentsAdmin(w)).toHaveLength(0);
     expect((await commentsForViewer(A, [w])).get(w) ?? []).toHaveLength(0);
+  });
+});
+
+describe("what a whisper's card carries", () => {
+  it("keeps an image at its own proportions unless she chose a crop", async () => {
+    const A = await makeSubject("Marc");
+    // A portrait photo, posted as it is — the case that used to be sliced into
+    // a 2.5:1 band by the card itself.
+    const [tall] = await db
+      .insert(whispers)
+      .values({
+        body: "Look at me.",
+        audience: { type: "public" } as Audience,
+        imageKey: "whispers/tall.jpg",
+        imageW: 1080,
+        imageH: 1920,
+        publishedAt: new Date(),
+      })
+      .returning();
+    const [cropped] = await db
+      .insert(whispers)
+      .values({
+        body: "A band across the top.",
+        audience: { type: "public" } as Audience,
+        imageKey: "whispers/wide.jpg",
+        imageFit: "wide",
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    const byId = new Map(
+      (await whispersForSubject(A, 3)).map((c) => [c.id, c]),
+    );
+    expect(byId.get(tall!.id)).toMatchObject({
+      imageFit: "natural",
+      imageW: 1080,
+      imageH: 1920,
+    });
+    expect(byId.get(cropped!.id)!.imageFit).toBe("wide");
+    // The anonymous front door reads the same picture the same way.
+    const anon = (await publicWhispers()).find((c) => c.id === tall!.id)!;
+    expect(anon.imageFit).toBe("natural");
+    expect(anon.imageH).toBe(1920);
+  });
+
+  it("hands the attached file's own page to the card, so 'it's up' can link there", async () => {
+    const A = await makeSubject("Marc");
+    const [t] = await db
+      .insert(tracks)
+      .values({
+        title: "Deeper",
+        slug: "deeper",
+        streamKey: "audio/deeper.mp3",
+        minAccessLevel: 1,
+        visibility: "published",
+        publishedAt: new Date(),
+      })
+      .returning();
+    await db.insert(whispers).values({
+      body: "It's in your Library now.",
+      audience: { type: "public" } as Audience,
+      audioTrackId: t!.id,
+      publishedAt: new Date(),
+    });
+
+    const card = (await whispersForSubject(A, 3))[0]!;
+    expect(card.audio).toMatchObject({ slug: "deeper", playable: true });
   });
 });
