@@ -423,6 +423,41 @@ export const subjectNotes = pgTable(
   (t) => [index("subject_notes_user_idx").on(t.userId, t.createdAt)],
 );
 
+/**
+ * The read on a person, WRITTEN BY THE AI from everything he has ever said —
+ * the whole conversation, his petitions, his comments under her whispers, his
+ * ritual answers — plus what she has noted herself.
+ *
+ * She does not fill this in. She presses Update and it re-reads him. One row
+ * per subject, replaced in place: this is a current read, not a history.
+ * `messagesSeen` is what makes staleness visible — the profile can say "3 new
+ * messages since I last read him" instead of quietly aging.
+ */
+export const subjectProfiles = pgTable("subject_profiles", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  /** Who he is, in a few sentences. */
+  portrait: text("portrait").notNull(),
+  /** What he is actually after — often not what he says he wants. */
+  wants: jsonb("wants").$type<string[]>().notNull().default([]),
+  /** What reliably works on him. */
+  respondsTo: jsonb("responds_to").$type<string[]>().notNull().default([]),
+  /** What shuts him down, or what she should never say to him. */
+  avoid: jsonb("avoid").$type<string[]>().notNull().default([]),
+  /** His giving pattern, and what would plausibly move him further. */
+  money: text("money").notNull().default(""),
+  /** Whether he's drifting, and why. */
+  risk: text("risk").notNull().default(""),
+  /** Concrete things she could say or do with him next. */
+  openings: jsonb("openings").$type<string[]>().notNull().default([]),
+  /** How many messages existed when this was written — drives "N new since". */
+  messagesSeen: integer("messages_seen").notNull().default(0),
+  generatedAt: timestamp("generated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // ── Notifications (F7) ───────────────────────────────────────────────────
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),

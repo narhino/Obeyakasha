@@ -1,11 +1,14 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   commissions,
   listenSessions,
+  messages,
   questionAnswers,
   questions,
   subjectNotes,
+  subjectProfiles,
+  threads,
   tracks,
   users,
   wishes,
@@ -65,6 +68,16 @@ export interface Dossier {
     daysSinceListen: number | null;
   };
   notes: SubjectNote[];
+  /** The AI's stored read on him — the profile she presses Update on. */
+  read: {
+    portrait: string;
+    wants: string[];
+    respondsTo: string[];
+    avoid: string[];
+    money: string;
+    risk: string;
+    openings: string[];
+  } | null;
 }
 
 function daysBetween(then: Date, now = new Date()): number {
@@ -84,8 +97,16 @@ export async function subjectDossier(userId: string): Promise<Dossier | null> {
     .limit(1);
   if (!user) return null;
 
-  const [card, access, notes, commissionRows, wishRows, answers, lastListen] =
-    await Promise.all([
+  const [
+    card,
+    access,
+    notes,
+    commissionRows,
+    wishRows,
+    answers,
+    lastListen,
+    readRow,
+  ] = await Promise.all([
       collarCard(userId),
       resolveAccess(userId),
       db
@@ -123,6 +144,12 @@ export async function subjectDossier(userId: string): Promise<Dossier | null> {
         .innerJoin(tracks, eq(tracks.id, listenSessions.trackId))
         .where(eq(listenSessions.userId, userId))
         .orderBy(desc(listenSessions.startedAt))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      db
+        .select()
+        .from(subjectProfiles)
+        .where(eq(subjectProfiles.userId, userId))
         .limit(1)
         .then((r) => r[0] ?? null),
     ]);
@@ -167,6 +194,17 @@ export async function subjectDossier(userId: string): Promise<Dossier | null> {
       pinned: n.pinned,
       createdAt: n.createdAt,
     })),
+    read: readRow
+      ? {
+          portrait: readRow.portrait,
+          wants: readRow.wants,
+          respondsTo: readRow.respondsTo,
+          avoid: readRow.avoid,
+          money: readRow.money,
+          risk: readRow.risk,
+          openings: readRow.openings,
+        }
+      : null,
   };
 }
 
@@ -218,6 +256,16 @@ export function dossierBrief(d: Dossier): string {
   for (const s of d.said.slice(0, 6)) {
     lines.push(`HE SAID (${s.prompt}): "${s.answer}"`.slice(0, 400));
   }
+  if (d.read) {
+    const r = d.read;
+    lines.push(`THE READ ON HIM: ${r.portrait}`);
+    if (r.wants.length) lines.push(`  HE WANTS: ${r.wants.join(" | ")}`);
+    if (r.respondsTo.length)
+      lines.push(`  WHAT WORKS ON HIM: ${r.respondsTo.join(" | ")}`);
+    if (r.avoid.length) lines.push(`  DO NOT: ${r.avoid.join(" | ")}`);
+    if (r.money) lines.push(`  HOW HE GIVES: ${r.money}`);
+    if (r.risk) lines.push(`  RISK: ${r.risk}`);
+  }
   if (d.notes.length) {
     lines.push("HER OWN NOTES ON HIM — trust these over everything above:");
     for (const n of d.notes.slice(0, 12)) {
@@ -253,6 +301,58 @@ export async function toggleNotePinned(noteId: string): Promise<string | null> {
     .where(eq(subjectNotes.id, noteId))
     .returning({ userId: subjectNotes.userId });
   return row?.userId ?? null;
+}
+
+/**
+ * The AI's stored read on him, with how stale it is. `newMessages` is what the
+ * Update button exists for: she can see it has fallen behind without opening
+ * anything.
+ */
+export async function readOf(userId: string): Promise<{
+  profile: {
+    portrait: string;
+    wants: string[];
+    respondsTo: string[];
+    avoid: string[];
+    money: string;
+    risk: string;
+    openings: string[];
+    generatedAt: Date;
+  } | null;
+  newMessages: number;
+}> {
+  const [row] = await db
+    .select()
+    .from(subjectProfiles)
+    .where(eq(subjectProfiles.userId, userId))
+    .limit(1);
+  if (!row) return { profile: null, newMessages: 0 };
+
+  const [thread] = await db
+    .select({ id: threads.id })
+    .from(threads)
+    .where(eq(threads.userId, userId))
+    .limit(1);
+  const [{ n } = { n: 0 }] = thread
+    ? await db
+        .select({ n: count() })
+        .from(messages)
+        .where(eq(messages.threadId, thread.id))
+    : [{ n: 0 }];
+
+  return {
+    profile: {
+      portrait: row.portrait,
+      wants: row.wants,
+      respondsTo: row.respondsTo,
+      avoid: row.avoid,
+      money: row.money,
+      risk: row.risk,
+      openings: row.openings,
+      generatedAt: row.generatedAt,
+    },
+    newMessages: Math.max(0, n - row.messagesSeen),
+  };
 }
 
 /** Her notes for one person, held ones first. Used by the profile page. */

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { threads } from "@/lib/db/schema";
 import { markThreadRead, threadMessages } from "@/lib/messages/ops";
 import { collarCard } from "@/lib/profile/collar";
-import { notesFor } from "@/lib/profile/dossier";
+import { notesFor, readOf } from "@/lib/profile/dossier";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { IconWarn } from "@/components/ui/icons";
@@ -64,11 +64,12 @@ export default async function SanctumThread({
     .limit(1);
   if (!thread) notFound();
 
-  const [msgs, card, reach, notes] = await Promise.all([
+  const [msgs, card, reach, notes, read] = await Promise.all([
     threadMessages(threadId),
     collarCard(thread.userId),
     subjectReach(thread.userId),
     notesFor(thread.userId),
+    readOf(thread.userId),
   ]);
   const flagged = msgs.some((m) => m.flaggedSafety && !m.readAt);
   // Opening it means she has READ them — the thread goes from red to yellow,
@@ -204,6 +205,57 @@ export default async function SanctumThread({
             </div>
           ) : null}
         </Card>
+
+        {/* The AI's read on him, in front of her WHILE she answers — the only
+            moment it's worth anything. Updated from his own profile. */}
+        {read.profile ? (
+          <Card>
+            <div className="flex items-center justify-between gap-2">
+              <Whisper className="text-xs uppercase tracking-wide">
+                Who he is
+              </Whisper>
+              <Link
+                href={`/sanctum/subjects/${thread.userId}#read`}
+                className="text-[0.6875rem] uppercase tracking-[0.14em] text-text-dim transition-colors hover:text-gold"
+              >
+                {read.newMessages > 0 ? `${read.newMessages} new →` : "Full read →"}
+              </Link>
+            </div>
+            <p className="mt-2 text-sm leading-snug text-text-dim">
+              {read.profile.portrait}
+            </p>
+            {read.profile.respondsTo.length ? (
+              <div className="mt-2">
+                <p className="label-caps text-text-dim/60">What works</p>
+                <ul className="mt-1 space-y-1">
+                  {read.profile.respondsTo.slice(0, 3).map((r, i) => (
+                    <li
+                      key={i}
+                      className="border-l-2 border-gold/40 pl-2 text-sm leading-snug text-text-dim"
+                    >
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {read.profile.avoid.length ? (
+              <div className="mt-2">
+                <p className="label-caps text-text-dim/60">Don&apos;t</p>
+                <ul className="mt-1 space-y-1">
+                  {read.profile.avoid.slice(0, 2).map((r, i) => (
+                    <li
+                      key={i}
+                      className="border-l-2 border-danger/40 pl-2 text-sm leading-snug text-text-dim"
+                    >
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
 
         {/* What she knows that no counter holds — in front of her WHILE she
             answers, which is the only moment it's worth anything. */}

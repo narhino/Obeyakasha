@@ -2069,3 +2069,35 @@ filler (void/abyss/starlight), reflex domme lines, therapy-speak ("I hear you",
 
 Safety triage is untouched: a flagged thread still offers no draft at all, and
 nothing is ever auto-sent.
+
+---
+
+## 2026-08-02 — The profile writes itself; she presses Update
+
+Correction to the day's earlier work: notes she types by hand were the wrong
+primary. She has a hundred of these people, and everything needed to know them
+is already in the app, scattered across four tables.
+
+`subject_profiles` is the AI's read on one person, rebuilt on demand from ALL
+of it: the whole conversation, every petition, every comment left under a
+whisper (unprompted, therefore honest), his ritual answers, his standing and
+history — and her own notes, which still outrank everything. It returns what he
+wants, what works on him, what to avoid, how he gives and what would move him
+further, whether he is drifting, and concrete openings she can use today.
+
+Deliberate choices:
+
+- **A button, not a cron.** Reading a person costs a real model call, and she
+  knows when there is something new worth reading. `messages_seen` is stored so
+  the button can say "Update · 3 new" — a stale file announces itself instead of
+  quietly misleading her.
+- **One row, replaced in place.** This is a current read, not a history.
+- **Grounding is enforced in the brief.** It must not invent a job, a trauma, a
+  relationship or a motive; where the material doesn't support a claim it says
+  so. A confident profile built on nothing is worse than no profile, because she
+  would act on it.
+- **Hand notes stay, and stay on top.** The AI reads what the app recorded; she
+  knows what he said on the phone. Both go to the drafter, hers weighted higher.
+
+The read also renders beside the thread while she answers — portrait, what
+works, what not to do — because that is the only moment it is worth anything.

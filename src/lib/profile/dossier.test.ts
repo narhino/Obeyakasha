@@ -1,11 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { commissions, users, wishes } from "@/lib/db/schema";
+import {
+  commissions,
+  messages,
+  subjectProfiles,
+  threads,
+  users,
+  wishes,
+} from "@/lib/db/schema";
 import { truncateAll } from "@/lib/test/db";
 import {
   addNote,
   dossierBrief,
   notesFor,
+  readOf,
   subjectDossier,
   toggleNotePinned,
 } from "./dossier";
@@ -80,5 +88,45 @@ describe("her file on one person — what every proposed reply reads", () => {
     const brief = dossierBrief((await subjectDossier(A))!);
     expect(brief).toContain("never listened");
     expect(brief).toContain("Never commissioned");
+  });
+});
+
+describe("the AI's read on him — the profile she presses Update on", () => {
+  it("shows how far behind the read has fallen, and folds it into what the drafter sees", async () => {
+    const A = await makeSubject("Ilan");
+    const [t] = await db.insert(threads).values({ userId: A }).returning();
+    await db.insert(messages).values([
+      { threadId: t!.id, sender: "subject", body: "I couldn't sleep again." },
+      { threadId: t!.id, sender: "goddess", body: "Then you were thinking of me." },
+    ]);
+    await db.insert(subjectProfiles).values({
+      userId: A,
+      portrait: "Insomniac. Writes at 3am, apologises for it every time.",
+      wants: ["To be told he isn't a burden"],
+      respondsTo: ["Being given a bedtime"],
+      avoid: ["Asking him how work is"],
+      money: "Never commissioned. Gave after she noticed his sleep.",
+      risk: "Steady.",
+      openings: ["Tell him the hour he is allowed to write to you."],
+      messagesSeen: 2,
+    });
+
+    // Up to date while nothing new has been said.
+    expect((await readOf(A)).newMessages).toBe(0);
+
+    await db.insert(messages).values({
+      threadId: t!.id,
+      sender: "subject",
+      body: "Sorry. 3am again.",
+    });
+    const stale = await readOf(A);
+    expect(stale.newMessages).toBe(1);
+    expect(stale.profile!.portrait).toContain("Insomniac");
+
+    // And the drafter is handed the read, not just the counters.
+    const brief = dossierBrief((await subjectDossier(A))!);
+    expect(brief).toContain("THE READ ON HIM");
+    expect(brief).toContain("Being given a bedtime");
+    expect(brief).toContain("DO NOT: Asking him how work is");
   });
 });

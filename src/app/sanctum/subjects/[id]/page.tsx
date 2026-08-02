@@ -28,7 +28,8 @@ import {
   setSubjectAccess,
   toggleSubjectGate,
 } from "../actions";
-import { notesFor } from "@/lib/profile/dossier";
+import { notesFor, readOf } from "@/lib/profile/dossier";
+import { SubjectRead } from "@/components/sanctum/SubjectRead";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
 import { resolveAccess } from "@/lib/entitlements/resolve";
 import { reconcileConfigured } from "@/lib/patreon/reconcile";
@@ -58,6 +59,7 @@ export default async function SubjectProfile({
     link,
     grant,
     notes,
+    read,
   ] = await Promise.all([
     collarCard(id),
     profileTimeline(id),
@@ -79,6 +81,7 @@ export default async function SubjectProfile({
       .limit(1)
       .then((r) => r[0] ?? null),
     notesFor(id),
+    readOf(id),
   ]);
   void threads;
 
@@ -229,8 +232,16 @@ export default async function SubjectProfile({
         </Link>
       </div>
 
-      {/* Her file on him. Everything the counters can't hold — and the first
-          thing a proposed reply reads. */}
+      {/* Who he is, built by the AI out of everything he has ever said. She
+          presses Update; she doesn't write it. */}
+      <SubjectRead
+        userId={id}
+        initial={read.profile}
+        newMessages={read.newMessages}
+      />
+
+      {/* What only she knows — added by hand on top of the read above. Both
+          go into every proposed reply, hers weighted highest. */}
       <Card className="mt-6 scroll-mt-24" id="file">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <Whisper className="text-xs uppercase tracking-wide">
