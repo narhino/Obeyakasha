@@ -21,13 +21,13 @@ export async function POST(req: NextRequest) {
   }
   return withGoddess(async (goddessId) => {
     if (!portraitConfigured()) return { configured: false, profile: null };
-    const profile = await buildProfile(parsed.data.userId);
+    const { profile, reason } = await buildProfile(parsed.data.userId);
     if (profile) {
       await logAudit(goddessId, "subject.profile_read", {
         userId: parsed.data.userId,
         messagesSeen: profile.messagesSeen,
       });
     }
-    return { configured: true, profile };
+    return { configured: true, profile, reason };
   });
 }

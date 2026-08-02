@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
       threadMessages(parsed.data.threadId),
       subjectDossier(thread.userId),
     ]);
-    const drafts = await draftReplies({
+    const { drafts, reason } = await draftReplies({
       thread: msgs.map((m) => ({ sender: m.sender, body: m.body })),
       dossier,
     });
-    return { configured: true, drafts };
+    return { configured: true, drafts, reason };
   });
 }

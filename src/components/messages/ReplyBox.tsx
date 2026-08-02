@@ -49,16 +49,22 @@ export function ReplyBox({
         body: JSON.stringify({ threadId }),
       });
       const data = (await res.json()) as {
-        configured: boolean;
-        drafts: ReplyDraft[] | null;
+        configured?: boolean;
+        drafts?: ReplyDraft[] | null;
+        reason?: string;
+        error?: string;
       };
-      if (!data.configured) {
-        setNote("Add an ANTHROPIC_API_KEY to enable AI drafts.");
+      if (data.configured === false) {
+        setNote("Add an ANTHROPIC_API_KEY on the server to enable drafts.");
       } else if (!data.drafts || data.drafts.length === 0) {
-        setNote("Couldn't draft right now.");
+        // Say WHAT went wrong. "Couldn't draft right now" is unfixable by
+        // anyone who reads it — this is the Sanctum, so the real cause shows.
+        setNote(data.reason ?? data.error ?? "Couldn't draft right now.");
       } else {
         setDrafts(data.drafts);
       }
+    } catch {
+      setNote("The request never came back. Check the server is up.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +98,9 @@ export function ReplyBox({
           </Button>
         ) : null}
       </div>
-      {note ? <Whisper className="mt-2 text-xs">{note}</Whisper> : null}
+      {note ? (
+        <Whisper className="mt-2 text-xs text-danger">{note}</Whisper>
+      ) : null}
       {drafts ? (
         <div className="mt-3 space-y-2">
           <Whisper className="text-xs uppercase tracking-wide">

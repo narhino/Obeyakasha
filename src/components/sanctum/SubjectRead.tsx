@@ -52,12 +52,13 @@ export function SubjectRead({
       const data = (await res.json()) as {
         configured?: boolean;
         profile?: ReadProfile | null;
+        reason?: string;
         error?: string;
       };
       if (data.configured === false) {
         setNote("Add an ANTHROPIC_API_KEY on the server to read subjects.");
       } else if (!data.profile) {
-        setNote("Couldn't read him right now. Try again in a moment.");
+        setNote(data.reason ?? data.error ?? "Couldn't read him right now.");
       } else {
         setProfile(data.profile);
         setBehind(0);
@@ -66,7 +67,7 @@ export function SubjectRead({
         router.refresh();
       }
     } catch {
-      setNote("Couldn't read him right now. Try again in a moment.");
+      setNote("The request never came back. Check the server is up.");
     } finally {
       setBusy(false);
     }

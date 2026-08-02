@@ -1,9 +1,9 @@
 import { desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { voiceCorpus } from "@/lib/db/schema";
-import { env } from "@/lib/env";
 import type { Dossier } from "@/lib/profile/dossier";
 import { dossierBrief } from "@/lib/profile/dossier";
+import { askClaude, extractJson, llmConfigured } from "./client";
 
 /**
  * AI reply drafting (F11, PLAN §13.8 / §17). Draft-first: candidate replies in
@@ -13,7 +13,7 @@ import { dossierBrief } from "@/lib/profile/dossier";
  * "Propose" button).
  */
 export function replyDraftingConfigured(): boolean {
-  return Boolean(env.ANTHROPIC_API_KEY);
+  return llmConfigured();
 }
 
 /**
@@ -135,11 +135,7 @@ export async function draftReplies(params: {
   /** The WHOLE conversation, oldest first. */
   thread: { sender: "subject" | "goddess"; body: string | null }[];
   dossier: Dossier | null;
-}): Promise<ReplyDraft[] | null> {
-  const key = env.ANTHROPIC_API_KEY;
-  if (!key) return null;
-  const model = process.env.LLM_DRAFTS_MODEL || "claude-sonnet-5";
-
+}): Promise<{ drafts: ReplyDraft[] | null; reason?: string }> {
   const samples = await db
     .select({ text: voiceCorpus.text })
     .from(voiceCorpus)
@@ -161,38 +157,26 @@ export async function draftReplies(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1200,
-        system: BRIEF,
-        messages: [{ role: "user", content: user }],
-      }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      content?: { type: string; text?: string }[];
-    };
-    const text = data.content?.find((c) => c.type === "text")?.text ?? "";
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
-    if (start < 0 || end < 0) return null;
-    const arr: unknown = JSON.parse(text.slice(start, end + 1));
-    if (!Array.isArray(arr)) return null;
-    return arr
-      .map(normalizeDraft)
-      .filter((d): d is ReplyDraft => d !== null)
-      .slice(0, 3);
-  } catch {
-    return null;
+  const res = await askClaude({
+    system: BRIEF,
+    user,
+    maxTokens: 1500,
+    purpose: "reply-drafts",
+  });
+  if (!res.ok) return { drafts: null, reason: res.reason };
+
+  const arr = extractJson(res.text, "[");
+  if (!Array.isArray(arr)) {
+    console.error("[llm:reply-drafts] unparseable answer:", res.text.slice(0, 600));
+    return { drafts: null, reason: "The model answered in a shape I couldn't read." };
   }
+  const drafts = arr
+    .map(normalizeDraft)
+    .filter((d): d is ReplyDraft => d !== null)
+    .slice(0, 3);
+  if (drafts.length === 0)
+    return { drafts: null, reason: "The model returned no usable drafts." };
+  return { drafts };
 }
 
 const ANGLES: DraftAngle[] = ["close", "deepen", "command"];

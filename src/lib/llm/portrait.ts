@@ -6,8 +6,8 @@ import {
   threads,
   whisperComments,
 } from "@/lib/db/schema";
-import { env } from "@/lib/env";
 import { dossierBrief, subjectDossier } from "@/lib/profile/dossier";
+import { askClaude, extractJson, llmConfigured } from "./client";
 
 /**
  * The AI's read on one person (F1).
@@ -73,7 +73,7 @@ Return ONLY this JSON object, no prose around it:
 Lists: 2-5 items each, one short line per item.`;
 
 export function portraitConfigured(): boolean {
-  return Boolean(env.ANTHROPIC_API_KEY);
+  return llmConfigured();
 }
 
 /** Gather everything he has ever written, plus the facts, as one document. */
@@ -142,52 +142,29 @@ async function materialFor(userId: string): Promise<{
   return { text: parts.join("\n\n"), messageCount: msgs.length };
 }
 
-/** Re-read him and store the result. Returns null if unconfigured or it fails. */
+/** Re-read him and store the result. Carries the real reason on failure. */
 export async function buildProfile(
   userId: string,
-): Promise<GeneratedProfile | null> {
-  const key = env.ANTHROPIC_API_KEY;
-  if (!key) return null;
+): Promise<{ profile: GeneratedProfile | null; reason?: string }> {
   const material = await materialFor(userId);
-  if (!material) return null;
-  const model = process.env.LLM_DRAFTS_MODEL || "claude-sonnet-5";
+  if (!material) return { profile: null, reason: "No such subject." };
 
-  let parsed: unknown;
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 2000,
-        system: BRIEF,
-        messages: [
-          {
-            role: "user",
-            content: `${material.text}\n\nWrite her file on him.`,
-          },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      content?: { type: string; text?: string }[];
+  const res = await askClaude({
+    system: BRIEF,
+    user: `${material.text}\n\nWrite her file on him.`,
+    maxTokens: 2500,
+    purpose: "subject-profile",
+  });
+  if (!res.ok) return { profile: null, reason: res.reason };
+
+  const p = normalize(extractJson(res.text, "{"));
+  if (!p) {
+    console.error("[llm:subject-profile] unparseable answer:", res.text.slice(0, 600));
+    return {
+      profile: null,
+      reason: "The model answered in a shape I couldn't read.",
     };
-    const text = data.content?.find((c) => c.type === "text")?.text ?? "";
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start < 0 || end < 0) return null;
-    parsed = JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
   }
-
-  const p = normalize(parsed);
-  if (!p) return null;
 
   const row = {
     userId,
@@ -206,7 +183,9 @@ export async function buildProfile(
     .values(row)
     .onConflictDoUpdate({ target: subjectProfiles.userId, set: row });
 
-  return { ...p, messagesSeen: material.messageCount, generatedAt: row.generatedAt };
+  return {
+    profile: { ...p, messagesSeen: material.messageCount, generatedAt: row.generatedAt },
+  };
 }
 
 function strList(v: unknown, max = 6): string[] {
