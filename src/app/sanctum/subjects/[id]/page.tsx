@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { entitlements, patreonLinks, threads, users } from "@/lib/db/schema";
+import {
+  entitlements,
+  messages,
+  patreonLinks,
+  threads,
+  users,
+} from "@/lib/db/schema";
 import { collarCard } from "@/lib/profile/collar";
 import { profileTimeline } from "@/lib/profile/timeline";
 import { getOrCreateThread } from "@/lib/messages/ops";
@@ -12,13 +18,17 @@ import { countOf } from "@/lib/format/plural";
 import { formatWhen } from "@/lib/format/when";
 import {
   acceptOathAction,
+  addSubjectNote,
   declineOathAction,
+  deleteSubjectNote,
   personalPush,
+  pinSubjectNote,
   recheckSubjectPatreon,
   renameSubject,
   setSubjectAccess,
   toggleSubjectGate,
 } from "../actions";
+import { notesFor } from "@/lib/profile/dossier";
 import { subjectNotifications, subjectReach } from "@/lib/push/receipts";
 import { resolveAccess } from "@/lib/entitlements/resolve";
 import { reconcileConfigured } from "@/lib/patreon/reconcile";
@@ -37,8 +47,18 @@ export default async function SubjectProfile({
   const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   if (!user) notFound();
 
-  const [card, timeline, threadId, reach, pushes, access, syncable, link, grant] =
-    await Promise.all([
+  const [
+    card,
+    timeline,
+    threadId,
+    reach,
+    pushes,
+    access,
+    syncable,
+    link,
+    grant,
+    notes,
+  ] = await Promise.all([
     collarCard(id),
     profileTimeline(id),
     getOrCreateThread(id),
@@ -58,8 +78,22 @@ export default async function SubjectProfile({
       .where(and(eq(entitlements.userId, id), eq(entitlements.source, "grant")))
       .limit(1)
       .then((r) => r[0] ?? null),
+    notesFor(id),
   ]);
   void threads;
+
+  // How many of his messages she hasn't opened — put on the button so she can
+  // see there's something waiting without going looking.
+  const [{ n: unreadFromHim } = { n: 0 }] = await db
+    .select({ n: count() })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.threadId, threadId),
+        eq(messages.sender, "subject"),
+        isNull(messages.readAt),
+      ),
+    );
 
   return (
     <div className="max-w-2xl">
@@ -87,6 +121,24 @@ export default async function SubjectProfile({
             instantly — nothing to redo on your side.
           </Whisper>
         ) : null}
+      </div>
+
+      {/* Read what he actually said — the first thing she wants off a profile,
+          so it's a button at the top and not a link at the bottom. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link href={`/sanctum/messages/${threadId}`}>
+          <Button size="sm" variant="gold">
+            Read the conversation
+            {unreadFromHim > 0 ? ` · ${unreadFromHim} new` : ""}
+          </Button>
+        </Link>
+        <Link href={`#file`}>
+          <Button size="sm" variant="ghost">
+            {notes.length > 0
+              ? `His file · ${countOf(notes.length, "note")}`
+              : "Write in his file"}
+          </Button>
+        </Link>
       </div>
 
       {card ? (
@@ -176,6 +228,95 @@ export default async function SubjectProfile({
           Their files
         </Link>
       </div>
+
+      {/* Her file on him. Everything the counters can't hold — and the first
+          thing a proposed reply reads. */}
+      <Card className="mt-6 scroll-mt-24" id="file">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Whisper className="text-xs uppercase tracking-wide">
+            What you know about him
+          </Whisper>
+          <Whisper className="text-xs">
+            Yours only — he never sees this.
+          </Whisper>
+        </div>
+        <form action={addSubjectNote} className="mt-3 space-y-2">
+          <input type="hidden" name="userId" value={id} />
+          <textarea
+            name="body"
+            rows={2}
+            required
+            maxLength={2000}
+            placeholder="What he responds to, what he's afraid of, what made him give…"
+            className="w-full rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim/50 focus:border-gold focus:outline-none"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" size="sm" variant="gold">
+              Write it down
+            </Button>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-text-dim">
+              <input
+                type="checkbox"
+                name="pinned"
+                value="true"
+                className="h-3.5 w-3.5 accent-[var(--color-gold)]"
+              />
+              Hold it at the top
+            </label>
+            <Whisper className="text-xs">
+              Every proposed reply reads this first.
+            </Whisper>
+          </div>
+        </form>
+
+        {notes.length > 0 ? (
+          <ul className="mt-4 space-y-2">
+            {notes.map((n) => (
+              <li
+                key={n.id}
+                className={`rounded-[var(--radius)] border p-2.5 ${
+                  n.pinned ? "border-gold/40 bg-gold/[0.05]" : "border-line/70"
+                }`}
+              >
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-text">
+                  {n.body}
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span
+                    className="text-[0.6875rem] uppercase tracking-[0.12em] text-text-dim/60"
+                    suppressHydrationWarning
+                  >
+                    {formatWhen(n.createdAt)}
+                  </span>
+                  <form action={pinSubjectNote}>
+                    <input type="hidden" name="noteId" value={n.id} />
+                    <button
+                      type="submit"
+                      className="text-[0.6875rem] uppercase tracking-[0.12em] text-text-dim/70 transition-colors hover:text-gold"
+                    >
+                      {n.pinned ? "Release" : "Hold at top"}
+                    </button>
+                  </form>
+                  <form action={deleteSubjectNote}>
+                    <input type="hidden" name="noteId" value={n.id} />
+                    <button
+                      type="submit"
+                      className="text-[0.6875rem] uppercase tracking-[0.12em] text-text-dim/50 transition-colors hover:text-danger"
+                    >
+                      Forget it
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Whisper className="mt-3 text-xs">
+            Nothing written yet. The app knows his hours and his chain; it
+            doesn&apos;t know what he told you at 2am.
+          </Whisper>
+        )}
+      </Card>
 
       {/* Their access, hers to set. Sits right under the standing badge that
           prompted the question. */}

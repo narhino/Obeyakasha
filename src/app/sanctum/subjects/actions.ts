@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { broadcast } from "@/lib/push/broadcast";
 import { acceptOath, declineOath } from "@/lib/oath/ops";
 import { reconcileOne } from "@/lib/patreon/reconcile";
+import { addNote, deleteNote, toggleNotePinned } from "@/lib/profile/dossier";
 import { fill, copy } from "@/copy/copy";
 
 const renameSchema = z.object({
@@ -224,5 +225,56 @@ export async function recheckSubjectPatreon(formData: FormData) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error("Invalid subject");
   const active = await reconcileOne(userId);
   await logAudit(session.user.id, "subject.patreon_rechecked", { userId, active });
+  revalidatePath(`/sanctum/subjects/${userId}`);
+}
+
+// ── Her file on a person (F1) ──────────────────────────────────────────────
+
+const noteSchema = z.object({
+  userId: z.string().uuid(),
+  body: z.string().min(1).max(2000),
+  pinned: z.string().optional(),
+});
+
+/**
+ * Write something down about someone. This is the one place in the app that
+ * holds what she knows and the counters can't: what he responds to, what he is
+ * afraid of, what made him give. Every proposed reply reads it first, held
+ * notes at the top — so a line written here changes every answer after it.
+ *
+ * Hers alone. Never shown to the subject, and deliberately not in their export.
+ */
+export async function addSubjectNote(formData: FormData) {
+  const session = await requireGoddess();
+  const parsed = noteSchema.safeParse({
+    userId: formData.get("userId"),
+    body: formData.get("body"),
+    pinned: formData.get("pinned") || undefined,
+  });
+  if (!parsed.success) throw new Error("Invalid note");
+  await addNote(parsed.data.userId, parsed.data.body, parsed.data.pinned === "true");
+  await logAudit(session.user.id, "subject.note_added", {
+    userId: parsed.data.userId,
+    length: parsed.data.body.length,
+  });
+  revalidatePath(`/sanctum/subjects/${parsed.data.userId}`);
+}
+
+export async function deleteSubjectNote(formData: FormData) {
+  const session = await requireGoddess();
+  const noteId = z.string().uuid().parse(formData.get("noteId"));
+  const userId = await deleteNote(noteId);
+  if (!userId) return;
+  await logAudit(session.user.id, "subject.note_deleted", { userId, noteId });
+  revalidatePath(`/sanctum/subjects/${userId}`);
+}
+
+/** Hold a note at the top of the file — and at the top of what the drafter reads. */
+export async function pinSubjectNote(formData: FormData) {
+  const session = await requireGoddess();
+  const noteId = z.string().uuid().parse(formData.get("noteId"));
+  const userId = await toggleNotePinned(noteId);
+  if (!userId) return;
+  await logAudit(session.user.id, "subject.note_pinned", { userId, noteId });
   revalidatePath(`/sanctum/subjects/${userId}`);
 }

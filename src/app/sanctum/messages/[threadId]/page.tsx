@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { threads } from "@/lib/db/schema";
 import { markThreadRead, threadMessages } from "@/lib/messages/ops";
 import { collarCard } from "@/lib/profile/collar";
+import { notesFor } from "@/lib/profile/dossier";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { Badge, Card, Display, Whisper } from "@/components/ui";
 import { IconWarn } from "@/components/ui/icons";
@@ -63,10 +64,11 @@ export default async function SanctumThread({
     .limit(1);
   if (!thread) notFound();
 
-  const [msgs, card, reach] = await Promise.all([
+  const [msgs, card, reach, notes] = await Promise.all([
     threadMessages(threadId),
     collarCard(thread.userId),
     subjectReach(thread.userId),
+    notesFor(thread.userId),
   ]);
   const flagged = msgs.some((m) => m.flaggedSafety && !m.readAt);
   // Opening it means she has READ them — the thread goes from red to yellow,
@@ -165,7 +167,12 @@ export default async function SanctumThread({
           ))}
         </div>
 
-        <ReplyBox threadId={threadId} safetyFlagged={flagged} />
+        <ReplyBox
+          threadId={threadId}
+          safetyFlagged={flagged}
+          subjectId={thread.userId}
+          notesCount={notes.length}
+        />
       </div>
 
       {/* Profile context — she never answers blind (A1). */}
@@ -196,6 +203,46 @@ export default async function SanctumThread({
               </div>
             </div>
           ) : null}
+        </Card>
+
+        {/* What she knows that no counter holds — in front of her WHILE she
+            answers, which is the only moment it's worth anything. */}
+        <Card>
+          <div className="flex items-center justify-between gap-2">
+            <Whisper className="text-xs uppercase tracking-wide">
+              What you know
+            </Whisper>
+            <Link
+              href={`/sanctum/subjects/${thread.userId}#file`}
+              className="text-[0.6875rem] uppercase tracking-[0.14em] text-text-dim transition-colors hover:text-gold"
+            >
+              {notes.length ? "His file →" : "Write it down →"}
+            </Link>
+          </div>
+          {notes.length ? (
+            <ul className="mt-2 space-y-1.5">
+              {notes.slice(0, 4).map((n) => (
+                <li
+                  key={n.id}
+                  className={`border-l-2 pl-2 text-sm leading-snug ${
+                    n.pinned ? "border-gold/50 text-text" : "border-line text-text-dim"
+                  }`}
+                >
+                  {n.body.length > 160 ? `${n.body.slice(0, 160)}…` : n.body}
+                </li>
+              ))}
+              {notes.length > 4 ? (
+                <li className="text-xs text-text-dim/60">
+                  +{notes.length - 4} more in his file
+                </li>
+              ) : null}
+            </ul>
+          ) : (
+            <Whisper className="mt-2 text-xs">
+              Nothing written yet. Anything you put here sharpens every reply
+              you propose.
+            </Whisper>
+          )}
         </Card>
 
         {/* Whether she can reach them at all — the thing that makes every

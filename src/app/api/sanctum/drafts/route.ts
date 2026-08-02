@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { threads } from "@/lib/db/schema";
 import { threadMessages } from "@/lib/messages/ops";
 import { draftReplies, replyDraftingConfigured } from "@/lib/llm/reply";
-import { profileSummary } from "@/lib/profile/summary";
+import { subjectDossier } from "@/lib/profile/dossier";
 
 const schema = z.object({ threadId: z.string().uuid() });
 
@@ -28,11 +28,15 @@ export async function POST(req: NextRequest) {
       .limit(1);
     if (!thread) return { configured: true, drafts: null };
 
-    const msgs = await threadMessages(parsed.data.threadId);
-    const summary = await profileSummary(thread.userId);
+    // The WHOLE conversation and the whole file on him — a reply written from
+    // the last two lines is a reply that could go to anyone.
+    const [msgs, dossier] = await Promise.all([
+      threadMessages(parsed.data.threadId),
+      subjectDossier(thread.userId),
+    ]);
     const drafts = await draftReplies({
       thread: msgs.map((m) => ({ sender: m.sender, body: m.body })),
-      profileSummary: summary,
+      dossier,
     });
     return { configured: true, drafts };
   });

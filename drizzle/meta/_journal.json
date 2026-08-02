@@ -197,6 +197,13 @@
       "when": 1785537886155,
       "tag": "0027_curly_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785672474707,
+      "tag": "0028_complete_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

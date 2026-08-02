@@ -395,6 +395,34 @@ export const commissions = pgTable("commissions", {
     .defaultNow(),
 });
 
+/**
+ * What she knows about one person, in her own words. Her file on them: what
+ * they respond to, what they're afraid of, what they said on the phone, what
+ * made them give — the things no counter in this app can hold.
+ *
+ * HERS ONLY. Never rendered to a subject anywhere, and deliberately NOT in the
+ * subject's own data export: it is her working memory about a person, not a
+ * record she keeps on their behalf, and handing it over would end the only
+ * thing it's for. It is, however, the first thing a proposed reply reads —
+ * which is the point of writing it down.
+ */
+export const subjectNotes = pgTable(
+  "subject_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    /** Held notes lead the file and are always given to the drafter first. */
+    pinned: boolean("pinned").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("subject_notes_user_idx").on(t.userId, t.createdAt)],
+);
+
 // ── Notifications (F7) ───────────────────────────────────────────────────
 export const notifications = pgTable("notifications", {
   id: uuid("id").defaultRandom().primaryKey(),

@@ -2021,3 +2021,51 @@ are already cast against it). Every edit is audited with before/after.
 
 The edit page previews with the real feed component — "check how it looks to
 them" is the actual card, not an approximation.
+
+---
+
+## 2026-08-01 — Her file on a person, and replies that actually answer him
+
+Asked for: a button on every profile to read the conversation; somewhere to put
+what she knows about the person, visible to her; and "propose reply" to read
+that profile and write with a real goal — keep trust, make him feel heard and
+understood, keep her present and dominant, and lead him to stay, pay and give.
+Explicitly: whole-conversation context, no clichés, not overly mystic.
+
+### 1 · `subject_notes` — what the counters can't hold
+
+The app knew his hours, his chain, his triggers. It did not know what he told
+her at 2am. Notes are hers: never rendered to a subject, and deliberately NOT
+in the subject's data export — it is her working memory about a person, not a
+record she keeps on their behalf, and handing it over would end the only thing
+it's for. Held (pinned) notes lead the file and lead what the drafter reads.
+
+### 2 · The drafter was answering nobody
+
+It got a one-line summary and the last TEN messages. That produces replies that
+could be pasted into anyone's conversation, which is exactly what makes them
+feel like nothing. It now reads the whole thread (newest-first budget, so the
+recent exchange is never what gets dropped) and a full dossier: standing,
+frozen/grace, hours, chain, triggers, whether he has EVER paid beyond the
+pledge, what he petitioned for in his own words, his ritual answers, how long
+since he last listened — and her notes, marked as outranking all of it.
+
+Three drafts are now three different MOVES, not three phrasings: hold him /
+pull him deeper / take control, each with one line on why it lands on this man.
+She picks an intention.
+
+### 3 · The brief, and its floor
+
+The brief states the commercial goal plainly — devotion should feel good and
+reciprocated so that staying, upgrading, commissioning and gifting are the
+natural next act. It also states the floor: no invented scarcity, no fake
+deadline, no asserting anything about her that isn't in the material. Trust is
+the asset being compounded; a reply that spends it for one conversion is a bad
+reply, and the brief says so in those words.
+
+Banned explicitly, because they were what the old drafts produced: mystic
+filler (void/abyss/starlight), reflex domme lines, therapy-speak ("I hear you",
+"that's valid"), corporate warmth, and generic praise that would fit any man.
+
+Safety triage is untouched: a flagged thread still offers no draft at all, and
+nothing is ever auto-sent.
