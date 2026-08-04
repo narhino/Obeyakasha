@@ -39,6 +39,26 @@ export default async function SanctumWishes() {
         subject hears back.
       </Whisper>
 
+      {/* The other job this board serves: sitting down to write the next file
+          and wanting every craving in front of you, in their words. */}
+      <Card className="mt-4">
+        <Whisper className="text-xs uppercase tracking-wide">
+          Write the next one from these
+        </Whisper>
+        <Whisper className="mt-1 text-xs">
+          Every ask in one document — verbatim, in their words, grouped the way
+          you grouped them, with what&apos;s already in the library so nothing
+          gets proposed twice. A prompt at the top turns it into script briefs.
+        </Whisper>
+        <div className="mt-3">
+          <a href="/api/sanctum/asks-export" download>
+            <Button size="sm" variant="gold">
+              Download every ask
+            </Button>
+          </a>
+        </div>
+      </Card>
+
       <div className="mt-6 space-y-3">
         {rows.length === 0 ? (
           <Card>
