@@ -2,7 +2,7 @@ import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chains, entitlements, users } from "@/lib/db/schema";
-import { Badge, Card, PageHeading, Whisper } from "@/components/ui";
+import { Badge, Button, Card, PageHeading, Whisper } from "@/components/ui";
 
 export default async function SanctumSubjects() {
   const rows = await db
@@ -32,6 +32,38 @@ export default async function SanctumSubjects() {
     <div className="max-w-2xl">
       <PageHeading eyebrow="People">Subjects</PageHeading>
       <Whisper className="mt-1">{rows.length} claimed.</Whisper>
+
+      {/* Everything, as a folder something else can read. */}
+      <Card className="mt-6">
+        <Whisper className="text-xs uppercase tracking-wide">
+          Take it all with you
+        </Whisper>
+        <Whisper className="mt-1 text-xs">
+          One file per member — their standing, what they&apos;ve given, your
+          notes, their answers, what they asked for, everything they wrote under
+          your whispers, and your whole conversation. Plus a JSONL of the same,
+          and a prompt to start an AI on it.
+        </Whisper>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a href="/api/sanctum/export" download>
+            <Button size="sm" variant="gold">
+              Download every file
+            </Button>
+          </a>
+          <a
+            href="/api/sanctum/export?contacts=1"
+            download
+            className="text-xs uppercase tracking-[0.1em] text-text-dim underline underline-offset-2 transition-colors hover:text-gold"
+          >
+            With email addresses
+          </a>
+        </div>
+        <Whisper className="mt-2 text-xs">
+          Emails are left out unless you ask for them. Every line of this is
+          someone&apos;s private words — think before it goes into a tool that
+          keeps what you paste.
+        </Whisper>
+      </Card>
 
       <div className="mt-6 space-y-2">
         {rows.map((s) => (

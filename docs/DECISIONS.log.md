@@ -2101,3 +2101,31 @@ Deliberate choices:
 
 The read also renders beside the thread while she answers — portrait, what
 works, what not to do — because that is the only moment it is worth anything.
+
+---
+
+## 2026-08-02 — Exporting the membership for something else to read
+
+Asked: the best way to get everything gathered from members out, so an AI can
+work on it and build files.
+
+Rejected: a database dump (carries secrets, needs the schema in your head, no
+model reads it well) and CSV (destroys conversations). Chose a ZIP of one
+MARKDOWN FILE PER PERSON — standing, what they've given, her notes, the app's
+read, their answers, their petitions, their whisper comments, and the entire
+private thread — plus `all-subjects.jsonl` of the same material for anything
+programmatic, plus a README that tells the receiving model what it's holding
+and a starting prompt.
+
+- **Hand-rolled ZIP, store-only.** No dependency for a few megabytes a month.
+  Because it's hand-rolled it is proved against the real `unzip -t` (which
+  verifies every CRC), not against my own assumptions — with non-ASCII, a
+  nested path and an empty entry in the fixture. Skipped, not failed, where
+  `unzip` is absent.
+- **Contacts off by default.** A profiling model does not need emails, and this
+  archive is going to leave the server into someone else's tool. `?contacts=1`
+  when she needs them.
+- **Audited.** Every member's private words leaving in one download should
+  leave a record that it happened.
+- **Fenced.** A member's own text containing a code fence can't break the file
+  it's in.
