@@ -20,6 +20,7 @@ import { pruneOldPageViews } from "@/lib/analytics/retention";
 import { logAudit } from "@/lib/audit";
 import { runAutomations, seedAutomations } from "@/lib/automations/run";
 import { reconcilePatreon } from "@/lib/patreon/reconcile";
+import { sweepFrozen } from "@/lib/patreon/selfheal";
 import { jobsTick } from "@/lib/jobs/runner";
 import { registerCoreJobHandlers } from "@/lib/jobs/handlers";
 import { ensureVocabulary } from "@/lib/tags/seed";
@@ -54,6 +55,14 @@ async function reconcileTick() {
   const r = await reconcilePatreon();
   if (r.restored > 0) {
     console.log(`[patreon] restored access for ${r.restored} subject(s)`);
+  }
+  // The roster sweep above needs a creator token. When that is missing it can
+  // do nothing at all — and a member who upgraded stays frozen forever with no
+  // sign anything is wrong. This runs either way, using the tokens members
+  // themselves granted, so nobody is stranded by a missing server setting.
+  const s = await sweepFrozen();
+  if (s.restored > 0) {
+    console.log(`[patreon] self-heal restored ${s.restored} of ${s.checked} checked`);
   }
 }
 

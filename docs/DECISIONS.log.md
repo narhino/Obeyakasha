@@ -2129,3 +2129,39 @@ and a starting prompt.
   leave a record that it happened.
 - **Fenced.** A member's own text containing a code fence can't break the file
   it's in.
+
+---
+
+## 2026-08-03 — Detecting an active subscription automatically
+
+Reported: people upgrade their membership and still carry the frozen mark.
+
+Cause: `syncPatreonUser` ran at sign-in and NOWHERE else. Someone who upgrades
+does not sign in again — their cookie is still valid — so nothing re-read
+Patreon and the app kept showing standing recorded weeks earlier. The hourly
+roster sweep added earlier was supposed to cover this, but it requires
+`PATREON_CREATOR_ACCESS_TOKEN`; where that is missing it does nothing, silently,
+and every affected member stays frozen indefinitely.
+
+The fix uses the token that always exists: **each member's own**. Everyone
+granted an OAuth token at sign-in, with a refresh token, and it can read their
+own membership. So no server setting is required for the app to know who is
+currently paying.
+
+Three layers, so no single missing thing can strand anyone:
+
+1. **On their visit.** The pulse (already polled by every open tab) re-checks
+   the viewer. Rate-limited by stake: frozen members every 2 minutes, everyone
+   else every 6 hours. Two indexed reads, and it almost always decides to do
+   nothing. `restored` is folded into the pulse digest, so the library unseals
+   itself in front of them rather than needing a reload.
+2. **In the background, for people who never visit.** The worker sweeps frozen
+   members oldest-checked-first, 25 per hourly tick, using their own tokens.
+   Runs whether or not a creator token exists.
+3. **Their own button.** "Already paid? Have me look again" on the frozen and
+   grace cards. Nobody should have to write to her and wait to get back what
+   they already bought — least of all right after paying more.
+
+Frozen is chased far harder than any other state on purpose: being wrong about
+a frozen member means someone paid and is locked out, and every minute of that
+is damage. Being wrong the other way costs nothing.

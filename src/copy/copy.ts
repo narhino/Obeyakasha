@@ -751,6 +751,15 @@ export const copy = {
     frozenCta: "Wake it up",
     // Under the button, so the click is never a leap of faith.
     frozenWhere: "Opens Patreon. Come straight back here after.",
+    // For someone who HAS already paid — upgraded, or come back — and is still
+    // looking at a sealed door. The app checks on its own, but the one person
+    // it failed shouldn't have to write to her and wait.
+    recheck: "Already paid? Have me look again.",
+    recheckBusy: "Looking…",
+    recheckRestored: "There you are. It's open — everything you built is where you left it.",
+    recheckNothing:
+      "Patreon still shows nothing for you. If you've just paid, give it a minute and ask me again.",
+    recheckCant: "I couldn't reach Patreon just now. Ask me again in a moment.",
 
     // ── Grace: lapsed, but still inside the window she allows ───────────────
     graceTitle: "Your pledge faltered.",

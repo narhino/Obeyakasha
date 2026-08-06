@@ -1,5 +1,6 @@
 import { Button, Card, Display, Whisper } from "@/components/ui";
 import { copy, fill } from "@/copy/copy";
+import { RecheckPledge } from "./RecheckPledge";
 
 /**
  * What state a subject is in with her, explained where they will actually look.
@@ -126,6 +127,10 @@ export function Standing({
           </Button>
         </a>
         <Whisper className="mt-1.5 text-xs">{copy.standing.frozenWhere}</Whisper>
+        {/* For the ones who already paid and are still looking at this card —
+            the whole reason it's still showing is that nothing re-read Patreon
+            for them. One tap does it, with their own token. */}
+        {frozen || grace ? <RecheckPledge /> : null}
       </div>
     </Card>
   );

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
+import { selfHeal } from "@/lib/patreon/selfheal";
 import { db } from "@/lib/db";
 
 /**
@@ -75,6 +76,13 @@ export async function GET() {
     );
   }
 
+  // While they're here, quietly re-check what they're paying. Someone who
+  // upgrades or resumes on Patreon never signs in again — their cookie is still
+  // good — so without this nothing ever re-reads their standing and they stay
+  // marked frozen while paying. It costs two indexed rows and almost always
+  // decides to do nothing; a frozen member is the one it actually works for.
+  const healed = await selfHeal(uid).catch(() => null);
+
   // A subject waits on: her voice (a whisper, a message to them, an answered
   // ask), a task landing, and whether she is on the app right now. Every read
   // is scoped to this user or global — never another subject's anything (D7).
@@ -94,7 +102,12 @@ export async function GET() {
   `);
   const r = rows[0] as Record<string, unknown>;
   return Response.json(
-    { v: digest([r?.w, r?.m, r?.unread, r?.o, r?.a, r?.n, r?.g]) },
+    // `restored` is folded into the digest so the page they're looking at
+    // refreshes the instant their access comes back — they should see the
+    // library unseal itself, not have to guess and reload.
+    {
+      v: digest([r?.w, r?.m, r?.unread, r?.o, r?.a, r?.n, r?.g, healed?.restored]),
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
