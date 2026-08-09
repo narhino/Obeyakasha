@@ -111,15 +111,107 @@ export async function askClaude(params: {
   return { ok: true, text };
 }
 
-/** Pull the first JSON value out of an answer, fences and preamble tolerated. */
-export function extractJson(text: string, open: "[" | "{"): unknown | null {
-  const close = open === "[" ? "]" : "}";
-  const start = text.indexOf(open);
-  const end = text.lastIndexOf(close);
-  if (start < 0 || end < 0 || end <= start) return null;
+/**
+ * Ask for a STRUCTURED answer and get one — or a real reason why not.
+ *
+ * Asking a model to "return only JSON" in the prompt is a request, not a
+ * constraint: it can preamble, apologise, wrap the object in commentary, or
+ * decline, and every one of those arrives as an unparseable blob. That is what
+ * "the model answered in a shape I couldn't read" was — the call succeeded and
+ * the shape was wrong.
+ *
+ * Declaring a tool with a schema and forcing its use makes the shape the API's
+ * job rather than the prompt's. What comes back is already validated JSON, and
+ * the cases that used to look like a parse failure — a refusal, a truncation —
+ * now name themselves.
+ */
+export async function askClaudeJson(params: {
+  system: string;
+  user: string;
+  maxTokens: number;
+  purpose: string;
+  /** Name of the forced tool — describes what is being produced. */
+  toolName: string;
+  toolDescription: string;
+  schema: Record<string, unknown>;
+}): Promise<{ ok: true; value: unknown } | { ok: false; reason: string }> {
+  const key = env.ANTHROPIC_API_KEY;
+  if (!key) return { ok: false, reason: "No ANTHROPIC_API_KEY on the server." };
+
+  let res: Response;
   try {
-    return JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return null;
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        max_tokens: params.maxTokens,
+        system: params.system,
+        messages: [{ role: "user", content: params.user }],
+        tools: [
+          {
+            name: params.toolName,
+            description: params.toolDescription,
+            input_schema: params.schema,
+          },
+        ],
+        // The model cannot answer in any other shape.
+        tool_choice: { type: "tool", name: params.toolName },
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch (err) {
+    console.error(`[llm:${params.purpose}] request failed:`, err);
+    const name = err instanceof Error ? err.name : "";
+    return {
+      ok: false,
+      reason:
+        name === "TimeoutError"
+          ? "Anthropic took too long to answer. Try again."
+          : "The server couldn't reach Anthropic at all. Check its outbound network.",
+    };
   }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(
+      `[llm:${params.purpose}] ${res.status} from Anthropic (model=${LLM_MODEL}):`,
+      body.slice(0, 800),
+    );
+    return { ok: false, reason: explain(res.status, body, LLM_MODEL) };
+  }
+
+  const data = (await res.json().catch(() => null)) as {
+    content?: { type: string; name?: string; input?: unknown; text?: string }[];
+    stop_reason?: string;
+  } | null;
+
+  const call = data?.content?.find(
+    (c) => c.type === "tool_use" && c.name === params.toolName,
+  );
+  if (call && call.input !== undefined) return { ok: true, value: call.input };
+
+  // No tool call came back. Say which of the real reasons it was, and show her
+  // what the model actually said instead of leaving her guessing.
+  const said = data?.content?.find((c) => c.type === "text")?.text ?? "";
+  console.error(
+    `[llm:${params.purpose}] no tool_use (stop_reason=${data?.stop_reason}):`,
+    said.slice(0, 800),
+  );
+  if (data?.stop_reason === "max_tokens") {
+    return {
+      ok: false,
+      reason: "The answer was cut off before it finished. Try again.",
+    };
+  }
+  return {
+    ok: false,
+    reason: said
+      ? `The model declined and said: "${said.slice(0, 220)}"`
+      : "The model returned nothing usable.",
+  };
 }

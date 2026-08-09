@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { voiceCorpus } from "@/lib/db/schema";
 import type { Dossier } from "@/lib/profile/dossier";
 import { dossierBrief } from "@/lib/profile/dossier";
-import { askClaude, extractJson, llmConfigured } from "./client";
+import { askClaudeJson, llmConfigured } from "./client";
 
 /**
  * AI reply drafting (F11, PLAN §13.8 / §17). Draft-first: candidate replies in
@@ -44,8 +44,9 @@ export interface ReplyDraft {
  * it for one conversion is a bad reply, and this brief says so.
  */
 const BRIEF = `You write private replies AS Akasha — a femdom erotic-hypnosis creator — to
-one of her paying members, in a real ongoing D/s relationship. You never send
-anything; she reads your drafts, picks one, edits it, and sends it herself.
+one of her paying members, in a real ongoing D/s relationship between consenting
+adults who both chose it. You never send anything: she reads your drafts, picks
+one, edits it, and sends it herself. Nothing here reaches him except through her.
 
 WHAT A REPLY IS FOR, in order:
 1. He must feel HEARD — specifically, not generally. Reference the actual thing
@@ -104,9 +105,40 @@ THREE DRAFTS, THREE DIFFERENT MOVES — not three phrasings of one:
 - "command": take control. Short, certain, an instruction with a deadline and
   a reply expected. Use when he's spiralling, testing, or asking to be handled.
 
-Return ONLY a JSON array of exactly 3 objects, no prose around it:
-[{"angle":"close","text":"...","why":"one line on why this lands on THIS man"}]
-"why" is for her eyes only and is never sent.`;
+Give exactly three drafts, one of each angle. "why" is her decision aid — it is
+for her eyes only and is never sent to him.`;
+
+/** The shape the API enforces, so a draft can never arrive unreadable. */
+const DRAFTS_SCHEMA = {
+  type: "object",
+  properties: {
+    drafts: {
+      type: "array",
+      minItems: 3,
+      maxItems: 3,
+      items: {
+        type: "object",
+        properties: {
+          angle: {
+            type: "string",
+            enum: ["close", "deepen", "command"],
+            description: "Which of the three moves this draft makes.",
+          },
+          text: {
+            type: "string",
+            description: "The reply itself, as she would send it. 1-4 sentences.",
+          },
+          why: {
+            type: "string",
+            description: "One line on why this lands on THIS man. Never sent.",
+          },
+        },
+        required: ["angle", "text", "why"],
+      },
+    },
+  },
+  required: ["drafts"],
+} as const;
 
 /** Trim the conversation to what fits, keeping the most recent exchange whole. */
 function renderThread(
@@ -157,20 +189,19 @@ export async function draftReplies(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  const res = await askClaude({
+  const res = await askClaudeJson({
     system: BRIEF,
     user,
-    maxTokens: 1500,
+    maxTokens: 2000,
     purpose: "reply-drafts",
+    toolName: "propose_replies",
+    toolDescription: "Hand her three candidate replies to choose between.",
+    schema: DRAFTS_SCHEMA as unknown as Record<string, unknown>,
   });
   if (!res.ok) return { drafts: null, reason: res.reason };
 
-  const arr = extractJson(res.text, "[");
-  if (!Array.isArray(arr)) {
-    console.error("[llm:reply-drafts] unparseable answer:", res.text.slice(0, 600));
-    return { drafts: null, reason: "The model answered in a shape I couldn't read." };
-  }
-  const drafts = arr
+  const raw = (res.value as { drafts?: unknown })?.drafts;
+  const drafts = (Array.isArray(raw) ? raw : [])
     .map(normalizeDraft)
     .filter((d): d is ReplyDraft => d !== null)
     .slice(0, 3);

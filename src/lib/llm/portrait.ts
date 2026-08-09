@@ -7,7 +7,7 @@ import {
   whisperComments,
 } from "@/lib/db/schema";
 import { dossierBrief, subjectDossier } from "@/lib/profile/dossier";
-import { askClaude, extractJson, llmConfigured } from "./client";
+import { askClaudeJson, llmConfigured } from "./client";
 
 /**
  * The AI's read on one person (F1).
@@ -39,8 +39,8 @@ export interface GeneratedProfile {
 
 const BRIEF = `You are reading everything one member of a femdom hypnosis creator's private
 membership has ever said to her or written on her site, and producing HER
-working file on him. She reads this before she answers him. It is never shown
-to him.
+working file on him. He is an adult who chose this relationship and pays to be
+in it. She reads this before she answers him; it is never shown to him.
 
 Be useful, not flattering, and not literary. This is a working document.
 
@@ -64,13 +64,56 @@ RULES:
 - If he has barely interacted, say that in one line and keep every list short.
   Do not pad.
 
-Return ONLY this JSON object, no prose around it:
-{"portrait":"2-5 plain sentences on who he is and what he's here for",
- "wants":["..."],"respondsTo":["..."],"avoid":["..."],
- "money":"his giving pattern and what would move him further",
- "risk":"drifting or not, and the evidence",
- "openings":["a specific thing she could say or do next"]}
 Lists: 2-5 items each, one short line per item.`;
+
+/** The shape the API enforces, so the read can never arrive unreadable. */
+const PROFILE_SCHEMA = {
+  type: "object",
+  properties: {
+    portrait: {
+      type: "string",
+      description: "2-5 plain sentences on who he is and what he's here for.",
+    },
+    wants: {
+      type: "array",
+      items: { type: "string" },
+      description: "What he is actually after, one short line each.",
+    },
+    respondsTo: {
+      type: "array",
+      items: { type: "string" },
+      description: "What reliably works on him.",
+    },
+    avoid: {
+      type: "array",
+      items: { type: "string" },
+      description: "What shuts him down, or what she should never say to him.",
+    },
+    money: {
+      type: "string",
+      description:
+        "His actual giving pattern, and what would plausibly move him further.",
+    },
+    risk: {
+      type: "string",
+      description: "Drifting or not, and the evidence for it.",
+    },
+    openings: {
+      type: "array",
+      items: { type: "string" },
+      description: "Concrete things she could say or do next, usable today.",
+    },
+  },
+  required: [
+    "portrait",
+    "wants",
+    "respondsTo",
+    "avoid",
+    "money",
+    "risk",
+    "openings",
+  ],
+} as const;
 
 export function portraitConfigured(): boolean {
   return llmConfigured();
@@ -149,20 +192,22 @@ export async function buildProfile(
   const material = await materialFor(userId);
   if (!material) return { profile: null, reason: "No such subject." };
 
-  const res = await askClaude({
+  const res = await askClaudeJson({
     system: BRIEF,
     user: `${material.text}\n\nWrite her file on him.`,
-    maxTokens: 2500,
+    maxTokens: 3000,
     purpose: "subject-profile",
+    toolName: "write_file_on_him",
+    toolDescription: "Hand her the working file on this member.",
+    schema: PROFILE_SCHEMA as unknown as Record<string, unknown>,
   });
   if (!res.ok) return { profile: null, reason: res.reason };
 
-  const p = normalize(extractJson(res.text, "{"));
+  const p = normalize(res.value);
   if (!p) {
-    console.error("[llm:subject-profile] unparseable answer:", res.text.slice(0, 600));
     return {
       profile: null,
-      reason: "The model answered in a shape I couldn't read.",
+      reason: "The model gave a file with nothing in it. Try again.",
     };
   }
 

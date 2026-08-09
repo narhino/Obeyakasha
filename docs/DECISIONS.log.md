@@ -2165,3 +2165,23 @@ Three layers, so no single missing thing can strand anyone:
 Frozen is chased far harder than any other state on purpose: being wrong about
 a frozen member means someone paid and is locked out, and every minute of that
 is damage. Being wrong the other way costs nothing.
+## 2026-08-03 — "The model answered in a shape I couldn't read"
+
+That error meant the call SUCCEEDED. The key, the model, the network were all
+fine; the model simply answered in prose, or with a preamble, or declined —
+and every one of those arrives as an unparseable blob.
+
+The root cause was the design: asking for JSON in the prompt is a REQUEST, not
+a constraint, and no amount of "return ONLY a JSON array" makes it one.
+
+Both features now declare a tool with a JSON schema and force its use
+(`tool_choice`). The shape becomes the API's job. What comes back is validated
+JSON or a stated reason — and the cases that used to hide behind a parse
+failure now name themselves: a refusal quotes what the model actually said, a
+truncation says it was cut off. The prompt-scraping JSON extractor is deleted,
+because nothing should be tempted to reach for it again.
+
+The briefs also now state plainly that this is a relationship between consenting
+adults who chose it, and that nothing reaches a member except through her. That
+is simply true, and stating it produces better work as well as fewer spurious
+refusals.
