@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { publicMeta } from "@/lib/seo/site";
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@/auth";
@@ -9,7 +11,9 @@ import {
   type WhisperCard,
 } from "@/lib/feed/whispers";
 import { HERO_IMAGE } from "@/lib/art/defaults";
+import { getRawSetting } from "@/lib/settings";
 import { WhispersFeed } from "@/components/whispers/WhispersFeed";
+import { SiteJsonLd } from "@/components/seo/JsonLd";
 import { WhispersSeen } from "@/components/whispers/WhispersSeen";
 import { SubjectShell } from "@/components/nav/SubjectShell";
 import {
@@ -21,6 +25,16 @@ import {
   Whisper,
 } from "@/components/ui";
 import { copy } from "@/copy/copy";
+
+/**
+ * The front door for anyone who has never heard of her. This is the page a
+ * search result points at, so it carries the plainest description on the site.
+ */
+export const metadata: Metadata = publicMeta({
+  title: copy.seo.homeTitle,
+  description: copy.seo.homeDescription,
+  path: "/",
+});
 
 // Reads the session + DB per request; never prerender at build.
 export const dynamic = "force-dynamic";
@@ -94,8 +108,19 @@ export default async function Home() {
   }
 
   // ── Anonymous: the public front door ──
+  // Her Patreon is the one external profile worth declaring as the same
+  // entity — it tells a search engine the two pages are one person rather
+  // than two competing results.
+  const patreonPageUrl = await getRawSetting<string>(
+    "patreon_page_url",
+    "https://www.patreon.com",
+  );
   return (
     <main className="relative min-h-dvh pb-24">
+      {/* Who she is and what this site is, once, on the only page a stranger
+          reliably lands on. Built from her own brand strings — no subject and
+          no count of subjects appears here (D7). */}
+      <SiteJsonLd patreonUrl={patreonPageUrl} />
       <header
         className="sticky top-0 z-30 border-b border-line/40 bg-bg/60 backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

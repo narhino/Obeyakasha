@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { publicMeta } from "@/lib/seo/site";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { auth } from "@/auth";
@@ -36,6 +38,17 @@ import {
 } from "@/components/ui";
 import { copy, fill } from "@/copy/copy";
 import { Standing, standingOf } from "@/components/standing/Standing";
+
+/**
+ * Public catalogue (R2a) — browsable logged-out, and the strongest page on the
+ * site for someone searching for what they want to hear. Overrides the
+ * subject-group noindex above it deliberately.
+ */
+export const metadata: Metadata = publicMeta({
+  title: copy.seo.libraryTitle,
+  description: copy.seo.libraryDescription,
+  path: "/library",
+});
 
 // Reads the session + DB per request; the catalog is public but per-viewer.
 export const dynamic = "force-dynamic";

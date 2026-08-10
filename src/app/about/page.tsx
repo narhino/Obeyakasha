@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
+import { publicMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { Button, Ornament, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
+
+export const metadata: Metadata = publicMeta({
+  title: copy.seo.aboutTitle,
+  description: copy.seo.aboutDescription,
+  path: "/about",
+});
 
 /**
  * The threshold stone — the theatrical landing. Moved here from `/` in R1 so

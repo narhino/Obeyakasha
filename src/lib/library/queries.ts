@@ -971,13 +971,29 @@ async function signArtworkUrl(artworkKey: string | null): Promise<string | null>
 }
 
 /** Published title/description for generateMetadata — safe public fields only. */
+export interface TrackMeta {
+  title: string;
+  description: string | null;
+  /** Cover art key — resolved to a signed URL by the caller for link previews. */
+  artworkKey: string | null;
+  durationS: number | null;
+  publishedAt: Date | null;
+  updatedAt: Date | null;
+  freeSample: boolean;
+}
+
 export async function getTrackMetaBySlug(
   slug: string,
-): Promise<{ title: string; description: string | null } | null> {
+): Promise<TrackMeta | null> {
   const [row] = await db
     .select({
       title: tracks.title,
       description: tracks.description,
+      artworkKey: tracks.artworkKey,
+      durationS: tracks.durationS,
+      publishedAt: tracks.publishedAt,
+      updatedAt: tracks.updatedAt,
+      freeSample: tracks.freeSample,
       visibility: tracks.visibility,
       ownerUserId: tracks.ownerUserId,
     })
@@ -989,7 +1005,15 @@ export async function getTrackMetaBySlug(
   if (!row || row.visibility !== "published" || row.ownerUserId != null) {
     return null;
   }
-  return { title: row.title, description: row.description };
+  return {
+    title: row.title,
+    description: row.description,
+    artworkKey: row.artworkKey,
+    durationS: row.durationS,
+    publishedAt: row.publishedAt,
+    updatedAt: row.updatedAt,
+    freeSample: row.freeSample,
+  };
 }
 
 /**

@@ -1,9 +1,32 @@
 import type { NextConfig } from "next";
 
+/**
+ * Crawlers that must receive COMPLETE metadata in the first byte of HTML.
+ *
+ * Next streams metadata by default: on a dynamic page the real `<meta>` tags
+ * can arrive after the initial flush, which is fine for a browser and fine for
+ * Googlebot (it renders JavaScript), but not for every crawler and not for the
+ * link unfurlers that decide whether a shared URL gets a preview card at all.
+ * A UA matching this pattern makes Next wait and emit metadata once, in the
+ * first HTML — a few milliseconds for a robot, nothing for a person.
+ *
+ * Next's own default list is narrower: notably it omits plain `Googlebot`,
+ * on the reasoning that Googlebot renders JS. That reasoning is sound and this
+ * is belt-and-braces rather than a fix for an observed fault — these are the
+ * only pages on the site capable of earning organic traffic, and having their
+ * title, description and canonical present in the raw HTML costs nothing.
+ *
+ * Includes the AI crawlers deliberately: they are a real referral source now,
+ * and several of them do not execute JavaScript at all.
+ */
+const HTML_METADATA_BOTS =
+  /Googlebot|AdsBot|Google-[\w-]+|[\w-]+-Google|Bingbot|BingPreview|Slurp|DuckDuckBot|baiduspider|yandex|sogou|Applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|TelegramBot|SkypeUriPreview|redditbot|Pinterest|tumblr|vkShare|quora link preview|ia_archiver|Chrome-Lighthouse|GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Amazonbot|Bytespider|PetalBot|SemrushBot|AhrefsBot|MJ12bot|DotBot|Yeti|googleweblight/i;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ["postgres", "pg"],
+  htmlLimitedBots: HTML_METADATA_BOTS,
   experimental: {
     // Audio uploads via server actions (PLAN §7.2). Chunked/tus upload for very
     // large masters is a later hardening; this covers typical file sizes.

@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { publicMeta } from "@/lib/seo/site";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getSetting } from "@/lib/settings";
@@ -14,6 +16,13 @@ import {
 import { CommissionForm } from "@/components/commissions/CommissionForm";
 import { Badge, Button, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
+
+/** Public (R-anon): a stranger may read the terms and petition her. */
+export const metadata: Metadata = publicMeta({
+  title: copy.seo.commissionsTitle,
+  description: copy.seo.commissionsDescription,
+  path: "/commissions",
+});
 
 export const dynamic = "force-dynamic";
 

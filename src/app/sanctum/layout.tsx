@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { PRIVATE_META } from "@/lib/seo/site";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { requireGoddess } from "@/lib/auth-helpers";
 import { signOut } from "@/auth";
@@ -23,7 +25,14 @@ export const dynamic = "force-dynamic";
  * icon, opening on Today) rather than the subject Home. Overrides the root
  * layout's manifest for this subtree only.
  */
-export const metadata = { manifest: "/sanctum/manifest.webmanifest" };
+// Her own back office. Noindexed here as well as disallowed in robots.txt —
+// robots.txt is a request a crawler may ignore, this is an instruction, and
+// middleware gating is the thing that actually keeps anyone out.
+export const metadata: Metadata = {
+  ...PRIVATE_META,
+  manifest: "/sanctum/manifest.webmanifest",
+  title: "Sanctum",
+};
 
 /** One cheap COUNT, fail-soft to 0 so a slow/absent table never blanks the rail. */
 function count(where: Promise<{ n: number }[]>): Promise<number> {

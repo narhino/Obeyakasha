@@ -1,8 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { SubjectShell } from "@/components/nav/SubjectShell";
 import { Button } from "@/components/ui";
 import { copy } from "@/copy/copy";
+import { PRIVATE_META } from "@/lib/seo/site";
+
+/**
+ * Everything under here belongs to ONE person — their tasks, their messages,
+ * their standing. None of it may reach a search result (D7).
+ *
+ * The two public exceptions inside this group, `/library` and `/commissions`,
+ * set their own indexable metadata, which overrides this.
+ */
+export const metadata: Metadata = PRIVATE_META;
 
 export default async function SubjectLayout({
   children,

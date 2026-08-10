@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { PRIVATE_META } from "@/lib/seo/site";
 /**
  * Hidden component catalog (PLAN §3/§4). Every primitive in every state, plus
  * the token palette, type, and icon set. The design system's reference page.
@@ -48,6 +50,9 @@ import {
   IconTask,
   IconWarn,
 } from "@/components/ui/icons";
+
+/** Not a landing page — nothing here should compete in a search result. */
+export const metadata: Metadata = { ...PRIVATE_META, title: "Styleguide" };
 
 const tokens = [
   "bg",

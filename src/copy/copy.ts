@@ -18,6 +18,47 @@ export const copy = {
     mark: "888",
   },
 
+  // ── What search engines and link previews read ─────────────────────────
+  //
+  // These are the ONLY strings here written for someone who has never heard of
+  // her. A search result is read in one second by a stranger deciding whether
+  // to click, so these say plainly WHAT this is (hypnosis audio, guided trance)
+  // in the words someone would actually type — while still sounding like her.
+  // A title that is pure atmosphere ranks for nothing and tells no one
+  // anything; a title stuffed with keywords sounds like everyone else.
+  //
+  // Titles stay under ~60 characters and descriptions under ~155, because
+  // Google truncates past that and a cut-off sentence reads as carelessness.
+  seo: {
+    // The site's own name in results and the tab. `{page}` fills per route.
+    titleTemplate: "%s · Obey Akasha",
+    homeTitle: "Obey Akasha — Erotic Hypnosis Audio & Guided Trance",
+    homeDescription:
+      "Hypnosis audio from Akasha: guided trance, conditioning and surrender, recorded for those who want to be taken under. Free samples, then everything.",
+    aboutTitle: "Who Akasha Is",
+    aboutDescription:
+      "What this practice is, how her hypnosis sessions work, and what happens when you let her voice take you under. Read before you enter.",
+    libraryTitle: "The Library — Every Hypnosis File",
+    libraryDescription:
+      "Every session Akasha has recorded: inductions, conditioning, triggers and deep trance. Browse the catalogue; free samples play for anyone.",
+    seriesTitle: "Hypnosis Series",
+    seriesDescription:
+      "Sessions built to be taken in order — each one deepening what the last one opened.",
+    commissionsTitle: "Commission a Private Hypnosis File",
+    commissionsDescription:
+      "Ask Akasha to record something meant only for you. Tell her what you want done to you, and what it should leave behind.",
+    // Falls back on a file page with no description of its own.
+    trackFallbackDescription:
+      "A hypnosis session from Akasha — guided trance for those who want to go under.",
+    // The one-line description of her, used in structured data so search
+    // engines and assistants describe her the way SHE would.
+    creatorDescription:
+      "Akasha records erotic hypnosis and guided trance audio — sessions in conditioning, surrender and deep relaxation for consenting adults.",
+    // Stated honestly in the markup. This is adult work; labelling it is what
+    // keeps it out of the wrong results and in the right ones.
+    adultNotice: "Adult content. Eighteen or older only.",
+  },
+
   // ── Navigation (the five tabs — v2 IA) ─────────────────────────────────
   nav: {
     home: "Whispers",

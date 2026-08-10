@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
+import { PRIVATE_META } from "@/lib/seo/site";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { signIn, auth } from "@/auth";
 import { GATE_IMAGE } from "@/lib/art/defaults";
 import { Button, Display, Ornament, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
+
+/** Not a landing page — nothing here should compete in a search result. */
+export const metadata: Metadata = { ...PRIVATE_META, title: "Enter" };
+
 
 export default async function SignIn() {
   const session = await auth();

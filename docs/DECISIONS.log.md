@@ -2226,3 +2226,65 @@ Fixes:
 Not done, and deliberately hers to decide: the 30-day history stays inflated
 until the bot rows are deleted. That is destructive and reversible only from
 backup, so it waits for her word.
+
+---
+
+## 2026-08-10 — Making the public half of the site findable
+
+Asked for organic search traffic, so the business stops depending entirely on
+Patreon for discovery.
+
+**The finding that mattered:** the root layout carried
+`robots: { index: false, follow: false }` — a site-wide instruction to every
+crawler to ignore all of it. There was also no robots.txt, no sitemap, and no
+title or description on `/`, `/about`, `/library` or `/commissions`. The site
+could not appear in a search result at all, by construction. Nothing else here
+matters until that is undone.
+
+**The shape of the fix.** This app is two things in one: a members' area and a
+public shopfront. The blanket rule was right for one half and fatal to the
+other. So the rule became explicit — indexable by default, with every private
+area holding THREE independent locks: middleware gating (the real one), a
+`noindex` in its own layout, and a robots.txt disallow. Verified against a built
+server: every members' route answers 307 and carries
+`noindex, nofollow, nocache`.
+
+**What was built**
+
+- `src/lib/seo/site.ts` — one place that decides what is visible. `publicMeta()`
+  gives a page a canonical, an indexable robots directive, Open Graph and
+  Twitter cards; `PRIVATE_META` shuts a page completely.
+- `robots.ts` / `sitemap.ts`. The sitemap is built from the live catalogue and
+  filters `ownerUserId` — a subject's private upload can never be listed (D7).
+  Sealed and premiere files ARE listed: their page is public, states plainly it
+  isn't theirs yet, and carries the way in. That page is the funnel.
+- Real titles and descriptions, in `copy.seo`, written for a stranger deciding
+  in one second whether to click — naming what this is (hypnosis audio, guided
+  trance) rather than pure atmosphere, which ranks for nothing.
+- Structured data: `Person` + `WebSite` on the home page, `AudioObject` +
+  `BreadcrumbList` per file. `isAccessibleForFree` follows the real flag,
+  because claiming a gated file is free is how a site loses rich results.
+- `/og` draws the 1200×630 link preview at runtime — always the right size,
+  never a stale export. Typographic on purpose: it unfurls automatically in
+  places a photograph of her should not.
+- Adult labelling stated honestly (`rating`, RTA). Hiding it is what gets adult
+  work penalised.
+
+**Two real defects caught while verifying**
+
+1. `robots.txt` prerendered STATIC would bake in the build-time origin — and the
+   production image is built with no `APP_ORIGIN`, so it would have shipped
+   pointing every crawler at `http://localhost:3000/sitemap.xml`. Forced
+   dynamic.
+2. Structured-data image URLs were relative. A crawler reads that JSON with no
+   page to resolve against, so the image is silently dropped. Absolutised —
+   carefully, since signed cover URLs are already absolute and prefixing would
+   corrupt them.
+
+**A false alarm worth recording**, because the next person will see it too:
+dynamic pages appeared to emit both `noindex` and `index, follow`. They were
+returning HTTP 500 (local Postgres was down) and Next correctly noindexes an
+error page. The duplicate tag is a symptom of a broken page, not an SEO bug.
+`htmlLimitedBots` was set anyway — crawlers and link unfurlers now get complete
+metadata in the first HTML rather than streamed — but as belt-and-braces, not
+as a fix for an observed fault.

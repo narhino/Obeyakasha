@@ -8,11 +8,14 @@ import { getRawSetting } from "@/lib/settings";
 import { isPremiereSealed } from "@/lib/premiere/logic";
 import { FilePlayAction } from "@/components/library/FilePlayAction";
 import { FileArtwork } from "@/components/library/FileArtwork";
+import { resolveTrackCover } from "@/lib/art/resolve";
 import { Badge, Cover, Display } from "@/components/ui";
 import { IconSpark } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format/duration";
 import { formatDate, formatUntil } from "@/lib/format/when";
 import { copy, fill } from "@/copy/copy";
+import { absoluteUrl, publicMeta } from "@/lib/seo/site";
+import { TrackJsonLd } from "@/components/seo/JsonLd";
 
 // Public per-viewer file page (R3). Reads the session + DB per request.
 export const dynamic = "force-dynamic";
@@ -20,6 +23,12 @@ export const dynamic = "force-dynamic";
 const KIND_LABELS = copy.library.tagKinds as Record<string, string>;
 const RELATION_LABELS = copy.library.filePage.relation as Record<string, string>;
 
+/**
+ * A page per recorded session — the whole reason organic search can work here.
+ * Somebody searching for what they want done to them can land directly on the
+ * file that does it, so this carries a real description, its own cover as the
+ * link preview, and a canonical URL of its own.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -28,17 +37,42 @@ export async function generateMetadata({
   const { slug } = await params;
   const meta = await getTrackMetaBySlug(slug);
   if (!meta) {
+    // A slug that names nothing public must not be indexed as a real page —
+    // otherwise a deleted or draft file leaves a hollow result behind.
     return {
       title: copy.library.filePage.metaFallbackTitle,
       description: copy.library.filePage.metaFallbackDesc,
+      robots: { index: false, follow: true },
     };
   }
   const description = meta.description
-    ? meta.description.replace(/\s+/g, " ").trim().slice(0, 160)
-    : copy.library.filePage.metaFallbackDesc;
+    ? meta.description.replace(/\s+/g, " ").trim().slice(0, 155)
+    : copy.seo.trackFallbackDescription;
+  const cover = await resolveTrackCover(meta.artworkKey, []);
   return {
-    title: fill(copy.library.filePage.metaTitle, { title: meta.title }),
-    description,
+    ...publicMeta({
+      title: meta.title,
+      description,
+      path: `/library/track/${slug}`,
+      image: { url: cover, alt: meta.title },
+      type: "article",
+    }),
+    // An audio page: say so, and give the dates that let a result show recency.
+    openGraph: {
+      type: "music.song",
+      siteName: copy.brand.name,
+      title: meta.title,
+      description,
+      url: absoluteUrl(`/library/track/${slug}`),
+      images: [{ url: cover, alt: meta.title }],
+      locale: "en_US",
+      ...(meta.publishedAt
+        ? { publishedTime: new Date(meta.publishedAt).toISOString() }
+        : {}),
+      ...(meta.updatedAt
+        ? { modifiedTime: new Date(meta.updatedAt).toISOString() }
+        : {}),
+    },
   };
 }
 
@@ -81,6 +115,22 @@ export default async function TrackFilePage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
+      {/* What this page IS, in the form a search engine reads: an audio work
+          with a duration, a cover and a maker, sitting under the Library. Says
+          truthfully whether it can be heard for free — claiming otherwise is
+          how a site loses rich results. */}
+      <TrackJsonLd
+        title={track.title}
+        description={
+          track.description?.replace(/\s+/g, " ").trim().slice(0, 155) ||
+          copy.seo.trackFallbackDescription
+        }
+        slug={track.slug}
+        coverUrl={track.cover}
+        durationS={track.durationS}
+        publishedAt={page.publishedAt}
+        free={track.freeSample}
+      />
       <Link
         href="/library"
         className="text-xs uppercase tracking-[0.18em] text-text-dim transition-colors duration-[var(--dur-med)] hover:text-gold"

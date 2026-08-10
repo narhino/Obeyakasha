@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { PRIVATE_META } from "@/lib/seo/site";
 import Image from "next/image";
 import Link from "next/link";
 import { and, inArray } from "drizzle-orm";
@@ -8,6 +10,10 @@ import { getSetting } from "@/lib/settings";
 import { GATE_IMAGE } from "@/lib/art/defaults";
 import { Button, Card, Display, Whisper } from "@/components/ui";
 import { copy } from "@/copy/copy";
+
+/** Not a landing page — nothing here should compete in a search result. */
+export const metadata: Metadata = { ...PRIVATE_META, title: "The Threshold" };
+
 
 // Reads a DB setting → must not be prerendered at build (no DB then).
 export const dynamic = "force-dynamic";
