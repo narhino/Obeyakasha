@@ -12,6 +12,7 @@ import {
 } from "@/lib/analytics/core";
 import { recordDwell, recordView } from "@/lib/analytics/record";
 import { guardTrackEvent } from "@/lib/analytics/throttle";
+import { looksAutomated } from "@/lib/analytics/bots";
 
 /**
  * First-party page-view intake (A21). No auth required — a logged-out visitor is
@@ -118,6 +119,14 @@ export async function POST(req: NextRequest) {
     // ── a new view ─────────────────────────────────────────────────────────
     const path = normalizePath(parsed.data.path);
     if (!path) return reply({ ok: true }, visitor); // not a tracked surface
+
+    // Automation is answered normally and simply not counted. Her dashboard is
+    // for deciding what to make and who to reach; a crawler in those numbers
+    // makes every one of them a lie. Nothing is blocked here — this endpoint
+    // measures, it does not defend.
+    if (looksAutomated(req.headers.get("user-agent"))) {
+      return reply({ ok: true }, visitor);
+    }
 
     const session = await auth();
     const viewId = await recordView({

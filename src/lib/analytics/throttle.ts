@@ -12,7 +12,10 @@
  *     far above any honest session and far below anything that costs the disk.
  *  2. PER IP — `MAX_PER_IP` events per `WINDOW_MS`. The visitor bucket alone is
  *     bypassed by simply dropping the cookie, so the IP bucket is the ceiling
- *     that a cookie-rotating flooder still hits.
+ *     that a cookie-rotating flooder still hits. It only means anything because
+ *     `clientIp` now reads Cloudflare's own header rather than the caller's
+ *     X-Forwarded-For; while it trusted the latter, a spoofed header bought a
+ *     fresh bucket every request and this cap did nothing.
  *
  * LIMITATION, stated as plainly as `src/lib/commissions/throttle.ts` states its
  * own: this is a Map in ONE process. A second web container, or a restart,
@@ -24,7 +27,7 @@
 /** Events one visitor cookie may spend per window. */
 export const MAX_PER_VISITOR = 60;
 /** Events one IP may spend per window, across every cookie it presents. */
-export const MAX_PER_IP = 300;
+export const MAX_PER_IP = 120;
 /** The rolling window for both caps. */
 export const WINDOW_MS = 60_000;
 

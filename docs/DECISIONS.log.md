@@ -2185,3 +2185,44 @@ The briefs also now state plainly that this is a relationship between consenting
 adults who chose it, and that nothing reaches a member except through her. That
 is simply true, and stating it produces better work as well as fewer spurious
 refusals.
+
+---
+
+## 2026-08-10 — 63,000 "visitors" in two days, and the rate limit that wasn't
+
+Reported: an unexplained traffic spike — ~78k visits and ~63k unique visitors in
+30 days, nearly all of it in two days, against ~400 total referrals from
+Patreon. Asked whether it was a security issue.
+
+**It was not a breach.** `/library` is deliberately browsable by anonymous
+visitors, and `page_views` holds no personal data — a random cookie id, a
+normalized route, a referrer HOST, a device bucket. Nothing member-facing is
+reachable without a session.
+
+**It was not people either.** 66,152 views from 63,556 visitors on one route is
+~1.04 views each; real browsing produces many views per visitor. Median dwell 9
+seconds, essentially no referrers, two spike days after a flat month.
+
+Two real weaknesses found by testing production directly:
+
+1. **A single unauthenticated `curl` wrote a page view.** `/api/track` needs no
+   browser and no JavaScript, and every call arriving without the cookie mints a
+   fresh visitor id — which IS the 1-view-per-visitor signature observed.
+2. **The per-IP cap was decorative.** `clientIp` trusted `x-forwarded-for`,
+   whose first entry is whatever the caller typed. A spoofed header bought a
+   fresh 300/min bucket on every request; verified against production.
+
+Fixes:
+
+- `clientIp` prefers `cf-connecting-ip`. Cloudflare sets and overwrites it, so
+  it is the one header here a flooder cannot choose. XFF stays as the fallback
+  for any non-Cloudflare path.
+- `/api/track` answers automation normally but does not COUNT it. This is about
+  honest measurement, not defence — a dashboard she can't trust is worse than
+  none, because she'd decide on it. Blocking belongs at Cloudflare.
+- `MAX_PER_IP` 300 → 120/min. The old ceiling permitted 432,000 events a day
+  from one address.
+
+Not done, and deliberately hers to decide: the 30-day history stays inflated
+until the bot rows are deleted. That is destructive and reversible only from
+backup, so it waits for her word.
