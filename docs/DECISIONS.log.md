@@ -2288,3 +2288,40 @@ error page. The duplicate tag is a symptom of a broken page, not an SEO bug.
 `htmlLimitedBots` was set anyway — crawlers and link unfurlers now get complete
 metadata in the first HTML rather than streamed — but as belt-and-braces, not
 as a fix for an observed fault.
+
+---
+
+## 2026-08-10 — "It gets stuck on the page that has 888"
+
+A member said this publicly. The 888 page is the threshold wall (F4): the
+full-screen takeover that demands a phone install her, then allow
+notifications.
+
+**The defect is not a broken button — it is that the wall has no door.** Every
+panel carries exactly one action, and on some phones that action CANNOT succeed:
+
+- A browser that has already denied notifications will not ask again, for any
+  script, ever. The copy tells them to change it in settings; plenty of people
+  can't find that, and then there is no way forward at all.
+- An install prompt that never fired cannot be summoned. (Already partly
+  handled: manual steps are always reachable now.)
+
+Those members were locked out of something they pay for, with no route to her
+from inside the app. The only place left to say it was a public comment, which
+is precisely where it was said. That is the whole failure.
+
+So the wall gets one door, on every step: "It won't work on my phone." It sends
+her a message with the device facts already diagnosed — which step, whether
+installed, what the browser reports about notifications, and the specific reason
+(`denied` = only their settings or her release can fix it; no prompt offered =
+common after the Patreon redirect, and Samsung Internet never offers one). She
+reads one line and releases them from their profile with the toggle that
+already exists.
+
+Deliberate: this UNLOCKS NOTHING by itself. The threshold is her rule and stays
+hers — the door asks her, it doesn't overrule her.
+
+Also: the audit row is written whether or not the message sent. A member's
+daily message quota must not be able to swallow the one message that says they
+cannot get in, and if it is refused they are told plainly to reach her on
+Patreon rather than left waiting for an answer that isn't coming.

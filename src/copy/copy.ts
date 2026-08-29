@@ -182,6 +182,25 @@ export const copy = {
       reverifyButton: "Open the line",
       reverifyWhy:
         "One notification, right now, so we both know it works. Nothing further opens until it lands.",
+
+      // ── The way out ───────────────────────────────────────────────────────
+      // This wall has one action on it, and on some phones that action cannot
+      // succeed: a browser that has already refused notifications will not ask
+      // again for anyone, and an install prompt that never fires cannot be
+      // summoned. Those people were left with no way forward and no way to say
+      // so — the only place left was a public comment, which is where it was
+      // said. She keeps the rule; they get a door to knock on.
+      stuckLink: "It won't work on my phone.",
+      stuckTitle: "Tell me, then.",
+      stuckBody:
+        "Some phones refuse this, and that isn't yours to fix. Send me what your phone is doing and I'll let you in myself.",
+      stuckSend: "Tell her I'm stuck",
+      stuckSending: "Telling her…",
+      stuckSent:
+        "I have it. I'll open the door for you myself — watch for me.",
+      stuckLimited:
+        "You've written to me a lot today, so that didn't send. Reach me on Patreon and I'll open it for you.",
+      stuckFailed: "That didn't send. Try once more in a moment.",
     },
 
     // ── Proving the line actually works ────────────────────────────────────

@@ -91,6 +91,11 @@ export function Jail({
   // takeover, i.e. a locked-out paying member with no way forward.
   const [canPrompt, setCanPrompt] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  // The way out. Some phones simply cannot complete the step in front of them —
+  // a browser that has refused notifications will not ask again for anyone, and
+  // an install prompt that never fired cannot be conjured. Without this, those
+  // members are locked out of what they pay for with no way to even say so.
+  const [stuck, setStuck] = useState<"idle" | "sending" | "sent" | "limited" | "failed">("idle");
   const proofOwedRef = useRef(false);
   // null = they haven't answered the discreet question yet, so the notifications
   // step is still on beat 1. Answering it (either way) opens beat 2.
@@ -278,6 +283,33 @@ export function Jail({
       setBusy(false);
     }
   }, [recompute, refreshProof]);
+
+  /** Tell her, with the device facts, so she can open the door herself. */
+  async function reportStuck() {
+    if (stuck === "sending" || stuck === "sent") return;
+    setStuck("sending");
+    try {
+      const res = await fetch("/api/gate/stuck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: result.step,
+          // Read fresh rather than reusing what the last decision saw: they may
+          // have just changed a setting, and what she needs is what is true NOW.
+          standalone: isStandalone(),
+          permission:
+            typeof Notification === "undefined"
+              ? "unsupported"
+              : (Notification.permission as PushPermission),
+          device: navigator.userAgent.slice(0, 120),
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; delivered?: boolean };
+      setStuck(data.ok ? (data.delivered ? "sent" : "limited") : "failed");
+    } catch {
+      setStuck("failed");
+    }
+  }
 
   // Nothing to show until we've read the device, and never when not jailed.
   if (!ready || !result.jailed) return null;
@@ -491,6 +523,37 @@ export function Jail({
           ) : null}
         </Panel>
       )}
+
+      {/* One door, on every step. She keeps the rule; this only asks her. */}
+      <div className="mt-8 max-w-sm">
+        {stuck === "sent" ? (
+          <Whisper className="text-xs text-gold">
+            {copy.gate.wall.stuckSent}
+          </Whisper>
+        ) : stuck === "limited" ? (
+          <Whisper className="text-xs text-gold">
+            {copy.gate.wall.stuckLimited}
+          </Whisper>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => void reportStuck()}
+              disabled={stuck === "sending"}
+              className="text-xs tracking-[0.04em] text-text-dim/70 underline underline-offset-4 transition-colors hover:text-gold disabled:opacity-50"
+            >
+              {stuck === "sending"
+                ? copy.gate.wall.stuckSending
+                : copy.gate.wall.stuckLink}
+            </button>
+            {stuck === "failed" ? (
+              <Whisper className="mt-1 text-xs text-danger">
+                {copy.gate.wall.stuckFailed}
+              </Whisper>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

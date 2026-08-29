@@ -149,3 +149,34 @@ describe("jail — her per-subject release", () => {
     });
   });
 });
+
+describe("the wall must never be a dead end", () => {
+  it("holds a phone that has refused notifications — which is exactly why a way out is needed", () => {
+    // A browser that has denied notifications cannot be re-prompted by any
+    // script. Without an escape hatch this member is locked out permanently.
+    const r = jail({
+      isMobile: true,
+      isStandalone: true,
+      pushPermission: "denied",
+      jailEnabled: true,
+      proofOwed: false,
+      exempt: false,
+    });
+    expect(r).toEqual({ jailed: true, step: "notifications" });
+  });
+
+  it("lets her release that same person in one move", () => {
+    // The release she can already toggle from their profile has to beat every
+    // other rule, or the escape hatch leads nowhere.
+    expect(
+      jail({
+        isMobile: true,
+        isStandalone: false,
+        pushPermission: "denied",
+        jailEnabled: true,
+        proofOwed: true,
+        exempt: true,
+      }),
+    ).toEqual({ jailed: false, step: null });
+  });
+});
